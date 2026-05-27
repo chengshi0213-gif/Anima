@@ -80,17 +80,23 @@ class ObsidianMemoryBackend(MemoryBackend):
         p.parent.mkdir(parents=True, exist_ok=True)
         return p
 
+    @staticmethod
+    def _key_to_id(key: str) -> str:
+        """从 key 生成确定性 ID（可复现，delete 时可回溯）"""
+        return uuid.uuid5(uuid.NAMESPACE_DNS, f"anima.obsidian.{key}").hex
+
     def _parse_entries(self, text: str,
                        source: str = "Memory/USER.md") -> list[MemoryEntry]:
         entries: list[MemoryEntry] = []
         for line in text.splitlines():
             m = _ENTRY_RE.match(line.strip())
             if m:
+                key = m.group(1).strip()
                 entries.append(MemoryEntry(
-                    id=str(uuid.uuid4()),
+                    id=self._key_to_id(key),
                     agent_id=None,
                     category=m.group(3) or "general",
-                    key=m.group(1).strip(),
+                    key=key,
                     value=m.group(2).strip(),
                 ))
         return entries
@@ -156,16 +162,18 @@ class ObsidianMemoryBackend(MemoryBackend):
                     if q in line.lower():
                         m = _ENTRY_RE.match(line.strip())
                         if m:
+                            key = m.group(1).strip()
                             results.append(MemoryEntry(
-                                id=str(uuid.uuid4()),
+                                id=self._key_to_id(key),
                                 agent_id=None,
                                 category=m.group(3) or "general",
-                                key=m.group(1).strip(),
+                                key=key,
                                 value=m.group(2).strip(),
                             ))
                         else:
+                            note_key = f"{md.stem}:{line.strip()[:30]}"
                             results.append(MemoryEntry(
-                                id=str(uuid.uuid4()),
+                                id=self._key_to_id(note_key),
                                 agent_id=None,
                                 category="note",
                                 key=md.stem,
@@ -191,9 +199,32 @@ class ObsidianMemoryBackend(MemoryBackend):
             return []
 
     def delete(self, entry_id: str) -> bool:
-        # Obsidian 后端不支持按 ID 删除（ID 是运行时生成的，不持久化）
-        # 前端应改为「在 Obsidian 里手动删除」
-        return False
+        """
+        按 entry_id 删除 Memory/USER.md 中对应的行。
+        entry_id 是 _key_to_id(key) 生成的确定性 UUID hex，
+        所以先遍历所有条目找到匹配 key，再删除该行。
+        """
+        f = self._user_md()
+        if not f.exists():
+            return False
+        try:
+            text = f.read_text("utf-8", errors="replace")
+            lines = text.splitlines()
+            new_lines = []
+            found = False
+            for line in lines:
+                m = _ENTRY_RE.match(line.strip())
+                if m:
+                    key = m.group(1).strip()
+                    if self._key_to_id(key) == entry_id:
+                        found = True
+                        continue  # 跳过该行 = 删除
+                new_lines.append(line)
+            if found:
+                f.write_text("\n".join(new_lines) + "\n", "utf-8")
+            return found
+        except Exception:
+            return False
 
     # ── 项目上下文（Obsidian 专属）───────────────────────────────
 
