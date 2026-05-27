@@ -1,0 +1,26 @@
+﻿# Anima — 配置文件
+# 首次安装后，Onboarding 向导会自动填写此文件
+# 也可以手动编辑（位于 ~/.anima/config.yaml）
+
+# ── API Keys ──
+api:
+  deepseek_key:  ""      # DeepSeek（Anima / 陶朱）https://platform.deepseek.com
+  kimi_key:      ""      # Kimi（陶朱子 Agent 写手/阅读者）https://platform.moonshot.cn
+  qwen_key:      ""      # 通义千问（知识库 Embedding）https://dashscope.aliyun.com
+  openai_key:    ""      # OpenAI（可选）https://platform.openai.com
+  anthropic_key: ""      # Anthropic Claude（可选）
+
+# ── 端口配置 ──
+port:
+  ws: 9100   # WebSocket/HTTP 主服务
+
+# ── 语言 ──
+lang: "zh"   # zh | en
+
+# ── 数据目录 ──
+# 留空则自动使用 ~/.anima/data
+# data_dir: "/custom/path/to/data"
+
+# ── 工作区 ──
+# Agent 执行代码操作的目录
+# workspace: "~/anima-workspace"

@@ -1,0 +1,1555 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anima</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     左侧边栏
+══════════════════════════════════════ -->
+<nav class="sidebar">
+
+  <!-- 顶部：Logo + 新对话 -->
+  <div class="sidebar-top">
+    <div class="logo">
+      <img src="/assets/icon.png" class="logo-icon-img" alt="Anima">
+      <span class="logo-title" id="appLogoTitle">Anima</span>
+    </div>
+    <button class="new-chat-btn" onclick="newChat()" title="新对话">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- 主导航 -->
+  <div class="sidebar-nav">
+    <div class="nav-item active" data-tab="overview" onclick="switchTab('overview',this)">
+      <span class="nav-icon">🏠</span> 总览
+    </div>
+    <div class="nav-item" data-tab="dashboard" onclick="switchTab('dashboard',this)">
+      <span class="nav-icon">📊</span> 仪表盘
+    </div>
+
+    <div class="nav-section-label">员工</div>
+
+    <div class="nav-item" data-tab="xi" onclick="switchTab('xi',this)">
+      <span class="nav-icon">🤖</span> Anima
+      <span class="agent-dot" id="dot-xi"></span>
+    </div>
+    <div class="nav-item" data-tab="yiyi" onclick="switchTab('yiyi',this)">
+      <span class="nav-icon">🌸</span> 晞
+      <span class="agent-dot" id="dot-yiyi"></span>
+    </div>
+
+    <!-- 陶朱（可展开） -->
+    <div class="nav-item nav-parent" id="navParent-tianyuan"
+         onclick="toggleTeam(event)">
+      <span class="nav-icon">🏢</span> 陶朱
+      <span class="agent-dot" id="dot-tianyuan"></span>
+      <span class="nav-chevron" id="chevron-tianyuan">›</span>
+    </div>
+    <div class="nav-sub-group hidden" id="subGroup-tianyuan">
+      <div class="nav-item nav-sub" data-tab="tianyuan" onclick="switchTab('tianyuan',this)">
+        <span class="nav-icon">💬</span> 与陶朱对话
+      </div>
+      <div class="nav-item nav-sub" data-tab="tianyuan-team" onclick="switchTab('tianyuan-team',this)">
+        <span class="nav-icon">📋</span> 团队看板
+      </div>
+      <div class="nav-item nav-sub" data-tab="worker-executor" onclick="switchTab('worker-executor',this)">
+        <span class="nav-icon">⚡</span> 执行者
+      </div>
+      <div class="nav-item nav-sub" data-tab="worker-writer" onclick="switchTab('worker-writer',this)">
+        <span class="nav-icon">✍️</span> 写手
+      </div>
+      <div class="nav-item nav-sub" data-tab="worker-reader" onclick="switchTab('worker-reader',this)">
+        <span class="nav-icon">📖</span> 阅读者
+      </div>
+      <div class="nav-item nav-sub" data-tab="worker-critic" onclick="switchTab('worker-critic',this)">
+        <span class="nav-icon">🔍</span> 评审
+      </div>
+    </div>
+
+    <div class="nav-item" data-tab="shoucang" onclick="switchTab('shoucang',this)">
+      <span class="nav-icon">📜</span> 守藏
+      <span class="agent-dot" id="dot-shoucang"></span>
+    </div>
+
+    <!-- 项目快速切换器 -->
+    <div class="project-switcher" id="projectSwitcher">
+      <div class="project-switcher-hdr" onclick="projectSwitcherToggle()">
+        <span class="nav-icon">📁</span>
+        <span id="activeProjectLabel">无项目</span>
+        <span style="margin-left:auto;font-size:10px;opacity:.6">▾</span>
+      </div>
+      <div class="project-switcher-menu hidden" id="projectSwitcherMenu">
+        <div id="projectList" style="max-height:160px;overflow-y:auto"></div>
+        <div class="project-switcher-footer">
+          <button class="ps-btn" onclick="projectCreate()">＋ 新建项目</button>
+          <button class="ps-btn" onclick="projectDeactivate()">✕ 清除</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-section-label">工具</div>
+
+    <div class="nav-item" data-tab="knowledge" onclick="switchTab('knowledge',this)">
+      <span class="nav-icon">📚</span> 知识&记忆
+    </div>
+    <div class="nav-item" data-tab="workflow" onclick="switchTab('workflow',this)">
+      <span class="nav-icon">⚡</span> 工作流
+    </div>
+    <div class="nav-item" data-tab="reports" onclick="switchTab('reports',this)">
+      <span class="nav-icon">📈</span> 日报/周报
+      <span class="agent-dot report-dot hidden" id="reportDot"></span>
+    </div>
+    <div class="nav-item" data-tab="skills" onclick="switchTab('skills',this)">
+      <span class="nav-icon">🧩</span> Skill 墙
+    </div>
+    <div class="nav-item" data-tab="scheduler" onclick="switchTab('scheduler',this)">
+      <span class="nav-icon">🕐</span> 定时任务
+    </div>
+    <div class="nav-item" data-tab="filewatcher" onclick="switchTab('filewatcher',this)">
+      <span class="nav-icon">👁</span> 文件监视
+    </div>
+    <div class="nav-item" data-tab="groupchat" onclick="switchTab('groupchat',this)">
+      <span class="nav-icon">💬</span> 群聊
+    </div>
+  </div>
+
+  <!-- 历史记录（按时间分组，flex:1 填满剩余空间） -->
+  <div class="sidebar-history" id="sidebarHistory">
+    <div class="history-section-label">历史</div>
+    <div id="historyGroups">
+      <div class="history-loading">加载中…</div>
+    </div>
+  </div>
+
+  <!-- 底部：设置 + 状态 -->
+  <div class="sidebar-footer">
+    <div class="nav-item" data-tab="settings" onclick="switchTab('settings',this)">
+      <span class="nav-icon">⚙️</span> 设置
+    </div>
+    <div class="status-bar">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">连接中…</span>
+      <button class="cmd-trigger" onclick="openCmdPalette()" title="命令面板 Ctrl+K">⌘K</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════
+     主内容区
+══════════════════════════════════════ -->
+<main class="content">
+
+  <!-- ── 总览 ── -->
+  <div class="tab-panel active" id="tab-overview">
+    <div class="overview-wrap">
+      <div class="overview-header">
+        <h1>总览</h1>
+        <button class="hdr-btn" onclick="loadOverview()">↺ 刷新</button>
+      </div>
+      <div class="overview-body" id="overviewBody">
+        <div class="overview-loading">加载中…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 仪表盘 (原生) ── -->
+  <div class="tab-panel" id="tab-dashboard">
+    <div class="dashboard-wrap">
+      <div class="dashboard-header">
+        <h1>仪表盘</h1>
+        <button class="hdr-btn" onclick="loadDashboard()">↺ 刷新</button>
+      </div>
+      <!-- 用量卡片行 -->
+      <div class="dash-stats-row" id="dashStatsRow">
+        <div class="dash-stat-card">
+          <div class="stat-label">本月费用</div>
+          <div class="stat-value" id="dashCost">¥—</div>
+          <div class="stat-sub" id="dashCostSub">加载中…</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="stat-label">7日 Token</div>
+          <div class="stat-value" id="dashTokens">—</div>
+          <div class="stat-sub" id="dashTokensSub">消耗量</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="stat-label">7日会话</div>
+          <div class="stat-value" id="dashSessions">—</div>
+          <div class="stat-sub">次对话</div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="stat-label">活跃员工</div>
+          <div class="stat-value" id="dashAgents">4</div>
+          <div class="stat-sub">Anima · 晞 · 陶朱 · 守藏</div>
+        </div>
+      </div>
+      <!-- 7日趋势 -->
+      <div class="dash-section">
+        <div class="dash-section-title">7 日费用趋势</div>
+        <div class="dash-chart" id="dashChart">
+          <div class="dash-chart-inner" id="dashChartBars"></div>
+        </div>
+      </div>
+      <!-- Kanban -->
+      <div class="dash-section">
+        <div class="dash-section-title">
+          任务看板
+          <button class="hdr-btn-sm" onclick="addKanbanTask()">+ 添加</button>
+        </div>
+        <div class="kanban-board">
+          <div class="kanban-col">
+            <div class="kanban-col-hdr todo">📋 待处理</div>
+            <div class="kanban-cards" id="kanban-todo"></div>
+          </div>
+          <div class="kanban-col">
+            <div class="kanban-col-hdr inprogress">⚡ 进行中</div>
+            <div class="kanban-cards" id="kanban-inprogress"></div>
+          </div>
+          <div class="kanban-col">
+            <div class="kanban-col-hdr done">✅ 已完成</div>
+            <div class="kanban-cards" id="kanban-done"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Anima 聊天 ── -->
+  <div class="tab-panel" id="tab-xi">
+    <div class="chat-wrap" data-agent="xi">
+      <div class="chat-header">
+        <div class="agent-info">
+          <div class="agent-avatar-lg xi-bg">🤖</div>
+          <div>
+            <div class="agent-name">Anima</div>
+            <div class="agent-meta" id="meta-xi">私人助理 · 连接中…</div>
+          </div>
+        </div>
+        <div class="chat-hdr-btns">
+          <button class="icon-btn" title="清空对话" onclick="clearChat('xi')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="chat-messages" id="messages-xi">
+        <div class="chat-welcome">
+          <div class="welcome-avatar xi-bg">🤖</div>
+          <div class="welcome-name">Anima</div>
+          <div class="welcome-desc">私人助理 · 文件操作 · 代码搜索 · 脚本执行</div>
+          <div class="welcome-chips">
+            <span class="chip" onclick="fillInput('xi','列出当前目录的文件')">📁 列出文件</span>
+            <span class="chip" onclick="fillInput('xi','搜索所有 Python 文件中包含 TODO 的行')">🔍 搜索代码</span>
+            <span class="chip" onclick="fillInput('xi','查看系统信息')">💻 系统信息</span>
+          </div>
+        </div>
+      </div>
+      <div class="chat-composer" id="composer-xi">
+        <div class="file-chips-bar hidden" id="fileBar-xi"></div>
+        <textarea class="composer-input" id="input-xi"
+          placeholder="给 Anima 发消息…"
+          rows="1"
+          onkeydown="handleInputKey(event,'xi')"
+          oninput="autoResize(this)"></textarea>
+        <div class="composer-toolbar">
+          <div class="toolbar-left">
+            <button class="toolbar-btn" title="上传文件" onclick="triggerFileUpload('xi')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <input type="file" hidden id="fileInput-xi" multiple onchange="handleFileSelect('xi',this)">
+            <div class="model-selector-wrap" id="modelWrap-xi">
+              <button class="model-btn" onclick="toggleModelMenu('xi',event)">
+                <span id="modelLabel-xi">DeepSeek-V4-Flash</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="model-menu hidden" id="modelMenu-xi">
+                <div class="model-group-label">🔷 DeepSeek</div>
+                <div class="model-option" onclick="selectModel('xi','DeepSeek-V4-Pro')">DeepSeek V4 Pro <span class="model-tag">最强</span></div>
+                <div class="model-option" onclick="selectModel('xi','DeepSeek-V4-Flash')">DeepSeek V4 Flash <span class="model-tag">最快</span></div>
+                <div class="model-option" onclick="selectModel('xi','DeepSeek-R1')">DeepSeek R1 <span class="model-tag">推理</span></div>
+                <div class="model-option" onclick="selectModel('xi','DeepSeek-V3')">DeepSeek V3 <span class="model-tag">经济</span></div>
+                <div class="model-group-label">🟣 Claude</div>
+                <div class="model-option" onclick="selectModel('xi','Claude-Opus-4.6')">Claude Opus 4.6 <span class="model-tag">最强</span></div>
+                <div class="model-option" onclick="selectModel('xi','Claude-Opus-4.6-Think')">Claude Opus 4.6 Think <span class="model-tag">深度推理</span></div>
+                <div class="model-option" onclick="selectModel('xi','Claude-Sonnet-4.6')">Claude Sonnet 4.6 <span class="model-tag">均衡</span></div>
+                <div class="model-option" onclick="selectModel('xi','Claude-Haiku-4.5')">Claude Haiku 4.5 <span class="model-tag">最快</span></div>
+                <div class="model-group-label">🟡 Qwen</div>
+                <div class="model-option" onclick="selectModel('xi','Qwen3.7-Max')">Qwen3.7-Max <span class="model-tag">最新旗舰</span></div>
+                <div class="model-option" onclick="selectModel('xi','Qwen3.6-Plus')">Qwen3.6-Plus <span class="model-tag">高性价比</span></div>
+                <div class="model-option" onclick="selectModel('xi','Qwen3.6-Flash')">Qwen3.6-Flash <span class="model-tag">最快</span></div>
+                <div class="model-option" onclick="selectModel('xi','QwQ-Plus')">QwQ-Plus <span class="model-tag">推理</span></div>
+                <div class="model-option" onclick="selectModel('xi','Qwen-Long')">Qwen-Long <span class="model-tag">超长文</span></div>
+                <div class="model-group-label">🌙 Kimi</div>
+                <div class="model-option" onclick="selectModel('xi','Kimi-K2.6')">Kimi K2.6 <span class="model-tag">最新旗舰</span></div>
+                <div class="model-option" onclick="selectModel('xi','Kimi-K2.5')">Kimi K2.5 <span class="model-tag">上代旗舰</span></div>
+                <div class="model-option" onclick="selectModel('xi','Kimi-Auto')">Kimi Auto <span class="model-tag">自动</span></div>
+                <div class="model-option" onclick="selectModel('xi','Kimi-128K')">Kimi 128K <span class="model-tag">超长文</span></div>
+                <div class="model-option" onclick="selectModel('xi','Kimi-32K')">Kimi 32K <span class="model-tag">均衡</span></div>
+                <div class="model-option" onclick="selectModel('xi','Kimi-8K')">Kimi 8K <span class="model-tag">经济</span></div>
+                <div class="model-group-label">🤖 GPT</div>
+                <div class="model-option" onclick="selectModel('xi','GPT-5.5')">GPT-5.5 <span class="model-tag">旗舰</span></div>
+                <div class="model-option" onclick="selectModel('xi','GPT-5.5-Compact')">GPT-5.5 Compact <span class="model-tag">最快</span></div>
+                <div class="model-option" onclick="selectModel('xi','GPT-5.4')">GPT-5.4 <span class="model-tag">均衡</span></div>
+              </div>
+            </div>
+          </div>
+          <button class="remember-btn" title="让 Anima 记住一件事" onclick="showLearnDialog('xi')">🧠</button>
+          <button class="send-btn" id="send-xi" onclick="sendMessage('xi')" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l8 16H4z" transform="rotate(180,12,12)"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 晞聊天 ── -->
+  <div class="tab-panel" id="tab-yiyi">
+    <div class="chat-wrap" data-agent="yiyi">
+      <div class="chat-header">
+        <div class="agent-info">
+          <div class="agent-avatar-lg yiyi-bg">🌸</div>
+          <div>
+            <div class="agent-name">晞</div>
+            <div class="agent-meta" id="meta-yiyi">情感伙伴 · 连接中…</div>
+          </div>
+        </div>
+        <div class="chat-hdr-btns">
+          <button class="icon-btn" title="清空对话" onclick="clearChat('yiyi')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="chat-messages" id="messages-yiyi">
+        <div class="chat-welcome">
+          <div class="welcome-avatar yiyi-bg">🌸</div>
+          <div class="welcome-name">晞</div>
+          <div class="welcome-desc">情感伙伴 · 陪伴 · 倾听 · 思考</div>
+          <div class="welcome-chips">
+            <span class="chip" onclick="fillInput('yiyi','今天有些焦虑，聊聊？')">💭 聊聊心情</span>
+            <span class="chip" onclick="fillInput('yiyi','帮我想想这个问题怎么解决')">🤔 一起思考</span>
+            <span class="chip" onclick="fillInput('yiyi','推荐一本书给我')">📚 推荐书籍</span>
+          </div>
+        </div>
+      </div>
+      <div class="chat-composer" id="composer-yiyi">
+        <div class="file-chips-bar hidden" id="fileBar-yiyi"></div>
+        <textarea class="composer-input" id="input-yiyi"
+          placeholder="和晞说说…"
+          rows="1"
+          onkeydown="handleInputKey(event,'yiyi')"
+          oninput="autoResize(this)"></textarea>
+        <div class="composer-toolbar">
+          <div class="toolbar-left">
+            <button class="toolbar-btn" title="上传文件" onclick="triggerFileUpload('yiyi')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <input type="file" hidden id="fileInput-yiyi" multiple onchange="handleFileSelect('yiyi',this)">
+            <div class="model-selector-wrap" id="modelWrap-yiyi">
+              <button class="model-btn" onclick="toggleModelMenu('yiyi',event)">
+                <span id="modelLabel-yiyi">Qwen3.7-Max</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="model-menu hidden" id="modelMenu-yiyi">
+                <div class="model-group-label">🟡 Qwen</div>
+                <div class="model-option" onclick="selectModel('yiyi','Qwen3.7-Max')">Qwen3.7-Max <span class="model-tag">最新旗舰</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','Qwen3.6-Plus')">Qwen3.6-Plus <span class="model-tag">高性价比</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','Qwen3.6-Flash')">Qwen3.6-Flash <span class="model-tag">最快</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','QwQ-Plus')">QwQ-Plus <span class="model-tag">推理</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','Qwen-Long')">Qwen-Long <span class="model-tag">超长文</span></div>
+                <div class="model-group-label">🌙 Kimi</div>
+                <div class="model-option" onclick="selectModel('yiyi','Kimi-K2.6')">Kimi K2.6 <span class="model-tag">最新旗舰</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','Kimi-K2.5')">Kimi K2.5 <span class="model-tag">上代旗舰</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','Kimi-Auto')">Kimi Auto <span class="model-tag">自动</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','Kimi-128K')">Kimi 128K <span class="model-tag">超长文</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','Kimi-32K')">Kimi 32K <span class="model-tag">均衡</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','Kimi-8K')">Kimi 8K <span class="model-tag">经济</span></div>
+                <div class="model-group-label">🟣 Claude</div>
+                <div class="model-option" onclick="selectModel('yiyi','Claude-Sonnet-4.6')">Claude Sonnet 4.6 <span class="model-tag">均衡</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','Claude-Haiku-4.5')">Claude Haiku 4.5 <span class="model-tag">最快</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','Claude-Opus-4.6')">Claude Opus 4.6 <span class="model-tag">最强</span></div>
+                <div class="model-group-label">🔷 DeepSeek</div>
+                <div class="model-option" onclick="selectModel('yiyi','DeepSeek-V4-Flash')">DeepSeek V4 Flash <span class="model-tag">最快</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','DeepSeek-V4-Pro')">DeepSeek V4 Pro <span class="model-tag">最强</span></div>
+                <div class="model-group-label">🤖 GPT</div>
+                <div class="model-option" onclick="selectModel('yiyi','GPT-5.5')">GPT-5.5 <span class="model-tag">旗舰</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','GPT-5.5-Compact')">GPT-5.5 Compact <span class="model-tag">最快</span></div>
+                <div class="model-option" onclick="selectModel('yiyi','GPT-5.4')">GPT-5.4 <span class="model-tag">均衡</span></div>
+              </div>
+            </div>
+          </div>
+          <button class="remember-btn" title="让 晞 记住一件事" onclick="showLearnDialog('yiyi')">🧠</button>
+          <button class="send-btn" id="send-yiyi" onclick="sendMessage('yiyi')" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l8 16H4z" transform="rotate(180,12,12)"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 陶朱聊天 ── -->
+  <div class="tab-panel" id="tab-tianyuan">
+    <div class="chat-wrap" data-agent="tianyuan">
+      <div class="chat-header">
+        <div class="agent-info">
+          <div class="agent-avatar-lg tianyuan-bg">🏢</div>
+          <div>
+            <div class="agent-name">陶朱</div>
+            <div class="agent-meta" id="meta-tianyuan">创业CEO · 连接中…</div>
+          </div>
+        </div>
+        <div class="chat-hdr-btns">
+          <button class="icon-btn" title="清空对话" onclick="clearChat('tianyuan')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="chat-messages" id="messages-tianyuan">
+        <div class="chat-welcome">
+          <div class="welcome-avatar tianyuan-bg">🏢</div>
+          <div class="welcome-name">陶朱</div>
+          <div class="welcome-desc">创业CEO · 战略决策 · 团队协调 · 经营分析</div>
+          <div class="welcome-chips">
+            <span class="chip" onclick="fillInput('tianyuan','分析一下公司近期的情况')">📈 经营分析</span>
+            <span class="chip" onclick="fillInput('tianyuan','帮我制定本周工作计划')">📋 制定计划</span>
+            <span class="chip" onclick="fillInput('tianyuan','搜索竞争对手信息')">🔍 竞品分析</span>
+          </div>
+        </div>
+      </div>
+      <div class="chat-composer" id="composer-tianyuan">
+        <div class="file-chips-bar hidden" id="fileBar-tianyuan"></div>
+        <textarea class="composer-input" id="input-tianyuan"
+          placeholder="向陶朱汇报或请示…"
+          rows="1"
+          onkeydown="handleInputKey(event,'tianyuan')"
+          oninput="autoResize(this)"></textarea>
+        <div class="composer-toolbar">
+          <div class="toolbar-left">
+            <button class="toolbar-btn" title="上传文件" onclick="triggerFileUpload('tianyuan')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <input type="file" hidden id="fileInput-tianyuan" multiple onchange="handleFileSelect('tianyuan',this)">
+            <div class="model-selector-wrap" id="modelWrap-tianyuan">
+              <button class="model-btn" onclick="toggleModelMenu('tianyuan',event)">
+                <span id="modelLabel-tianyuan">DeepSeek-R1</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="model-menu hidden" id="modelMenu-tianyuan">
+                <div class="model-group-label">🔷 DeepSeek</div>
+                <div class="model-option" onclick="selectModel('tianyuan','DeepSeek-V4-Pro')">DeepSeek V4 Pro <span class="model-tag">最强</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','DeepSeek-V4-Flash')">DeepSeek V4 Flash <span class="model-tag">最快</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','DeepSeek-R1')">DeepSeek R1 <span class="model-tag">推理</span></div>
+                <div class="model-group-label">🟣 Claude</div>
+                <div class="model-option" onclick="selectModel('tianyuan','Claude-Opus-4.6')">Claude Opus 4.6 <span class="model-tag">最强</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','Claude-Opus-4.6-Think')">Claude Opus 4.6 Think <span class="model-tag">深度推理</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','Claude-Sonnet-4.6')">Claude Sonnet 4.6 <span class="model-tag">均衡</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','Claude-Haiku-4.5')">Claude Haiku 4.5 <span class="model-tag">最快</span></div>
+                <div class="model-group-label">🟡 Qwen</div>
+                <div class="model-option" onclick="selectModel('tianyuan','Qwen3.7-Max')">Qwen3.7-Max <span class="model-tag">最新旗舰</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','QwQ-Plus')">QwQ-Plus <span class="model-tag">深度推理</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','Qwen3.6-Plus')">Qwen3.6-Plus <span class="model-tag">高性价比</span></div>
+                <div class="model-group-label">🌙 Kimi</div>
+                <div class="model-option" onclick="selectModel('tianyuan','Kimi-K2.6')">Kimi K2.6 <span class="model-tag">最新旗舰</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','Kimi-K2.5')">Kimi K2.5 <span class="model-tag">上代旗舰</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','Kimi-128K')">Kimi 128K <span class="model-tag">超长文</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','Kimi-32K')">Kimi 32K <span class="model-tag">均衡</span></div>
+                <div class="model-group-label">🤖 GPT</div>
+                <div class="model-option" onclick="selectModel('tianyuan','GPT-5.5')">GPT-5.5 <span class="model-tag">旗舰</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','GPT-5.5-Compact')">GPT-5.5 Compact <span class="model-tag">最快</span></div>
+                <div class="model-option" onclick="selectModel('tianyuan','GPT-5.4')">GPT-5.4 <span class="model-tag">均衡</span></div>
+              </div>
+            </div>
+          </div>
+          <button class="remember-btn" title="让 陶朱 记住一件事" onclick="showLearnDialog('tianyuan')">🧠</button>
+          <button class="send-btn" id="send-tianyuan" onclick="sendMessage('tianyuan')" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l8 16H4z" transform="rotate(180,12,12)"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 守藏聊天 ── -->
+  <div class="tab-panel" id="tab-shoucang">
+    <div class="chat-wrap" data-agent="shoucang">
+      <div class="chat-header">
+        <div class="agent-info">
+          <div class="agent-avatar-lg shoucang-bg">🎓</div>
+          <div>
+            <div class="agent-name">守藏</div>
+            <div class="agent-meta" id="meta-shoucang">知识研究员 · 连接中…</div>
+          </div>
+        </div>
+        <div class="chat-hdr-btns">
+          <button class="icon-btn" title="清空对话" onclick="clearChat('shoucang')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="chat-messages" id="messages-shoucang">
+        <div class="chat-welcome">
+          <div class="welcome-avatar shoucang-bg">🎓</div>
+          <div class="welcome-name">守藏</div>
+          <div class="welcome-desc">知识研究员 · 文献分析 · 深度阅读 · 知识整合</div>
+          <div class="welcome-chips">
+            <span class="chip" onclick="fillInput('shoucang','分析这篇文章的核心论点')">📄 分析文章</span>
+            <span class="chip" onclick="fillInput('shoucang','帮我梳理这个概念的脉络')">🧠 概念梳理</span>
+            <span class="chip" onclick="fillInput('shoucang','这个领域的最新进展是什么？')">🔬 领域综述</span>
+          </div>
+        </div>
+      </div>
+      <div class="chat-composer" id="composer-shoucang">
+        <div class="file-chips-bar hidden" id="fileBar-shoucang"></div>
+        <textarea class="composer-input" id="input-shoucang"
+          placeholder="上传文件或直接提问…"
+          rows="1"
+          onkeydown="handleInputKey(event,'shoucang')"
+          oninput="autoResize(this)"></textarea>
+        <div class="composer-toolbar">
+          <div class="toolbar-left">
+            <button class="toolbar-btn" title="上传文件" onclick="triggerFileUpload('shoucang')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <input type="file" hidden id="fileInput-shoucang" multiple
+              accept=".txt,.md,.pdf,.doc,.docx,.py,.js,.ts,.json,.csv"
+              onchange="handleFileSelect('shoucang',this)">
+            <div class="model-selector-wrap" id="modelWrap-shoucang">
+              <button class="model-btn" onclick="toggleModelMenu('shoucang',event)">
+                <span id="modelLabel-shoucang">Kimi-K2.6</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="model-menu hidden" id="modelMenu-shoucang">
+                <div class="model-group-label">🌙 Kimi</div>
+                <div class="model-option" onclick="selectModel('shoucang','Kimi-K2.6')">Kimi K2.6 <span class="model-tag">最新旗舰</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','Kimi-K2.5')">Kimi K2.5 <span class="model-tag">上代旗舰</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','Kimi-Auto')">Kimi Auto <span class="model-tag">自动</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','Kimi-128K')">Kimi 128K <span class="model-tag">超长文</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','Kimi-32K')">Kimi 32K <span class="model-tag">均衡</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','Kimi-8K')">Kimi 8K <span class="model-tag">经济</span></div>
+                <div class="model-group-label">🟡 Qwen</div>
+                <div class="model-option" onclick="selectModel('shoucang','Qwen-Long')">Qwen-Long <span class="model-tag">超长文</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','Qwen3.7-Max')">Qwen3.7-Max <span class="model-tag">最新旗舰</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','Qwen3.6-Plus')">Qwen3.6-Plus <span class="model-tag">高性价比</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','QwQ-Plus')">QwQ-Plus <span class="model-tag">深度推理</span></div>
+                <div class="model-group-label">🟣 Claude</div>
+                <div class="model-option" onclick="selectModel('shoucang','Claude-Opus-4.6')">Claude Opus 4.6 <span class="model-tag">最强</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','Claude-Opus-4.6-Think')">Claude Opus 4.6 Think <span class="model-tag">深度推理</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','Claude-Sonnet-4.6')">Claude Sonnet 4.6 <span class="model-tag">均衡</span></div>
+                <div class="model-group-label">🔷 DeepSeek</div>
+                <div class="model-option" onclick="selectModel('shoucang','DeepSeek-V4-Pro')">DeepSeek V4 Pro <span class="model-tag">最强</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','DeepSeek-R1')">DeepSeek R1 <span class="model-tag">推理</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','DeepSeek-V4-Flash')">DeepSeek V4 Flash <span class="model-tag">最快</span></div>
+                <div class="model-group-label">🤖 GPT</div>
+                <div class="model-option" onclick="selectModel('shoucang','GPT-5.5')">GPT-5.5 <span class="model-tag">旗舰</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','GPT-5.5-Compact')">GPT-5.5 Compact <span class="model-tag">最快</span></div>
+                <div class="model-option" onclick="selectModel('shoucang','GPT-5.4')">GPT-5.4 <span class="model-tag">均衡</span></div>
+              </div>
+            </div>
+          </div>
+          <button class="remember-btn" title="让 守藏 记住一件事" onclick="showLearnDialog('shoucang')">🧠</button>
+          <button class="send-btn" id="send-shoucang" onclick="sendMessage('shoucang')" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l8 16H4z" transform="rotate(180,12,12)"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 陶朱团队看板 ── -->
+  <div class="tab-panel" id="tab-tianyuan-team">
+    <div class="overview-wrap">
+      <div class="overview-header">
+        <h1>🏢 陶朱团队</h1>
+        <span class="overview-sub">4 名数字员工 · 由陶朱 CEO 统一调度</span>
+      </div>
+      <div class="overview-body">
+        <div class="card worker-card">
+          <div class="worker-hdr"><span class="worker-avatar executor-bg">⚡</span>
+            <div><div class="worker-name">执行者</div><div class="worker-model">DeepSeek-V3</div></div>
+            <span class="worker-status-pill idle">空闲</span>
+          </div>
+          <div class="worker-desc">负责代码执行、任务拆解、自动化脚本</div>
+          <div class="worker-stats"><span>工具 <strong>8</strong></span><span>今日任务 <strong>0</strong></span></div>
+          <button class="coming-soon-btn" onclick="switchTab('worker-executor',document.querySelector('[data-tab=worker-executor]'))">查看详情 →</button>
+        </div>
+        <div class="card worker-card">
+          <div class="worker-hdr"><span class="worker-avatar writer-bg">✍️</span>
+            <div><div class="worker-name">写手</div><div class="worker-model">Qwen-Plus</div></div>
+            <span class="worker-status-pill idle">空闲</span>
+          </div>
+          <div class="worker-desc">负责文案撰写、报告输出、内容创作</div>
+          <div class="worker-stats"><span>工具 <strong>4</strong></span><span>今日任务 <strong>0</strong></span></div>
+          <button class="coming-soon-btn" onclick="switchTab('worker-writer',document.querySelector('[data-tab=worker-writer]'))">查看详情 →</button>
+        </div>
+        <div class="card worker-card">
+          <div class="worker-hdr"><span class="worker-avatar reader-bg">📖</span>
+            <div><div class="worker-name">阅读者</div><div class="worker-model">Kimi-128K</div></div>
+            <span class="worker-status-pill idle">空闲</span>
+          </div>
+          <div class="worker-desc">负责长文阅读、文献分析、信息提炼</div>
+          <div class="worker-stats"><span>工具 <strong>3</strong></span><span>今日任务 <strong>0</strong></span></div>
+          <button class="coming-soon-btn" onclick="switchTab('worker-reader',document.querySelector('[data-tab=worker-reader]'))">查看详情 →</button>
+        </div>
+        <div class="card worker-card">
+          <div class="worker-hdr"><span class="worker-avatar critic-bg">🔍</span>
+            <div><div class="worker-name">评审</div><div class="worker-model">Claude-3.5</div></div>
+            <span class="worker-status-pill idle">空闲</span>
+          </div>
+          <div class="worker-desc">负责质量检查、批判性思维、风险评估</div>
+          <div class="worker-stats"><span>工具 <strong>5</strong></span><span>今日任务 <strong>0</strong></span></div>
+          <button class="coming-soon-btn" onclick="switchTab('worker-critic',document.querySelector('[data-tab=worker-critic]'))">查看详情 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 子员工详情页（通用模板，UI Only） ── -->
+  <div class="tab-panel" id="tab-worker-executor"><div class="worker-detail-wrap" data-worker="executor"></div></div>
+  <div class="tab-panel" id="tab-worker-writer"><div class="worker-detail-wrap" data-worker="writer"></div></div>
+  <div class="tab-panel" id="tab-worker-reader"><div class="worker-detail-wrap" data-worker="reader"></div></div>
+  <div class="tab-panel" id="tab-worker-critic"><div class="worker-detail-wrap" data-worker="critic"></div></div>
+
+  <!-- ── 知识&记忆 (3-panel: Vault树 / Markdown预览 / RAG知识库) ── -->
+  <div class="tab-panel" id="tab-knowledge">
+    <div class="knowledge-3panel">
+
+      <!-- 左：Obsidian Vault 文件树 -->
+      <div class="k3-left">
+        <div class="k3-panel-hdr">
+          <span>🗂 Vault 记忆</span>
+          <button class="hdr-btn-sm" onclick="vaultLoadTree()">↺</button>
+        </div>
+        <div class="vault-path-bar" id="vaultPathBar">~/Anima-Vault</div>
+        <div class="vault-tree" id="vaultTree">
+          <div style="color:var(--muted);font-size:12px;padding:12px">加载中…</div>
+        </div>
+        <div class="k3-actions">
+          <button class="hdr-btn-sm" onclick="vaultNewFile()" title="新建笔记">＋ 新建</button>
+          <button class="hdr-btn-sm" onclick="shoucangRunSop()" title="守藏 SOP">📜 更新</button>
+        </div>
+      </div>
+
+      <!-- 中：Markdown 预览/编辑 -->
+      <div class="k3-center">
+        <div class="k3-panel-hdr">
+          <span id="vaultFileTitle" style="font-weight:600">选择文件预览</span>
+          <div style="display:flex;gap:6px">
+            <button class="hdr-btn-sm" id="vaultEditToggle" onclick="vaultToggleEdit()">✏️ 编辑</button>
+            <button class="hdr-btn-sm" id="vaultSaveBtn" onclick="vaultSave()" style="display:none">💾 保存</button>
+          </div>
+        </div>
+        <!-- 预览区 -->
+        <div class="vault-preview" id="vaultPreview">
+          <div style="color:var(--muted);font-size:13px;text-align:center;padding:40px">
+            从左侧选择笔记文件查看内容
+          </div>
+        </div>
+        <!-- 编辑区（隐藏） -->
+        <textarea class="vault-editor hidden" id="vaultEditor"
+          placeholder="Markdown 内容…"></textarea>
+      </div>
+
+      <!-- 右：RAG 知识库 -->
+      <div class="k3-right">
+        <div class="k3-panel-hdr">
+          <span>📚 RAG 知识库</span>
+          <button class="hdr-btn-sm" onclick="kbLoadDocs()">↺</button>
+        </div>
+
+        <!-- 上传区 -->
+        <div class="k3-upload-zone" id="kbDropZone"
+             onclick="document.getElementById('kbFileInput').click()"
+             ondragover="event.preventDefault();this.classList.add('dragover')"
+             ondragleave="this.classList.remove('dragover')"
+             ondrop="kbHandleDrop(event)">
+          📄 拖拽或点击上传文件
+        </div>
+        <input type="file" id="kbFileInput" multiple
+               accept=".txt,.md,.py,.js,.ts,.json,.csv,.html,.yaml,.yml,.rs,.go,.java,.c,.cpp,.h"
+               style="display:none" onchange="kbHandleFileSelect(this)">
+        <div id="kbUploadStatus" style="font-size:12px;color:var(--muted);padding:2px 0"></div>
+
+        <!-- 粘贴 -->
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input id="kbPasteName" placeholder="文档名" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;background:var(--surface);color:var(--text)">
+          <button class="hdr-btn-sm" onclick="kbIngestPaste()">粘贴入库</button>
+        </div>
+        <textarea id="kbPasteArea" placeholder="粘贴文本…" rows="3"
+          style="width:100%;margin-top:6px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;resize:vertical;font-family:inherit;background:var(--surface);color:var(--text);box-sizing:border-box"></textarea>
+
+        <!-- 搜索 -->
+        <div style="margin-top:10px;display:flex;gap:6px">
+          <input id="kbSearchInput" placeholder="语义检索…"
+            style="flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;background:var(--surface);color:var(--text)"
+            onkeydown="if(event.key==='Enter')kbSearch()">
+          <button class="hdr-btn-sm" onclick="kbSearch()">搜索</button>
+        </div>
+        <div id="kbSearchResults" style="margin-top:8px;font-size:12px"></div>
+
+        <!-- 文档列表 -->
+        <div style="margin-top:10px;font-size:12px;font-weight:600;color:var(--muted)">已入库文档</div>
+        <div id="kbDocList" style="font-size:12px;color:var(--muted);margin-top:6px;flex:1;overflow-y:auto">加载中…</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 工作流 ── -->
+  <div class="tab-panel" id="tab-workflow">
+    <div class="wf-outer">
+      <!-- 顶栏 -->
+      <div class="wf-topbar">
+        <div>
+          <span class="wf-title">⚡ 工作流</span>
+          <span style="font-size:12px;color:var(--muted);margin-left:10px">多步骤 Agent 流水线 · AI 辅助构建</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="hdr-btn-sm" onclick="wfAiAssist()" title="让 Anima 帮你设计工作流">🤖 AI 辅助</button>
+          <button class="hdr-btn-sm" onclick="wfNew()">+ 新建</button>
+          <button class="hdr-btn-sm" onclick="wfLoadList()">📂 已保存</button>
+        </div>
+      </div>
+
+      <div class="wf-body">
+        <!-- 左：AI辅助 + 构建器 -->
+        <div class="wf-left">
+
+          <!-- Anima AI 辅助区（折叠） -->
+          <div class="wf-ai-panel" id="wfAiPanel" style="display:none">
+            <div class="wf-ai-hdr">
+              <span>🤖 Anima 辅助构建</span>
+              <button class="hdr-btn-sm" onclick="document.getElementById('wfAiPanel').style.display='none'">✕</button>
+            </div>
+            <textarea id="wfAiDesc" placeholder="描述你想要的工作流，例如：「每天自动搜索 AI 新闻，让写手总结成报告，最后评审检查质量」" rows="3"
+              style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;resize:vertical;font-family:inherit;background:var(--surface);color:var(--text);box-sizing:border-box;margin-bottom:8px"></textarea>
+            <div style="display:flex;gap:8px">
+              <button class="btn-primary" style="font-size:12px;padding:6px 14px" onclick="wfAiGenerate()">✨ 生成工作流</button>
+            </div>
+            <div id="wfAiStatus" style="margin-top:8px;font-size:12px;color:var(--muted)"></div>
+          </div>
+
+          <!-- 工作流名称行 -->
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+            <input id="wfName" value="我的工作流" placeholder="工作流名称"
+              style="flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:14px;font-weight:600;background:var(--surface);color:var(--text)">
+            <label style="font-size:13px;display:flex;align-items:center;gap:5px;color:var(--muted);white-space:nowrap">
+              <input type="checkbox" id="wfUseKb"> 引用知识库
+            </label>
+          </div>
+
+          <!-- 步骤可视化画布 -->
+          <div class="wf-canvas" id="wfCanvas">
+            <!-- 步骤节点动态生成 -->
+          </div>
+          <div id="wfSteps" style="display:none"></div><!-- 兼容旧 API -->
+
+          <!-- 添加步骤按钮组 -->
+          <div class="wf-add-group">
+            <button class="wf-add-btn" onclick="wfAddStep('sequential')">
+              <span style="font-size:16px">➕</span> 顺序
+            </button>
+            <button class="wf-add-btn" style="background:#fef3c7;color:#92400e;border-color:#fcd34d" onclick="wfAddStep('parallel')">
+              <span style="font-size:16px">⚡</span> 并行
+            </button>
+            <button class="wf-add-btn" style="background:#ede9fe;color:#5b21b6;border-color:#c4b5fd" onclick="wfAddStep('condition')">
+              <span style="font-size:16px">🔀</span> 条件
+            </button>
+            <button class="wf-add-btn" style="background:#e0f2fe;color:#0369a1;border-color:#7dd3fc" onclick="wfAddStep('loop')">
+              <span style="font-size:16px">🔁</span> 循环
+            </button>
+          </div>
+
+          <!-- 操作栏 -->
+          <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+            <button class="btn-primary" onclick="wfRun()" id="wfRunBtn">▶ 运行工作流</button>
+            <button class="hdr-btn-sm" onclick="wfSave()">💾 保存</button>
+            <button class="hdr-btn-sm" onclick="wfNew()" style="margin-left:auto">🗑 清空</button>
+          </div>
+        </div>
+
+        <!-- 右：执行结果 + 已保存 -->
+        <div class="wf-right">
+          <div class="card" style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <h3 style="margin:0">执行结果</h3>
+              <span id="wfRunStatus" style="font-size:12px;color:var(--muted)">等待运行…</span>
+            </div>
+            <div id="wfResults" style="max-height:380px;overflow-y:auto"></div>
+          </div>
+          <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <h3 style="margin:0">已保存工作流</h3>
+              <button class="hdr-btn-sm" onclick="wfLoadList()">刷新</button>
+            </div>
+            <div id="wfSavedList" style="font-size:13px;color:var(--muted)">点击刷新加载</div>
+          </div>
+
+          <!-- 模板库 -->
+          <div class="card" style="margin-top:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <h3 style="margin:0">📦 模板库</h3>
+              <div style="display:flex;gap:6px" id="wfTplFilterRow">
+                <button class="wf-tpl-filter active" data-cat="all" onclick="wfTplFilter('all',this)">全部</button>
+                <button class="wf-tpl-filter" data-cat="content" onclick="wfTplFilter('content',this)">内容</button>
+                <button class="wf-tpl-filter" data-cat="research" onclick="wfTplFilter('research',this)">调研</button>
+                <button class="wf-tpl-filter" data-cat="code" onclick="wfTplFilter('code',this)">代码</button>
+                <button class="wf-tpl-filter" data-cat="business" onclick="wfTplFilter('business',this)">商业</button>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">点击模板即刻加载到编辑器</div>
+            <div id="wfTemplateGrid" style="display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 定时任务 ── -->
+  <div class="tab-panel" id="tab-scheduler">
+    <div class="dash-wrap">
+      <div class="dash-header">
+        <h1 class="dash-title">🕐 定时任务</h1>
+        <span style="font-size:13px;color:var(--muted)">让 Agent 定时自动工作</span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+        <!-- 左：新建任务 -->
+        <div class="card">
+          <h3 style="margin-bottom:14px">新建定时任务</h3>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <input id="schedName" placeholder="任务名称" style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--surface);color:var(--text)">
+
+            <select id="schedAgent" style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--surface);color:var(--text)">
+              <option value="xi">🤖 Anima — 私人助理</option>
+              <option value="yiyi">🌸 晞 — 情感伙伴</option>
+              <option value="shoucang">📜 守藏 — 知识守护者</option>
+              <option value="tianyuan">🏢 陶朱 — CEO</option>
+              <option value="writer">✍️ 写手 — 内容创作</option>
+              <option value="executor">⚡ 执行者 — 任务执行</option>
+            </select>
+
+            <textarea id="schedPrompt" placeholder="给 Agent 的任务提示词…" rows="3"
+              style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;resize:vertical;font-family:inherit;background:var(--surface);color:var(--text)"></textarea>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <select id="schedTriggerType" style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text)"
+                      onchange="schedTriggerTypeChange()">
+                <option value="interval">间隔执行</option>
+                <option value="cron">固定时间</option>
+              </select>
+              <input id="schedTriggerValue" value="1h" placeholder="1h / 30m / 09:00"
+                style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+            </div>
+            <div id="schedTriggerHint" style="font-size:12px;color:var(--muted)">间隔：30m=每30分钟、2h=每2小时、1d=每天</div>
+
+            <button class="btn-primary" onclick="schedAdd()">+ 创建任务</button>
+          </div>
+        </div>
+
+        <!-- 右：任务列表 -->
+        <div>
+          <div class="card" style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <h3 style="margin:0">任务列表</h3>
+              <button class="hdr-btn-sm" onclick="schedLoadTasks()">刷新</button>
+            </div>
+            <div id="schedTaskList" style="font-size:13px;color:var(--muted)">加载中…</div>
+          </div>
+
+          <!-- 执行日志 -->
+          <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <h3 style="margin:0">执行日志</h3>
+              <button class="hdr-btn-sm" onclick="schedLoadLogs()">刷新</button>
+            </div>
+            <div id="schedLogList" style="font-size:13px;color:var(--muted);max-height:300px;overflow-y:auto">暂无日志</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 文件监视 ── -->
+  <div class="tab-panel" id="tab-filewatcher">
+    <div class="dash-wrap">
+      <div class="dash-header">
+        <h1 class="dash-title">👁 文件监视</h1>
+        <span style="font-size:13px;color:var(--muted)">目录变动 → 自动触发 Agent</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+        <!-- 新建规则 -->
+        <div class="card">
+          <h3 style="margin-bottom:14px">新建监视规则</h3>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <input id="fwName" placeholder="规则名称" style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--surface);color:var(--text)">
+            <input id="fwPath" placeholder="监视目录路径，如 C:\Users\me\Downloads" style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--surface);color:var(--text)">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <input id="fwPattern" value="*" placeholder="文件匹配 *.py" style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+              <select id="fwAgent" style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+                <option value="xi">🤖 Anima</option>
+                <option value="shoucang">📜 守藏</option>
+                <option value="executor">⚡ 执行者</option>
+                <option value="critic">🔍 评审</option>
+                <option value="writer">✍️ 写手</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:4px">触发事件</div>
+              <div style="display:flex;gap:12px;font-size:13px">
+                <label><input type="checkbox" id="fwEvtCreate" checked> 新建</label>
+                <label><input type="checkbox" id="fwEvtModify" checked> 修改</label>
+                <label><input type="checkbox" id="fwEvtDelete"> 删除</label>
+              </div>
+            </div>
+            <textarea id="fwPrompt" rows="3" placeholder="提示词模板，可用 {filename} {path} {event} 占位符"
+              style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;resize:vertical;font-family:inherit;background:var(--surface);color:var(--text)">文件 {filename} 发生了 {event} 事件，请分析这个文件并给出简要说明。</textarea>
+            <button class="btn-primary" onclick="fwAdd()">+ 创建规则</button>
+          </div>
+        </div>
+        <!-- 规则列表 + 事件日志 -->
+        <div>
+          <div class="card" style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <h3 style="margin:0">监视规则</h3>
+              <button class="hdr-btn-sm" onclick="fwLoadRules()">刷新</button>
+            </div>
+            <div id="fwRuleList" style="font-size:13px;color:var(--muted)">加载中…</div>
+          </div>
+          <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <h3 style="margin:0">触发事件</h3>
+              <button class="hdr-btn-sm" onclick="fwLoadEvents()">刷新</button>
+            </div>
+            <div id="fwEventList" style="font-size:13px;color:var(--muted);max-height:280px;overflow-y:auto">暂无事件</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 群聊 ── -->
+  <div class="tab-panel" id="tab-groupchat">
+    <div class="gc-layout">
+      <!-- 左侧：群聊主界面 -->
+      <div class="gc-main">
+        <!-- 群聊顶栏 -->
+        <div class="gc-topbar">
+          <div class="gc-topbar-left">
+            <div class="gc-group-avatar">🤝</div>
+            <div>
+              <div class="gc-group-name" id="gcGroupName">Anima 团队</div>
+              <div class="gc-group-meta" id="gcGroupMeta">4 位成员</div>
+            </div>
+          </div>
+          <div class="gc-topbar-right">
+            <button class="gc-icon-btn" onclick="gcClearMessages()" title="清空记录">🗑</button>
+            <button class="gc-icon-btn" onclick="gcExport()" title="导出记录">📋</button>
+          </div>
+        </div>
+
+        <!-- 消息流 -->
+        <div class="gc-messages-wrap" id="gcMessages">
+          <div class="gc-welcome">
+            <div class="gc-welcome-icon">🤝</div>
+            <div class="gc-welcome-title">欢迎来到 Anima 群聊</div>
+            <div class="gc-welcome-sub">在下方输入讨论话题，让多个 Agent 一起讨论</div>
+          </div>
+        </div>
+
+        <!-- 底部输入区 -->
+        <div class="gc-composer">
+          <!-- 工具栏 -->
+          <div class="gc-composer-tools">
+            <button class="gc-tool-btn" id="gcVoiceBtn" onclick="gcToggleVoice()" title="语音输入">🎤</button>
+            <button class="gc-tool-btn" onclick="gcInsertEmoji()" title="表情">😊</button>
+            <span style="flex:1"></span>
+            <span class="gc-rounds-label">轮数</span>
+            <select id="gcRounds" class="gc-rounds-sel">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+          <!-- 输入框 -->
+          <div class="gc-input-row">
+            <textarea id="gcTopic" class="gc-textarea" rows="2"
+              placeholder="输入讨论话题，如：如何打造一款成功的 B2B SaaS 产品？&#10;（Shift+Enter 换行，Enter 发送）"
+              onkeydown="gcKeydown(event)"></textarea>
+            <button class="gc-send-btn" id="gcRunBtn" onclick="gcRun()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：成员面板 -->
+      <div class="gc-sidebar">
+        <div class="gc-sidebar-title">群成员</div>
+        <div class="gc-members" id="gcMembers">
+          <!-- 动态渲染 -->
+        </div>
+        <div class="gc-sidebar-title" style="margin-top:16px">设置</div>
+        <div style="font-size:12px;color:var(--muted);padding:0 4px">
+          <div style="margin-bottom:8px">
+            <div style="margin-bottom:4px">自动 TTS 朗读</div>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" id="gcAutoTts" onchange="gcSaveSettings()">
+              <span>回复完成后自动播放</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 日报/周报 ── -->
+  <div class="tab-panel" id="tab-reports">
+    <div class="dash-wrap">
+      <div class="dash-header">
+        <h1 class="dash-title">📈 日报 &amp; 周报</h1>
+        <div style="display:flex;gap:8px">
+          <button class="hdr-btn-sm" onclick="reportLoad('daily',true)">↺ 生成日报</button>
+          <button class="hdr-btn-sm" onclick="reportLoad('weekly',true)">↺ 生成周报</button>
+        </div>
+      </div>
+      <!-- 报告切换 -->
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="report-tab-btn active" id="rTabDaily" onclick="reportSwitchTab('daily')">📅 日报</button>
+        <button class="report-tab-btn" id="rTabWeekly" onclick="reportSwitchTab('weekly')">📊 周报</button>
+      </div>
+      <!-- 日报内容 -->
+      <div id="reportDailyPanel">
+        <div class="report-card" id="reportDailyCard">
+          <div class="report-warm-text" id="reportDailyText">加载中…</div>
+          <div class="report-stats-row" id="reportDailyStats"></div>
+          <div class="report-chart" id="reportDailyChart"></div>
+          <div class="report-skills" id="reportDailySkills"></div>
+        </div>
+      </div>
+      <!-- 周报内容 -->
+      <div id="reportWeeklyPanel" style="display:none">
+        <div class="report-card" id="reportWeeklyCard">
+          <div class="report-warm-text" id="reportWeeklyText">点击「生成周报」或等到周一自动生成</div>
+          <div class="report-stats-row" id="reportWeeklyStats"></div>
+          <div class="report-chart" id="reportWeeklyChart"></div>
+          <div class="report-skills" id="reportWeeklySkills"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Skill 墙 ── -->
+  <div class="tab-panel" id="tab-skills">
+    <div class="dash-wrap">
+      <div class="dash-header">
+        <h1 class="dash-title">🧩 Skill 墙</h1>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="skillInstallUrl" placeholder="github:user/repo 安装社区 Skill"
+            style="border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;width:260px;background:var(--surface);color:var(--text)">
+          <button class="hdr-btn-sm" onclick="skillInstall()">📦 安装</button>
+          <button class="hdr-btn-sm" onclick="skillsLoad()">↺</button>
+        </div>
+      </div>
+      <!-- 摘要行 -->
+      <div class="skill-summary-row" id="skillSummaryRow"></div>
+      <!-- Skill 网格 -->
+      <div class="skill-wall" id="skillWall">
+        <div style="color:var(--muted);font-size:13px">加载中…</div>
+      </div>
+      <!-- 成长记录 -->
+      <div class="card" style="margin-top:16px">
+        <h3>🌱 守藏成长记录</h3>
+        <div id="skillGrowthLog" style="font-size:13px;color:var(--muted);margin-top:8px">加载中…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 设置 ── -->
+  <div class="tab-panel" id="tab-settings">
+    <div class="settings-page">
+      <h2>设置</h2>
+
+      <!-- 权限请求卡片区（动态注入） -->
+      <div id="permRequestArea"></div>
+
+      <!-- ══ 会员状态 ══ -->
+      <div class="settings-section" id="membershipSection">
+        <h3>👑 会员</h3>
+        <div id="membershipCard" class="membership-card">
+          <div class="membership-info">
+            <div class="membership-tier" id="membershipTier">Free</div>
+            <div class="membership-detail" id="membershipDetail">8 个基础 Skill 可用</div>
+          </div>
+          <div id="membershipActions">
+            <!-- 未激活：显示激活输入框 -->
+            <div id="membershipActivateRow">
+              <div style="display:flex;gap:8px;align-items:center">
+                <input id="membershipCodeInput" type="text" placeholder="ANIMA-XXXX-XXXX-XXXX-XXXX-XXXXXXXX"
+                  style="flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--bg-main);color:var(--text-main);font-family:monospace;letter-spacing:1px">
+                <button class="settings-btn" onclick="membershipActivate()" style="white-space:nowrap">激活</button>
+              </div>
+              <div id="membershipError" style="font-size:12px;margin-top:6px;color:#e74c3c;display:none"></div>
+            </div>
+            <!-- 已激活：显示状态+取消 -->
+            <div id="membershipActiveRow" style="display:none">
+              <div style="display:flex;align-items:center;gap:12px">
+                <span class="membership-badge-pro">PRO</span>
+                <span id="membershipExpiry" style="font-size:13px;color:var(--muted)"></span>
+                <button class="settings-btn settings-btn-danger" onclick="membershipDeactivate()" style="margin-left:auto;font-size:12px">取消激活</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 记忆存储 ══ -->
+      <div class="settings-section" id="memoryStorageSection">
+        <h3>🧠 记忆存储</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+          选择 Anima 存储记忆的方式。两种模式下记忆质量完全一致，可随时迁移。
+        </p>
+
+        <!-- 后端选择卡片 -->
+        <div class="mem-backend-cards" id="memBackendCards">
+          <div class="mem-backend-card" id="memCardSqlite" onclick="memSelectBackend('sqlite')">
+            <div class="mem-card-icon">💾</div>
+            <div class="mem-card-body">
+              <div class="mem-card-title">本地存储 <span class="mem-badge mem-badge-rec">推荐</span></div>
+              <div class="mem-card-desc">零配置，开箱即用。记忆以 SQLite 数据库保存在本地，支持全文搜索，无需任何第三方软件。</div>
+            </div>
+            <div class="mem-card-check">✓</div>
+          </div>
+          <div class="mem-backend-card" id="memCardObsidian" onclick="memSelectBackend('obsidian')">
+            <div class="mem-card-icon">🗂️</div>
+            <div class="mem-card-body">
+              <div class="mem-card-title">Obsidian Vault</div>
+              <div class="mem-card-desc">将记忆写入你现有的 Obsidian 笔记库，可在 Obsidian 中直接查看和编辑。需填写 Vault 路径。</div>
+            </div>
+            <div class="mem-card-check" style="opacity:0">✓</div>
+          </div>
+        </div>
+
+        <!-- Obsidian 路径（仅 obsidian 模式显示） -->
+        <div id="memObsidianPathRow" style="display:none;margin-top:14px">
+          <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px">Vault 路径</label>
+          <div style="display:flex;gap:8px">
+            <input id="memObsidianPath" placeholder="例：C:/Users/yourname/Documents/MyVault"
+              style="flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--bg-main);color:var(--text-main)">
+            <button class="hdr-btn-sm" onclick="memVerifyVault()">验证</button>
+          </div>
+          <div id="memVaultVerifyResult" style="font-size:12px;margin-top:6px;color:var(--text-muted)"></div>
+        </div>
+
+        <!-- 迁移选项 -->
+        <div id="memMigrateRow" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:8px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="memMigrateCheck" checked>
+            <span>将现有记忆迁移到新存储（推荐勾选）</span>
+          </label>
+        </div>
+
+        <!-- 当前状态 -->
+        <div id="memBackendStatus" style="margin-top:14px;font-size:12px;color:var(--text-muted)">
+          加载中…
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <button class="settings-btn" onclick="memApplyBackend()">✓ 应用存储设置</button>
+          <button class="hdr-btn-sm" onclick="memLoadStatus()">↺ 刷新状态</button>
+        </div>
+      </div>
+
+      <!-- ══ 记忆浏览器 ══ -->
+      <div class="settings-section">
+        <h3>📋 记忆浏览器</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">查看、搜索、删除 Anima 记住的内容</p>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input id="memSearchInput" placeholder="搜索记忆…"
+            style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;background:var(--bg-main);color:var(--text-main)"
+            oninput="memSearchDebounce(this.value)">
+          <select id="memAgentFilter" onchange="memLoadEntries()"
+            style="border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--bg-main);color:var(--text-main)">
+            <option value="">全部 Agent</option>
+            <option value="xi">Anima</option>
+            <option value="yiyi">晞</option>
+            <option value="tianyuan">陶朱</option>
+            <option value="shoucang">守藏</option>
+          </select>
+        </div>
+        <div id="memEntriesList" style="min-height:80px">
+          <div style="color:var(--text-muted);font-size:13px">点击「刷新状态」后自动加载…</div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="hdr-btn-sm" onclick="memLoadEntries()">↺ 刷新列表</button>
+          <span id="memEntryCount" style="font-size:12px;color:var(--text-muted);align-self:center"></span>
+        </div>
+      </div>
+
+      <!-- API 管理 -->
+      <div class="settings-section">
+        <h3>🔑 API 管理</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px">配置 Anima 所需的 API 密钥。Anima 会在需要某项能力时主动提醒你。</p>
+        <div class="api-catalog-grid" id="apiCatalogGrid">
+          <div style="color:var(--muted);font-size:13px">加载中…</div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px">
+          <button class="settings-btn" onclick="apiSaveAll()">💾 保存所有 Key</button>
+          <button class="hdr-btn-sm" onclick="apiCatalogLoad()">↺ 刷新状态</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>后端连接</h3>
+        <div class="setting-row">
+          <label>API / WebSocket 端口</label>
+          <input type="number" value="9100" id="wsPort">
+        </div>
+        <div class="setting-row">
+          <label>Dashboard 端口</label>
+          <input type="number" value="9119" id="dashPort">
+        </div>
+        <button class="settings-btn" onclick="applyPorts()">应用并重连</button>
+      </div>
+      <!-- 推送通知 -->
+      <div class="settings-section">
+        <h3>推送通知</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Agent 完成定时任务后，推送摘要到飞书/钉钉群</p>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+          <div style="display:grid;grid-template-columns:80px 1fr;gap:8px">
+            <select id="notifType" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)">
+              <option value="feishu">飞书</option>
+              <option value="dingtalk">钉钉</option>
+            </select>
+            <input id="notifName" placeholder="渠道名称" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+          </div>
+          <input id="notifWebhook" placeholder="Webhook URL" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+          <input id="notifSecret" placeholder="加签密钥（可选）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+          <div style="display:flex;gap:8px">
+            <button class="settings-btn" onclick="notifAdd()">添加渠道</button>
+          </div>
+        </div>
+        <div id="notifChannelList" style="font-size:13px;color:var(--muted)">加载中…</div>
+      </div>
+
+      <!-- 角色名称设置 -->
+      <div class="settings-section">
+        <h3>🎭 角色命名</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">为每个 Agent 设置你喜欢的名字</p>
+        <div class="agent-name-grid" id="agentNameGrid">
+          <!-- 动态生成 -->
+        </div>
+        <button class="settings-btn" onclick="saveAgentNames()" style="margin-top:12px">保存名称</button>
+      </div>
+
+      <!-- 称呼设置 -->
+      <div class="settings-section">
+        <h3>💬 Agent 怎么叫你</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">设置每个 Agent 对你的称呼。留空则使用统一名称。</p>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+          <div style="display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px">
+            <label style="font-size:13px;color:var(--text-muted)">🤖 Anima</label>
+            <input id="addrXi" class="settings-input" placeholder="叫你…（例如：老板）">
+          </div>
+          <div style="display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px">
+            <label style="font-size:13px;color:var(--text-muted)">🌸 晞</label>
+            <input id="addrYiyi" class="settings-input" placeholder="叫你…（例如：宝贝）">
+          </div>
+          <div style="display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px">
+            <label style="font-size:13px;color:var(--text-muted)">🏢 陶朱</label>
+            <input id="addrTianyuan" class="settings-input" placeholder="叫你…（例如：投资人）">
+          </div>
+          <div style="display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px">
+            <label style="font-size:13px;color:var(--text-muted)">📜 守藏</label>
+            <input id="addrShoucang" class="settings-input" placeholder="叫你…（例如：求守藏）">
+          </div>
+        </div>
+        <button class="settings-btn" onclick="saveUserAddress()">保存称呼</button>
+      </div>
+
+      <!-- 音色设置 -->
+      <div class="settings-section">
+        <h3>🔊 TTS 音色</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">为每个 Agent 选择语音音色</p>
+        <div class="agent-voice-grid" id="agentVoiceGrid">
+          <!-- 动态生成 -->
+        </div>
+        <button class="settings-btn" onclick="saveAgentVoices()" style="margin-top:12px">保存音色</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>快捷键</h3>
+        <div class="setting-row"><label>命令面板</label><kbd>Ctrl K</kbd></div>
+        <div class="setting-row"><label>发送消息</label><kbd>Enter</kbd></div>
+        <div class="setting-row"><label>换行</label><kbd>Shift Enter</kbd></div>
+        <div class="setting-row"><label>呼出/隐藏窗口</label><kbd>Ctrl Shift H</kbd></div>
+      </div>
+      <div class="settings-section">
+        <h3>关于</h3>
+        <p class="about-text">Anima v1.0.0 · Apache 2.0</p>
+        <p class="about-text"><a href="#" id="ghLink">GitHub →</a></p>
+        <button class="settings-btn" onclick="showOnboarding()" style="margin-top:8px">重新运行设置向导</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ══════════════════════════════════════
+     命令面板
+══════════════════════════════════════ -->
+<div class="cmd-overlay hidden" id="cmdOverlay" onclick="closeCmdPalette(event)">
+  <div class="cmd-box" onclick="event.stopPropagation()">
+    <input class="cmd-input" id="cmdInput"
+      placeholder="跳转到…"
+      oninput="updateCmdResults(this.value)"
+      onkeydown="handleCmdKey(event)">
+    <div class="cmd-results" id="cmdResults"></div>
+    <div class="cmd-footer">↑↓ 导航 · Enter 执行 · Esc 关闭</div>
+  </div>
+</div>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ══════════════════════════════════════
+     晨间报告浮层（日报/周报 Morning Card）
+══════════════════════════════════════ -->
+<div class="morning-overlay hidden" id="morningOverlay" onclick="morningClose(event)">
+  <div class="morning-card" onclick="event.stopPropagation()">
+    <div class="morning-card-close" onclick="morningClose()">✕</div>
+    <!-- 类型徽章 -->
+    <div class="morning-badge" id="morningBadge">📅 今日日报</div>
+    <!-- 日期 -->
+    <div class="morning-date" id="morningDate"></div>
+    <!-- 温暖文字 -->
+    <div class="morning-warm" id="morningWarm">加载中…</div>
+    <!-- 统计行 -->
+    <div class="morning-stats" id="morningStats"></div>
+    <!-- Skill 升级 -->
+    <div class="morning-skills" id="morningSkills" style="display:none">
+      <div class="morning-skills-title">🚀 Skill 成长</div>
+      <div id="morningSkillsList"></div>
+    </div>
+    <!-- 图表 -->
+    <div class="morning-chart" id="morningChart"></div>
+    <!-- 按钮行 -->
+    <div class="morning-actions">
+      <button class="morning-btn-primary" onclick="morningClose()">开始新的一天 →</button>
+      <button class="morning-btn-ghost" onclick="switchTab('reports',document.querySelector('[data-tab=reports]'));morningClose()">查看完整报告</button>
+    </div>
+  </div>
+</div>
+
+<!-- 离线提示 -->
+<div class="offline-overlay hidden" id="offlineOverlay">
+  <div class="offline-card">
+    <div class="offline-icon">🔌</div>
+    <div class="offline-title">后端未连接</div>
+    <div class="offline-desc">请运行 <code>.\dev.ps1</code> 启动后端服务</div>
+    <button class="settings-btn" onclick="checkBackend(true)">重试</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     Onboarding 向导（新用户首次启动）
+══════════════════════════════════════ -->
+<div class="ob-overlay hidden" id="obOverlay">
+  <div class="ob-card">
+    <!-- 步骤指示器 -->
+    <div class="ob-steps" id="obSteps">
+      <div class="ob-step active" data-step="0"></div>
+      <div class="ob-step" data-step="1"></div>
+      <div class="ob-step" data-step="2"></div>
+      <div class="ob-step" data-step="3"></div>
+      <div class="ob-step" data-step="4"></div>
+    </div>
+
+    <!-- Step 0: 语言选择 -->
+    <div class="ob-page active" id="ob-page-0">
+      <div class="ob-hero">🌐</div>
+      <h2 class="ob-title">选择语言 / Choose Language</h2>
+      <div class="ob-lang-row">
+        <button class="ob-lang-btn active" onclick="obSetLang('zh',this)">🇨🇳 中文</button>
+        <button class="ob-lang-btn" onclick="obSetLang('en',this)">🇺🇸 English</button>
+      </div>
+      <div class="ob-actions">
+        <button class="ob-btn-primary" onclick="obNext()">下一步 →</button>
+      </div>
+    </div>
+
+    <!-- Step 1: 欢迎 -->
+    <div class="ob-page" id="ob-page-1">
+      <div class="ob-hero"><img src="/assets/icon.png" style="width:72px;height:72px;border-radius:16px"></div>
+      <h2 class="ob-title" data-i18n="ob.welcome.title">欢迎使用 Anima</h2>
+      <p class="ob-desc" data-i18n="ob.welcome.desc">Anima 是你的本地 AI 多智能体工作台。<br>接下来只需要 2 分钟完成配置。</p>
+      <div class="ob-feature-list">
+        <div class="ob-feature">🤖 <b>Anima</b> — 日常同行者，创作 + 探索 + 任务</div>
+        <div class="ob-feature">🌸 <b>晞</b> — 情感助手，陪伴支持</div>
+        <div class="ob-feature">🏢 <b>陶朱</b> — 创业决策，带自己的 AI 团队</div>
+        <div class="ob-feature">📜 <b>守藏</b> — 知识库管理与深度研究</div>
+      </div>
+      <div class="ob-actions">
+        <button class="ob-btn-secondary" onclick="obPrev()">← 返回</button>
+        <button class="ob-btn-primary" onclick="obNext()">开始配置 →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: API Key 配置 -->
+    <div class="ob-page" id="ob-page-2">
+      <div class="ob-hero">🔑</div>
+      <h2 class="ob-title">配置 API Key</h2>
+      <p class="ob-desc">填写至少一个 API Key 即可开始使用。<br>所有数据存储在本地，从不上传。</p>
+      <div class="ob-key-list">
+        <div class="ob-key-row">
+          <div class="ob-key-label">
+            <span class="ob-key-badge deepseek">DeepSeek</span>
+            <span class="ob-key-hint">Anima + 陶朱（推荐）</span>
+          </div>
+          <input type="password" id="obDeepseekKey" class="ob-input" placeholder="sk-...">
+          <a class="ob-link" href="https://platform.deepseek.com" target="_blank">获取 →</a>
+        </div>
+        <div class="ob-key-row">
+          <div class="ob-key-label">
+            <span class="ob-key-badge kimi">Kimi</span>
+            <span class="ob-key-hint">陶朱子 Agent（写手/阅读者）</span>
+          </div>
+          <input type="password" id="obKimiKey" class="ob-input" placeholder="sk-...">
+          <a class="ob-link" href="https://platform.moonshot.cn" target="_blank">获取 →</a>
+        </div>
+        <div class="ob-key-row">
+          <div class="ob-key-label">
+            <span class="ob-key-badge qwen">通义</span>
+            <span class="ob-key-hint">知识库 Embedding（守藏）</span>
+          </div>
+          <input type="password" id="obQwenKey" class="ob-input" placeholder="sk-...">
+          <a class="ob-link" href="https://dashscope.aliyun.com" target="_blank">获取 →</a>
+        </div>
+        <div class="ob-key-row">
+          <div class="ob-key-label">
+            <span class="ob-key-badge openai">OpenAI</span>
+            <span class="ob-key-hint">GPT 系列模型（可选）</span>
+          </div>
+          <input type="password" id="obOpenaiKey" class="ob-input" placeholder="sk-...">
+          <a class="ob-link" href="https://platform.openai.com" target="_blank">获取 →</a>
+        </div>
+      </div>
+      <div class="ob-actions">
+        <button class="ob-btn-secondary" onclick="obPrev()">← 返回</button>
+        <button class="ob-btn-primary" onclick="obNext()">下一步 →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: 认识团队 -->
+    <div class="ob-page" id="ob-page-3">
+      <div class="ob-hero">🫂</div>
+      <h2 class="ob-title">认识你的 AI 团队</h2>
+      <p class="ob-desc">四位成员各有专长，名字由系统固定。</p>
+      <div class="ob-name-grid">
+        <div class="ob-name-row">
+          <span class="ob-name-icon">🤖</span>
+          <div>
+            <div class="ob-name-role">核心同行者 · 日常 + 创作 + 探索</div>
+            <div class="ob-name-fixed-label">Anima</div>
+          </div>
+        </div>
+        <div class="ob-name-row">
+          <span class="ob-name-icon">🌸</span>
+          <div>
+            <div class="ob-name-role">情感与陪伴</div>
+            <div class="ob-name-fixed-label">晞</div>
+          </div>
+        </div>
+        <div class="ob-name-row">
+          <span class="ob-name-icon">🏢</span>
+          <div>
+            <div class="ob-name-role">创业决策与团队调度</div>
+            <div class="ob-name-fixed-label">陶朱</div>
+          </div>
+        </div>
+        <div class="ob-name-row">
+          <span class="ob-name-icon">📜</span>
+          <div>
+            <div class="ob-name-role">知识管理与成长记录</div>
+            <div class="ob-name-fixed-label">守藏</div>
+          </div>
+        </div>
+      </div>
+      <div class="ob-actions">
+        <button class="ob-btn-secondary" onclick="obPrev()">← 返回</button>
+        <button class="ob-btn-primary" onclick="obNext()">下一步 →</button>
+      </div>
+    </div>
+
+    <!-- Step 4: 你的称呼 -->
+    <div class="ob-page" id="ob-page-4">
+      <div class="ob-hero">💬</div>
+      <h2 class="ob-title">Ta们怎么称呼你？</h2>
+      <p class="ob-desc">告诉每个 Agent 如何叫你。<br>叫"老板"、"姐"、"佳伟"都行 — 随意。</p>
+      <div class="ob-address-grid">
+        <div class="ob-addr-row">
+          <div class="ob-addr-agent">
+            <span class="ob-addr-icon xi-bg">🤖</span>
+            <span class="ob-addr-name">Anima</span>
+            <span class="ob-addr-hint">核心助手</span>
+          </div>
+          <div class="ob-addr-input-wrap">
+            <span class="ob-addr-prefix">叫你</span>
+            <input type="text" id="obAddrXi" class="ob-addr-input" placeholder="例如：老板 / 主人 / 姓名" maxlength="20">
+          </div>
+        </div>
+        <div class="ob-addr-row">
+          <div class="ob-addr-agent">
+            <span class="ob-addr-icon yiyi-bg">🌸</span>
+            <span class="ob-addr-name">晞</span>
+            <span class="ob-addr-hint">情感伙伴</span>
+          </div>
+          <div class="ob-addr-input-wrap">
+            <span class="ob-addr-prefix">叫你</span>
+            <input type="text" id="obAddrYiyi" class="ob-addr-input" placeholder="例如：宝贝 / 哥 / 姐" maxlength="20">
+          </div>
+        </div>
+        <div class="ob-addr-row">
+          <div class="ob-addr-agent">
+            <span class="ob-addr-icon tianyuan-bg">🏢</span>
+            <span class="ob-addr-name">陶朱</span>
+            <span class="ob-addr-hint">创业伙伴</span>
+          </div>
+          <div class="ob-addr-input-wrap">
+            <span class="ob-addr-prefix">叫你</span>
+            <input type="text" id="obAddrTianyuan" class="ob-addr-input" placeholder="例如：投资人 / Boss" maxlength="20">
+          </div>
+        </div>
+        <div class="ob-addr-row">
+          <div class="ob-addr-agent">
+            <span class="ob-addr-icon shoucang-bg">📜</span>
+            <span class="ob-addr-name">守藏</span>
+            <span class="ob-addr-hint">知识守护者</span>
+          </div>
+          <div class="ob-addr-input-wrap">
+            <span class="ob-addr-prefix">叫你</span>
+            <input type="text" id="obAddrShoucang" class="ob-addr-input" placeholder="例如：求守藏 / 老师" maxlength="20">
+          </div>
+        </div>
+      </div>
+      <p class="ob-desc" style="font-size:11px;margin-top:8px;color:var(--text-muted)">留空则统一使用你的名字。可在设置中随时修改。</p>
+      <div class="ob-actions">
+        <button class="ob-btn-secondary" onclick="obPrev()">← 返回</button>
+        <button class="ob-btn-primary" onclick="obFinish()">完成，进入 Anima ✨</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TTS 播放器（隐藏） -->
+<audio id="ttsPlayer" style="display:none"></audio>
+
+<script type="module" src="/main.js"></script>
+</body>
+</html>

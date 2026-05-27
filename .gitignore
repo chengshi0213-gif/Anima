@@ -1,0 +1,76 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Rust / Tauri build
+src-tauri/target/
+src-tauri/gen/
+src-tauri/binaries/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 敏感配置（不入库）
+backend/config/*.yaml
+backend/config/*.json
+!backend/config/*.example.yaml
+!backend/config/*.example.json
+
+# 运行时数据
+backend/data/
+*.db
+*.db-journal
+
+# API keys / secrets
+.env
+.env.local
+*.key
+*.pem
+
+# PyInstaller build artifacts
+backend/dist/
+backend/build/
+*.spec
+
+# Standalone executables
+*.exe
+*.lnk
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Tauri NSIS/MSI installers
+src-tauri/target/release/bundle/
+
+# Temp fragment files (agent analysis artifacts)
+_*_part_*.md
+_ab*.txt
+_readme_lines.txt
+build_log.txt
+产品体验与品牌评估报告.md

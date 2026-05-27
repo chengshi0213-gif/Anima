@@ -1,0 +1,124 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: windows-x64
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            label: macos-arm64
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            label: macos-x64
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            label: linux-x64
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Node ──
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ── Rust ──
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # ── Linux 系统依赖 ──
+      - name: Install Linux deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      # ── Python 后端打包为 sidecar ──
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        run: |
+          cd backend
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build Python sidecar (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          cd backend
+          pyinstaller --onefile --name anima-server-x86_64-pc-windows-msvc websocket_server.py
+          mkdir -p ../src-tauri/binaries
+          cp dist/anima-server-x86_64-pc-windows-msvc.exe ../src-tauri/binaries/
+
+      - name: Build Python sidecar (macOS arm64)
+        if: matrix.label == 'macos-arm64'
+        run: |
+          cd backend
+          pyinstaller --onefile --name anima-server-aarch64-apple-darwin websocket_server.py
+          mkdir -p ../src-tauri/binaries
+          cp dist/anima-server-aarch64-apple-darwin ../src-tauri/binaries/
+
+      - name: Build Python sidecar (macOS x64)
+        if: matrix.label == 'macos-x64'
+        run: |
+          cd backend
+          pyinstaller --onefile --name anima-server-x86_64-apple-darwin websocket_server.py
+          mkdir -p ../src-tauri/binaries
+          cp dist/anima-server-x86_64-apple-darwin ../src-tauri/binaries/
+
+      - name: Build Python sidecar (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          cd backend
+          pyinstaller --onefile --name anima-server-x86_64-unknown-linux-gnu websocket_server.py
+          mkdir -p ../src-tauri/binaries
+          cp dist/anima-server-x86_64-unknown-linux-gnu ../src-tauri/binaries/
+
+      # ── 前端依赖 ──
+      - name: Install frontend deps
+        run: npm install
+
+      # ── Tauri 构建 ──
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Anima ${{ github.ref_name }}'
+          releaseBody: |
+            ## Anima ${{ github.ref_name }}
+
+            本地 AI 工作台 · 全功能桌面版
+
+            ### 下载
+            - **Windows**: `Anima_*_x64-setup.exe`
+            - **macOS (Apple Silicon)**: `Anima_*_aarch64.dmg`
+            - **macOS (Intel)**: `Anima_*_x64.dmg`
+            - **Linux**: `anima_*_amd64.AppImage`
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }}
