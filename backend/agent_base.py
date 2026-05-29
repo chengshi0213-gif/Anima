@@ -112,8 +112,7 @@ class AgentBase:
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.work_dir.mkdir(parents=True, exist_ok=True)
 
-        # 压缩 & 去重
-        self._seen_hashes: set[str] = set()
+        # 压缩 & 去重（去重集合改为 per-run 局部，避免并发会话相互污染）
         self._compress_semaphore = asyncio.Semaphore(1)
         self._compression_pending = False
 
@@ -243,6 +242,7 @@ class AgentBase:
             {"role": "user",   "content": f"## 任务\n\n{self._normalize(task)}"},
         ]
         files_changed: list[str] = []
+        seen_hashes: set[str] = set()   # 本次运行专属的工具结果去重集合
         # 记录实际使用的模型（用于日志）
         _used_key, _used_url, _used_model = self._resolve_model(model)
         self._log(session_id, "session_start", {"task": task[:200], "model": _used_model})
@@ -327,7 +327,7 @@ class AgentBase:
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tc.get("id", f"call_{turn}"),
-                    "content": self._trim_result(name, result),
+                    "content": self._trim_result(name, result, seen_hashes),
                 })
 
             if sum(len(json.dumps(m, ensure_ascii=False)) for m in messages) > self.context_cap_chars * 3:
@@ -353,12 +353,12 @@ class AgentBase:
     def _normalize(text: str) -> str:
         return re.sub(r"\n{3,}", "\n\n", text.strip().replace("\r\n", "\n"))
 
-    def _trim_result(self, tool_name: str, result: dict) -> str:
+    def _trim_result(self, tool_name: str, result: dict, seen: set[str]) -> str:
         text = json.dumps(result, ensure_ascii=False)
         h = hashlib.sha256(text.encode()).hexdigest()
-        if h in self._seen_hashes:
+        if h in seen:
             return json.dumps({"_dedup": True, "sha256": h[:12]}, ensure_ascii=False)
-        self._seen_hashes.add(h)
+        seen.add(h)
         # URL 缩短
         text = re.sub(r"https?://[^\s<>\"{}|\\^`\[\]]{20,}",
                       lambda m: f"{m.group(0)[:40]}…", text)
