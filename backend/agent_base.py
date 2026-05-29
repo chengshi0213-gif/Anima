@@ -41,6 +41,8 @@ from config import (
 # OpenRouter 作为 Claude/Gemini 的兜底（兼容 OpenAI 协议）
 # 中转站地址：可在 config.yaml 中通过 api.relay_url 自定义
 def _get_relay():
+    """中转站地址。仅从配置读取，未配置则返回空字符串——
+    不再兜底到任何硬编码服务器（避免裸 IP 单点 + 流量外泄面）。"""
     try:
         from config import _get as _cfg_get
         url = _cfg_get("api.relay_url", "")
@@ -48,7 +50,7 @@ def _get_relay():
             return url.rstrip("/")
     except Exception:
         pass
-    return "http://1.95.142.151:3000/v1"
+    return ""
 
 _RELAY = _get_relay()
 _DS    = "https://api.deepseek.com"
@@ -131,6 +133,10 @@ class AgentBase:
         self.max_turns         = 60
         self.compress_every    = 5
         self.context_cap_chars = 8000
+        # 累计输入预算（字符）：每轮 API 调用都会重发整个 messages，
+        # 累计成本 ≈ Σ(每轮 messages 大小)。超出则优雅收尾，
+        # 防止大文件循环 / 失控 ReAct 在 180s 超时前烧光额度。约 ~200k tokens。
+        self.max_total_chars   = 800_000
 
     # ── 子类必须实现 ──
     def get_identity_files(self) -> dict[str, Path]:
@@ -144,6 +150,15 @@ class AgentBase:
             key_fn, base_url, model_id = MODEL_REGISTRY[display_name]
             key = key_fn()
             if key:  # API Key 已配置才切换
+                if not base_url:
+                    # 中转模型（GPT/Claude）但未配置 api.relay_url
+                    raise PermissionRequest(
+                        api_name="中转服务地址",
+                        reason=f"使用 {display_name} 需要先在设置中配置中转站地址（api.relay_url）。"
+                               f"DeepSeek / Qwen / Kimi 为直连，无需中转。",
+                        signup_url="",
+                        related=["relay_url"],
+                    )
                 return key, base_url, model_id
         return self.api_key, self.base_url, self.model
 
@@ -243,6 +258,7 @@ class AgentBase:
         ]
         files_changed: list[str] = []
         seen_hashes: set[str] = set()   # 本次运行专属的工具结果去重集合
+        total_chars = 0                 # 累计已发送给 API 的输入字符（预算护栏）
         # 记录实际使用的模型（用于日志）
         _used_key, _used_url, _used_model = self._resolve_model(model)
         self._log(session_id, "session_start", {"task": task[:200], "model": _used_model})
@@ -262,6 +278,16 @@ class AgentBase:
                 messages = self._compress_history(messages)
                 if len(messages) < old:
                     self._log(session_id, "compress", {"turn": turn, "before": old, "after": len(messages)})
+
+            # ── token 预算护栏：累计输入超限则优雅收尾 ──
+            total_chars += sum(len(json.dumps(m, ensure_ascii=False)) for m in messages)
+            if total_chars > self.max_total_chars:
+                self._log(session_id, "budget_exceeded",
+                          {"turn": turn, "total_chars": total_chars})
+                summary = (f"已达输入预算上限（约 {self.max_total_chars // 1000}k 字符），"
+                           f"在第 {turn} 轮停止以避免额度失控。")
+                return {"status": "budget_exceeded", "summary": summary,
+                        "files_changed": files_changed, "turn_count": turn}
 
             resp = await self._call_api(messages, tools=self.tool_defs, override_model=model)
             if "error" in resp:

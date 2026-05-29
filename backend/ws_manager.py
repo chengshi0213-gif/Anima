@@ -78,32 +78,58 @@ class WorkerServer:
         self.current_session_id = session_id
         await ws.send_json({"type": "status", "status": "running",
                             "session_id": session_id, "model": selected_model})
+
+        # ── 以后台 task 运行，不阻塞消息循环 ──
+        #   关键：handle() 的 `async for msg ... await handler` 是顺序执行的，
+        #   若在此处 await worker.run() 会卡住整个循环，导致后续的 cancel 消息
+        #   永远读不到。包成 task 并记录 current_task，cancel 才能真正生效。
+        async def _run_and_respond():
+            try:
+                result = await self.worker.run(
+                    message, session_id=session_id, model=selected_model, ws=ws)
+            except asyncio.CancelledError:
+                await self._safe_send(ws, {"type": "response", "data": {
+                    "session_id": session_id, "status": "cancelled",
+                    "summary": "已取消", "turn_count": 0,
+                }})
+                raise
+            except PermissionRequest as pr:
+                await self._safe_send(ws, {
+                    "type": "permission_request",
+                    "data": {
+                        "api_name":     pr.api_name,
+                        "reason":       pr.reason,
+                        "signup_url":   pr.signup_url,
+                        "alternatives": pr.alternatives,
+                        "related":      pr.related,
+                    }
+                })
+                return
+            except Exception as e:
+                await self._safe_send(ws, {"type": "error", "message": str(e)})
+                return
+            self.search.index_session(session_id, self.worker.name, [
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": result.get("summary", "")},
+            ])
+            await self._safe_send(ws, {"type": "response", "data": {
+                "session_id":    session_id,
+                "status":        result["status"],
+                "summary":       result.get("summary", ""),
+                "model":         selected_model or self.worker.model,
+                "files_changed": result.get("files_changed", []),
+                "turn_count":    result.get("turn_count", 0),
+            }})
+
+        self.current_task = asyncio.create_task(_run_and_respond())
+
+    @staticmethod
+    async def _safe_send(ws, payload):
+        """安全发送 WS 消息，忽略连接已关闭等错误。"""
         try:
-            result = await self.worker.run(message, session_id=session_id, model=selected_model, ws=ws)
-        except PermissionRequest as pr:
-            await ws.send_json({
-                "type": "permission_request",
-                "data": {
-                    "api_name":    pr.api_name,
-                    "reason":      pr.reason,
-                    "signup_url":  pr.signup_url,
-                    "alternatives": pr.alternatives,
-                    "related":     pr.related,
-                }
-            })
-            return
-        self.search.index_session(session_id, self.worker.name, [
-            {"role": "user", "content": message},
-            {"role": "assistant", "content": result.get("summary", "")},
-        ])
-        await ws.send_json({"type": "response", "data": {
-            "session_id":    session_id,
-            "status":        result["status"],
-            "summary":       result.get("summary", ""),
-            "model":         selected_model or self.worker.model,
-            "files_changed": result.get("files_changed", []),
-            "turn_count":    result.get("turn_count", 0),
-        }})
+            await ws.send_json(payload)
+        except Exception:
+            pass
 
     async def _handle_status(self, ws, data=None):
         await ws.send_json({"type": "response", "data": {
