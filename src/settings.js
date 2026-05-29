@@ -3,7 +3,7 @@
  * Memory backend, knowledge base, agent config, settings, onboarding,
  * notifications, vault, API catalog, membership, permissions, project context, memory learning
  */
-import { CONFIG, AGENTS, DEFAULT_AGENT_NAMES, DEFAULT_AGENT_META, agentNames, agentVoices, setAgentNames, setAgentVoices, agentName, runtime, escHtml, formatTime, toast, markdownToHtml, scrollBottom } from './state.js';
+import { CONFIG, AGENTS, agentNames, agentVoices, setAgentNames, setAgentVoices, agentName, runtime, escHtml, formatTime, toast, scrollBottom } from './state.js';
 //  记忆存储后端设置
 // ══════════════════════════════════════════════════
 let _memSelectedBackend = 'sqlite';  // 当前 UI 中选中的后端

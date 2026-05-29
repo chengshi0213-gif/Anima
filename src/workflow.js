@@ -2,7 +2,7 @@
  * Anima — workflow.js
  * Workflow builder, templates, scheduler, file watcher, group chat, TTS, AI assist
  */
-import { CONFIG, AGENTS, wsConns, wsStatus, escHtml, formatTime, toast, agentAvatarHtml, agentName, scrollBottom } from './state.js';
+import { CONFIG, AGENTS, wsConns, wsStatus, escHtml, formatTime, toast, agentAvatarHtml, scrollBottom } from './state.js';
 // ══════════════════════════════════════════════════
 //  工作流构建器
 // ══════════════════════════════════════════════════

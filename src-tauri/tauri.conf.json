@@ -10,6 +10,8 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "label": "main",
+        "url": "index.html",
         "title": "Anima",
         "width": 1280,
         "height": 800,
