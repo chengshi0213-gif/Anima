@@ -89,6 +89,19 @@ def _cosine_sim(query_vec: np.ndarray, matrix: np.ndarray) -> np.ndarray:
     return normed @ q
 
 
+def _agent_visible(entry_agent, query_agent) -> bool:
+    """按 agent 分库的可见性规则：
+    - 共享语料（entry_agent 为 None）对所有人可见；
+    - 私有语料（entry_agent 有值）仅其拥有者可见；
+    - 无 agent 的检索（query_agent 为 None）只看共享语料，防止跨 agent 泄露。
+    """
+    if entry_agent is None:
+        return True
+    if query_agent is None:
+        return False
+    return entry_agent == query_agent
+
+
 # ══════════════════════════════════════════════════════
 #  KnowledgeBase 主类
 # ══════════════════════════════════════════════════════
@@ -118,10 +131,12 @@ class KnowledgeBase:
         np.savez_compressed(str(VECTORS_FILE), vectors=self._matrix)
 
     # ── 入库 ────────────────────────────────────────
-    def ingest(self, text: str, source_name: str, doc_id: str | None = None) -> dict:
+    def ingest(self, text: str, source_name: str, doc_id: str | None = None,
+               agent_id: str | None = None) -> dict:
         """
         将文本分块、嵌入后存入索引。
-        返回 {"doc_id": ..., "chunks": N, "source": ...}
+        agent_id: 归属的 agent（None=共享语料，对所有 agent 可见）。
+        返回 {"doc_id": ..., "chunks": N, "source": ..., "agent_id": ...}
         """
         doc_id = doc_id or str(uuid.uuid4())[:8]
         chunks = _chunk_text(text)
@@ -132,10 +147,11 @@ class KnowledgeBase:
 
         for i, (chunk, vec) in enumerate(zip(chunks, vecs)):
             self._index.append({
-                "doc_id":  doc_id,
-                "source":  source_name,
-                "chunk_i": i,
-                "text":    chunk,
+                "doc_id":   doc_id,
+                "source":   source_name,
+                "chunk_i":  i,
+                "text":     chunk,
+                "agent_id": agent_id,
             })
         # 追加到矩阵
         if self._matrix is None or self._matrix.shape[0] == 0:
@@ -144,13 +160,17 @@ class KnowledgeBase:
             self._matrix = np.vstack([self._matrix, vecs])
 
         self._save()
-        return {"doc_id": doc_id, "source": source_name, "chunks": len(chunks)}
+        return {"doc_id": doc_id, "source": source_name,
+                "chunks": len(chunks), "agent_id": agent_id}
 
     # ── 检索 ────────────────────────────────────────
-    def search(self, query: str, top_k: int = 5, doc_id: str | None = None) -> list[dict]:
+    def search(self, query: str, top_k: int = 5, doc_id: str | None = None,
+               agent_id: str | None = None) -> list[dict]:
         """
         语义检索，返回 top_k 个相关块。
-        doc_id: 限定只在某个文档内检索（可选）。
+        doc_id:   限定只在某个文档内检索（可选）。
+        agent_id: 按 agent 分库过滤——只命中共享语料 + 该 agent 私有语料。
+                  None 时只检索共享语料（防跨 agent 泄露）。
         """
         if not self._index or self._matrix is None or self._matrix.shape[0] == 0:
             return []
@@ -158,38 +178,59 @@ class KnowledgeBase:
         q_vec = _embed([query])[0]     # (DIM,)
         scores = _cosine_sim(q_vec, self._matrix)  # (N,)
 
-        # 过滤文档
-        indices = list(range(len(self._index)))
-        if doc_id:
-            indices = [i for i in indices if self._index[i]["doc_id"] == doc_id]
+        # 过滤文档 + agent 分库可见性
+        indices = []
+        for i, entry in enumerate(self._index):
+            if doc_id and entry["doc_id"] != doc_id:
+                continue
+            if not _agent_visible(entry.get("agent_id"), agent_id):
+                continue
+            indices.append(i)
 
         # 排序
         ranked = sorted(indices, key=lambda i: scores[i], reverse=True)[:top_k]
         return [
             {
-                "score":   float(scores[i]),
-                "text":    self._index[i]["text"],
-                "source":  self._index[i]["source"],
-                "doc_id":  self._index[i]["doc_id"],
-                "chunk_i": self._index[i]["chunk_i"],
+                "score":    float(scores[i]),
+                "text":     self._index[i]["text"],
+                "source":   self._index[i]["source"],
+                "doc_id":   self._index[i]["doc_id"],
+                "chunk_i":  self._index[i]["chunk_i"],
+                "agent_id": self._index[i].get("agent_id"),
             }
             for i in ranked
         ]
 
     # ── 文档列表 ─────────────────────────────────────
-    def list_docs(self) -> list[dict]:
-        """返回每个 doc 的摘要（不含 chunk 文本）。"""
+    def list_docs(self, agent_id: str | None = None,
+                  include_shared: bool = True) -> list[dict]:
+        """返回每个 doc 的摘要（不含 chunk 文本）。
+
+        agent_id:
+          - None       → 返回全部文档（管理视图）；
+          - 具体 agent → 返回该 agent 私有 + 共享（include_shared=True 时）文档。
+        """
         seen, docs = set(), []
         for item in self._index:
             did = item["doc_id"]
-            if did not in seen:
-                seen.add(did)
-                count = sum(1 for x in self._index if x["doc_id"] == did)
-                docs.append({
-                    "doc_id": did,
-                    "source": item["source"],
-                    "chunks": count,
-                })
+            if did in seen:
+                continue
+            ea = item.get("agent_id")
+            if agent_id is not None:
+                if ea == agent_id:
+                    pass
+                elif ea is None and include_shared:
+                    pass
+                else:
+                    continue
+            seen.add(did)
+            count = sum(1 for x in self._index if x["doc_id"] == did)
+            docs.append({
+                "doc_id":   did,
+                "source":   item["source"],
+                "chunks":   count,
+                "agent_id": ea,
+            })
         return docs
 
     # ── 删除 ────────────────────────────────────────
@@ -205,9 +246,11 @@ class KnowledgeBase:
         return {"deleted": doc_id, "remaining": len(self._index)}
 
     # ── 上下文构建（供 Agent 调用）─────────────────────
-    def build_context(self, query: str, top_k: int = 4) -> str:
-        """返回格式化的检索上下文字符串，注入 system prompt。"""
-        hits = self.search(query, top_k=top_k)
+    def build_context(self, query: str, top_k: int = 4,
+                      agent_id: str | None = None) -> str:
+        """返回格式化的检索上下文字符串，注入 system prompt。
+        agent_id: 按 agent 分库检索（共享语料 + 该 agent 私有语料）。"""
+        hits = self.search(query, top_k=top_k, agent_id=agent_id)
         if not hits:
             return ""
         lines = ["【知识库检索结果】"]
@@ -216,6 +259,35 @@ class KnowledgeBase:
             lines.append(h["text"])
             lines.append("")
         return "\n".join(lines)
+
+    # ── 技能 reference 灌库（按 agent 分库）─────────────
+    def ingest_skill_references(self, skill_id: str, agent_id: str,
+                                reindex: bool = False) -> dict:
+        """把某个 bundle 技能的 references/*.md 灌入指定 agent 的私有语料。
+
+        每个 reference 文件作为一篇文档，doc_id=f"skillref:{skill_id}:{ref}"。
+        reindex=True 时先删除该技能旧的 reference 文档再重灌。
+        """
+        import skill_manager as _sm
+        refs = _sm.list_skill_references(skill_id)
+        if not refs:
+            return {"error": f"技能 {skill_id} 无 reference 可灌库"}
+
+        results = []
+        for ref in refs:
+            content = _sm.load_skill_reference(skill_id, ref, agent_id=agent_id)
+            if not content:
+                continue
+            doc_id = f"skillref:{skill_id}:{ref}"
+            if reindex:
+                self.delete(doc_id)  # 忽略不存在
+            elif any(x["doc_id"] == doc_id for x in self._index):
+                continue  # 已灌过，跳过
+            r = self.ingest(content, source_name=f"{skill_id}/{ref}",
+                            doc_id=doc_id, agent_id=agent_id)
+            results.append(r)
+        return {"ok": True, "skill_id": skill_id, "agent_id": agent_id,
+                "ingested": len(results), "docs": results}
 
 
 # 单例（由 websocket_server 持有）

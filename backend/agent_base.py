@@ -137,6 +137,17 @@ class AgentBase:
         # 累计成本 ≈ Σ(每轮 messages 大小)。超出则优雅收尾，
         # 防止大文件循环 / 失控 ReAct 在 180s 超时前烧光额度。约 ~200k tokens。
         self.max_total_chars   = 800_000
+        # 工具结果回传给模型时的截断上限（per-agent 可覆盖）。
+        # 默认值对聊天型人格友好（控制上下文膨胀）；编程/阅读型子类需调大，
+        # 否则看不全代码 = 半瞎改 = 花架子。
+        #   tool_result_cap : 普通工具结果的最终截断长度
+        #   file_read_cap   : file_read 内容超此值则只回指纹（设大才能真读代码）
+        self.tool_result_cap = 500
+        self.file_read_cap   = 2048
+        # 编程向历史压缩（M9 Part 3）：默认 False = 旧行为（中间段落直接丢成占位符）。
+        # 编程型子类（executor）置 True：压缩时从被丢弃的中间消息里提炼一份
+        # "已改文件 + 关键命令/退出码" 摘要塞进占位符，长会话里不会忘记自己改过什么。
+        self.coding_compress = False
 
     # ── 子类必须实现 ──
     def get_identity_files(self) -> dict[str, Path]:
@@ -198,7 +209,12 @@ class AgentBase:
                 chunk = json.loads(data_str)
             except json.JSONDecodeError:
                 continue
-            delta = chunk.get("choices", [{}])[0].get("delta", {})
+            # 某些供应商（DeepSeek/Qwen 等）会发 choices 为空的统计 chunk（仅含 usage），
+            # 此时 [0] 会越界——空 choices 直接跳过。
+            choices = chunk.get("choices") or []
+            if not choices:
+                continue
+            delta = choices[0].get("delta", {})
             if delta.get("reasoning_content"):
                 reasoning += delta["reasoning_content"]
             if delta.get("content"):
@@ -388,16 +404,17 @@ class AgentBase:
         # URL 缩短
         text = re.sub(r"https?://[^\s<>\"{}|\\^`\[\]]{20,}",
                       lambda m: f"{m.group(0)[:40]}…", text)
-        if tool_name == "file_read" and len(text) > 2048:
+        if tool_name == "file_read" and len(text) > self.file_read_cap:
             try:
                 d = json.loads(text)
                 c = d.get("content", "")
-                if len(c) > 2048:
+                if len(c) > self.file_read_cap:
                     return json.dumps({"fingerprint": f"[{len(c)}字符 | SHA:{h[:8]}]",
                                        "note": "文件过大已压缩"}, ensure_ascii=False)
             except Exception:
                 pass
-        return text[:500] + f"…[截断,原长{len(text)}字符]" if len(text) > 500 else text
+        cap = self.tool_result_cap
+        return text[:cap] + f"…[截断,原长{len(text)}字符]" if len(text) > cap else text
 
     def _compress_history(self, messages: list[dict]) -> list[dict]:
         if len(messages) <= 10:
@@ -406,11 +423,69 @@ class AgentBase:
         rest = [m for m in messages if m["role"] != "system"]
         first_user = next((m for m in rest if m["role"] == "user"), None)
         tail = rest[-6:] if len(rest) > 6 else rest
+        # 防止 tail 从工具调用序列中间切断：若开头是孤儿 tool 消息（其对应的
+        # assistant.tool_calls 已被压缩掉），供应商会报 400
+        # "tool must be a response to a preceding message with tool_calls"。
+        # 剥掉开头所有悬空的 tool 消息。
+        while tail and tail[0].get("role") == "tool":
+            tail = tail[1:]
         result = sys_msgs[:]
         if first_user and first_user not in tail:
             result.append(first_user)
-            result.append({"role": "assistant", "content": "[中间对话已压缩]"})
+            placeholder = "[中间对话已压缩]"
+            if self.coding_compress:
+                dropped = [m for m in rest if m is not first_user and m not in tail]
+                digest = self._coding_digest(dropped)
+                if digest:
+                    placeholder = placeholder + "\n\n" + digest
+            result.append({"role": "assistant", "content": placeholder})
         return result + tail
+
+    def _coding_digest(self, dropped: list[dict]) -> str:
+        """从被压缩掉的中间消息里提炼"已改文件 + 关键命令/退出码"摘要，
+        让编程 agent 在长会话里不会忘记前面已经动过什么、测试通没通过。"""
+        files: list[str] = []           # 保序去重
+        seen_files: set[str] = set()
+        commands: list[str] = []        # (command, exit_code?) 文本，保留最近若干条
+        pending_cmd: str | None = None  # 上一条 assistant 发起的 shell_run，等其结果配退出码
+
+        for m in dropped:
+            role = m.get("role")
+            if role == "assistant":
+                for tc in (m.get("tool_calls") or []):
+                    fn = tc.get("function", {})
+                    name = fn.get("name", "")
+                    try:
+                        args = json.loads(fn.get("arguments") or "{}")
+                    except Exception:
+                        args = {}
+                    if name in ("file_write", "file_edit") and args.get("path"):
+                        p = args["path"]
+                        if p not in seen_files:
+                            seen_files.add(p)
+                            files.append(p)
+                    elif name == "shell_run" and args.get("command"):
+                        pending_cmd = str(args["command"])[:80]
+            elif role == "tool":
+                if pending_cmd is not None:
+                    code = ""
+                    try:
+                        d = json.loads(m.get("content") or "{}")
+                        if isinstance(d, dict) and "exit_code" in d:
+                            code = f" → exit={d['exit_code']}"
+                    except Exception:
+                        pass
+                    commands.append(pending_cmd + code)
+                    pending_cmd = None
+
+        parts: list[str] = []
+        if files:
+            shown = files[-20:]
+            parts.append("## 期间已改文件\n" + "\n".join(f"- {p}" for p in shown))
+        if commands:
+            shown = commands[-8:]
+            parts.append("## 期间关键命令\n" + "\n".join(f"- {c}" for c in shown))
+        return "\n\n".join(parts)
 
     async def _async_compress(self, session_id, messages, summary, files_changed, turns):
         async with self._compress_semaphore:

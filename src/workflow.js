@@ -163,6 +163,25 @@ window.wfAddStep = function(type = 'sequential') {
       stop_keyword: '完成',
       step: { agent: 'xi', prompt: '', pass_context: true },
     });
+  } else if (type === 'human') {
+    wfStepList.push({
+      type: 'human',
+      message: '请审核上一步的产出，通过则继续，否则终止。',
+    });
+  } else if (type === 'router') {
+    wfStepList.push({
+      type: 'router',
+      question: '根据上一步内容，应该走哪条路线？',
+      routes: [
+        { label: '路线A', step: { agent: 'xi', prompt: '', pass_context: true } },
+        { label: '路线B', step: { agent: 'xi', prompt: '', pass_context: true } },
+      ],
+    });
+  } else if (type === 'taozu') {
+    wfStepList.push({
+      type: 'taozu',
+      goal: '',
+    });
   } else {
     wfStepList.push({ type: 'sequential', agent:'xi', prompt:'', pass_context: wfStepList.length > 0 });
   }
@@ -198,60 +217,216 @@ window.wfDrop      = (e, idx) => {
   wfRender();
 };
 
-// 运行
+// ── 流式运行（WebSocket /ws/workflow）──────────────────────────────────────
+let _wfWs = null;          // 当前运行的 WS
+let _wfRows = [];          // [{label,type,agent,status,output,elapsed,note}]
+let _wfRowIdx = {};        // label -> _wfRows 下标
+let _wfGate = null;        // 待人审 {label,message,preview}
+
+const _WF_TYPE_BADGE = {
+  parallel:  ['并行', '#fef3c7', '#92400e'],
+  condition: ['条件', '#ede9fe', '#5b21b6'],
+  router:    ['AI路由', '#dcfce7', '#166534'],
+  loop:      ['循环', '#e0f2fe', '#0369a1'],
+  human:     ['人审', '#fee2e2', '#991b1b'],
+  taozu:     ['陶朱', '#f3e8ff', '#6b21a8'],
+};
+
+function _wfBadge(r) {
+  const b = _WF_TYPE_BADGE[r.type];
+  if (!b) return '';
+  let extra = '';
+  if (r.type === 'condition') extra = r.note?.matched != null ? (r.note.matched ? '✓' : '✗') : '';
+  if (r.type === 'loop')      extra = r.note?.iterations ? `×${r.note.iterations}` : '';
+  if (r.type === 'router')    extra = r.note?.chosen ? `→${r.note.chosen}` : '';
+  if (r.type === 'taozu')     extra = r.note?.sub_count ? `→${r.note.sub_count}步` : '';
+  if (r.type === 'human')     extra = r.note?.action === 'reject' ? '终止' : (r.note?.action ? '通过' : '');
+  return `<span style="font-size:10px;background:${b[1]};color:${b[2]};padding:2px 6px;border-radius:100px;margin-left:4px">${b[0]}${extra}</span>`;
+}
+
+function _wfStatusIcon(st) {
+  if (st === 'running') return '<span class="wf-spin">◌</span>';
+  if (st === 'error')   return '✕';
+  return '✓';
+}
+
+function _wfRenderRows() {
+  const results = document.getElementById('wfResults');
+  if (!results) return;
+  const rowsHtml = _wfRows.map((r, i) => {
+    const isErr = r.status === 'error';
+    const open  = (i === _wfRows.length - 1) ? ' open' : '';
+    const elapsed = r.elapsed != null ? `⏱ ${r.elapsed}s` : '';
+    return `<div class="wf-result-step">
+      <div class="wf-result-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
+        <div class="wf-step-num" style="background:${isErr?'var(--error)':(r.status==='running'?'var(--muted)':'var(--accent)')}">${escHtml(String(r.label))}</div>
+        <span>${escHtml(AGENTS[r.agent]?.name || r.agent || r.type || '步骤')}</span>
+        ${_wfBadge(r)}
+        <span style="margin-left:auto;color:var(--muted);font-size:11px">${_wfStatusIcon(r.status)} ${elapsed}</span>
+        <span style="color:var(--muted);font-size:12px">▼</span>
+      </div>
+      <div class="wf-result-body${open}">${escHtml(r.output || (r.status==='running'?'执行中…':''))}${r.retryNote?`<div style="color:#c80;font-size:11px;margin-top:4px">${escHtml(r.retryNote)}</div>`:''}</div>
+    </div>`;
+  }).join('');
+
+  let gateHtml = '';
+  if (_wfGate) {
+    gateHtml = `<div class="wf-gate-panel">
+      <div class="wf-gate-title">🙋 需要你的审核（步骤 ${escHtml(String(_wfGate.label))}）</div>
+      <div class="wf-gate-msg">${escHtml(_wfGate.message)}</div>
+      ${_wfGate.preview ? `<div class="wf-gate-preview">${escHtml(_wfGate.preview)}</div>` : ''}
+      <textarea id="wfGateNote" rows="2" placeholder="备注（可选）：通过时会作为上下文传给下一步；终止时作为原因"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn-primary" style="font-size:12px;padding:6px 16px" onclick="wfGateRespond('approve')">✅ 通过，继续</button>
+        <button class="hdr-btn-sm" style="color:#991b1b;border-color:#fca5a5" onclick="wfGateRespond('reject')">⛔ 终止</button>
+      </div>
+    </div>`;
+  }
+  results.innerHTML = (rowsHtml || '') + gateHtml;
+}
+
+function _wfUpsertRow(label, patch) {
+  let idx = _wfRowIdx[label];
+  if (idx == null) {
+    idx = _wfRows.length;
+    _wfRowIdx[label] = idx;
+    _wfRows.push({ label, status: 'running' });
+  }
+  Object.assign(_wfRows[idx], patch);
+}
+
+function _wfTeardown(ok, msg) {
+  const btn    = document.getElementById('wfRunBtn');
+  const cbtn   = document.getElementById('wfCancelBtn');
+  const status = document.getElementById('wfRunStatus');
+  if (btn)  btn.disabled = false;
+  if (cbtn) cbtn.style.display = 'none';
+  if (status) status.textContent = msg || (ok ? '完成' : '已结束');
+  _wfWs = null;
+  _wfGate = null;
+}
+
+window.wfGateRespond = function(decision) {
+  if (!_wfWs || _wfWs.readyState !== WebSocket.OPEN) return;
+  const note = document.getElementById('wfGateNote')?.value || '';
+  _wfWs.send(JSON.stringify({ action: 'gate_response', decision, note }));
+  _wfGate = null;
+  _wfRenderRows();
+};
+
+window.wfCancelRun = function() {
+  if (_wfWs && _wfWs.readyState === WebSocket.OPEN) {
+    _wfWs.send(JSON.stringify({ action: 'cancel' }));
+    _wfWs.close();
+  }
+  _wfTeardown(false, '已停止');
+};
+
+// 运行（流式）
 window.wfRun = async function() {
   if (!wfStepList.length) { toast('请先添加步骤', 'error'); return; }
-  // 验证：只检查 sequential 节点的 prompt（其他节点结构不同）
   const anyEmpty = wfStepList.some(s => {
     const t = s.type || 'sequential';
     if (t === 'sequential') return !s.prompt?.trim();
-    if (t === 'loop') return !s.step?.prompt?.trim();
+    if (t === 'loop')  return !s.step?.prompt?.trim();
+    if (t === 'taozu') return !s.goal?.trim();
     return false;
   });
-  if (anyEmpty) { toast('有步骤的提示词为空', 'error'); return; }
+  if (anyEmpty) { toast('有步骤的内容为空（顺序/循环需提示词，陶朱需目标）', 'error'); return; }
 
   const btn     = document.getElementById('wfRunBtn');
+  const cbtn     = document.getElementById('wfCancelBtn');
   const status  = document.getElementById('wfRunStatus');
-  const results = document.getElementById('wfResults');
-  if (btn) btn.disabled = true;
-  if (status) status.textContent = '运行中…';
-  if (results) results.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">⏳ 执行中，请稍候…</div>';
+  const useKb   = document.getElementById('wfUseKb')?.checked || false;
 
+  _wfRows = []; _wfRowIdx = {}; _wfGate = null;
+  if (btn) btn.disabled = true;
+  if (cbtn) cbtn.style.display = '';
+  if (status) status.textContent = '连接中…';
+  _wfRenderRows();
+
+  let ws;
   try {
-    const useKb = document.getElementById('wfUseKb')?.checked || false;
-    const r = await fetch(`${WF_API()}/run`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ steps: wfStepList, use_kb: useKb }),
-    });
-    const { results: res, error } = await r.json();
-    if (error) throw new Error(error);
-    if (status) status.textContent = `完成 · ${res.length} 步`;
-    results.innerHTML = res.map((r, i) => {
-      const isErr = (r.output || '').startsWith('执行错误');
-      let typeLabel = '';
-      if (r.type === 'parallel')  typeLabel = '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:100px;margin-left:4px">并行</span>';
-      if (r.type === 'condition') typeLabel = `<span style="font-size:10px;background:#ede9fe;color:#5b21b6;padding:2px 6px;border-radius:100px;margin-left:4px">条件${r.matched?'✓':'✗'}</span>`;
-      if (r.type === 'loop')      typeLabel = `<span style="font-size:10px;background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:100px;margin-left:4px">循环×${r.iterations||'?'}</span>`;
-      return `<div class="wf-result-step">
-        <div class="wf-result-hdr" onclick="this.nextElementSibling.classList.toggle('open')">
-          <div class="wf-step-num" style="background:${isErr?'var(--error)':'var(--accent)'}">${r.step}</div>
-          <span>${escHtml(AGENTS[r.agent]?.name || r.agent || r.type)}</span>
-          ${typeLabel}
-          <span style="margin-left:auto;color:var(--muted);font-size:11px">⏱ ${r.elapsed}s</span>
-          <span style="color:var(--muted);font-size:12px">▼</span>
-        </div>
-        <div class="wf-result-body${i === res.length-1 ? ' open' : ''}">${escHtml(r.output)}</div>
-      </div>`;
-    }).join('');
-    toast('工作流执行完成 ✓', 'success');
+    ws = new WebSocket(`${CONFIG.wsBase}/ws/workflow`);
   } catch(e) {
-    if (status) status.textContent = '执行失败';
-    if (results) results.innerHTML = `<span style="color:var(--error)">${e.message}</span>`;
-    toast(`运行失败: ${e.message}`, 'error');
-  } finally {
+    if (status) status.textContent = '无法连接';
     if (btn) btn.disabled = false;
+    if (cbtn) cbtn.style.display = 'none';
+    toast('无法建立工作流连接', 'error');
+    return;
   }
+  _wfWs = ws;
+
+  ws.onopen = () => {
+    if (status) status.textContent = '运行中…';
+    ws.send(JSON.stringify({ action: 'run', steps: wfStepList, use_kb: useKb }));
+  };
+
+  ws.onmessage = (e) => {
+    let ev; try { ev = JSON.parse(e.data); } catch(_) { return; }
+    switch (ev.event) {
+      case 'start':
+        if (status) status.textContent = `运行中 · 共 ${ev.total} 步`;
+        break;
+      case 'step_start':
+        _wfUpsertRow(ev.step, { type: ev.type, agent: ev.agent, status: 'running' });
+        _wfRenderRows();
+        break;
+      case 'step_retry':
+        _wfUpsertRow(ev.step, { retryNote: `第 ${ev.attempt} 次失败，重试中：${ev.error||''}` });
+        _wfRenderRows();
+        break;
+      case 'router_decision':
+        _wfUpsertRow(ev.step, { note: { ...(_wfRows[_wfRowIdx[ev.step]]?.note||{}), matched: ev.matched, chosen: ev.chosen } });
+        break;
+      case 'taozu_expanded':
+        _wfUpsertRow(ev.step, { note: { ...(_wfRows[_wfRowIdx[ev.step]]?.note||{}), sub_count: ev.sub_count } });
+        if (status) status.textContent = `陶朱展开「${ev.name||''}」为 ${ev.sub_count} 步…`;
+        _wfRenderRows();
+        break;
+      case 'step_done':
+        _wfUpsertRow(ev.step, {
+          type: ev.type, status: ev.ok === false ? 'error' : 'done',
+          output: ev.output, elapsed: ev.elapsed,
+          note: { ...(_wfRows[_wfRowIdx[ev.step]]?.note||{}), ...(ev.extra||{}) },
+          retryNote: '',
+        });
+        _wfRenderRows();
+        break;
+      case 'human_gate':
+        _wfGate = { label: ev.step, message: ev.message, preview: ev.preview };
+        if (status) status.textContent = '⏸ 等待人工审核…';
+        _wfRenderRows();
+        break;
+      case 'done':
+        if (ev.stopped) {
+          _wfTeardown(false, `已终止：${ev.stop_reason||''}`);
+          toast('工作流被终止', 'info');
+        } else {
+          _wfTeardown(true, `完成 · ${_wfRows.length} 步`);
+          toast('工作流执行完成 ✓', 'success');
+        }
+        _wfRenderRows();
+        try { ws.close(); } catch(_) {}
+        break;
+      case 'error':
+        if (status) status.textContent = `出错：${ev.message||''}`;
+        toast(`运行出错: ${ev.message||''}`, 'error');
+        _wfTeardown(false, `出错：${ev.message||''}`);
+        try { ws.close(); } catch(_) {}
+        break;
+    }
+  };
+
+  ws.onerror = () => {
+    if (status) status.textContent = '连接错误';
+    _wfTeardown(false, '连接错误');
+  };
+  ws.onclose = () => {
+    if (_wfWs === ws) { // 非正常结束（done/error 已置空）
+      _wfTeardown(false, document.getElementById('wfRunStatus')?.textContent || '连接关闭');
+    }
+  };
 };
 
 // 保存
@@ -1209,54 +1384,54 @@ window.wfAiAssist = function() {
 window.wfAiGenerate = async function() {
   const desc   = document.getElementById('wfAiDesc')?.value.trim();
   const status = document.getElementById('wfAiStatus');
-  if (!desc) return;
-  if (status) status.textContent = '⏳ Anima 正在思考…';
+  const btn    = document.getElementById('wfAiGenBtn');
+  const edit   = document.getElementById('wfAiEditMode')?.checked;
+  if (!desc) { if (status) status.textContent = '请先描述你想要的工作流'; return; }
 
-  // 构造提示词，让 Anima 以 JSON 格式返回工作流步骤
-  const systemPrompt = `用户描述了一个工作流目标，请你返回一个 JSON 数组，每项格式为：
-{"agent":"xi|yiyi|tianyuan|shoucang|executor|writer|reader|critic","prompt":"给该 Agent 的指令","pass_context":true}
-只返回 JSON 数组，不要解释。`;
+  // 编辑模式：把当前画布的步骤交给后端，让 AI 在其上修改而非从零重搭
+  const current = (edit && wfStepList.length) ? wfStepList.slice() : null;
+
+  if (status) status.innerHTML = '⏳ 陶朱正在编排工作流…';
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
 
   try {
-    // 直接通过 Anima WS 让 Anima 生成工作流
-    const ws = wsConns['xi'];
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      if (status) status.textContent = '❌ Anima 未连接';
+    const r = await fetch(`${WF_API()}/ai_build`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: desc, current_steps: current }),
+    });
+    const data = await r.json();
+
+    if (!data.ok) {
+      if (status) status.textContent = `❌ ${data.error || '生成失败，请换个说法重试'}`;
       return;
     }
 
-    const sid = `wf-ai-${Date.now()}`;
-    ws.send(JSON.stringify({
-      action: 'chat',
-      message: `${systemPrompt}\n\n用户目标：${desc}`,
-      session_id: sid,
-    }));
+    // 落到画布 + 同步工作流名
+    wfLoadFromSteps(data.steps);
+    const nameEl = document.getElementById('wfName');
+    if (nameEl && data.name) nameEl.value = data.name;
 
-    // 监听一次性响应
-    const handler = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'response' && msg.data?.summary) {
-          ws.removeEventListener('message', handler);
-          // 尝试解析 JSON
-          const json = msg.data.summary.match(/\[[\s\S]*\]/)?.[0];
-          if (json) {
-            const steps = JSON.parse(json);
-            wfLoadFromSteps(steps);
-            if (status) status.textContent = `✅ 已生成 ${steps.length} 个步骤`;
-            document.getElementById('wfAiPanel').style.display = 'none';
-          } else {
-            if (status) status.textContent = '❌ 无法解析工作流，请重试';
-          }
-        }
-      } catch(_) {}
-    };
-    ws.addEventListener('message', handler);
-    setTimeout(() => ws.removeEventListener('message', handler), 30000);
+    // 反馈：步骤数 / 说明 / 变量 / 告警
+    const parts = [`✅ ${edit && current ? '已修改为' : '已生成'} ${data.steps.length} 个步骤`];
+    if (data.explanation) parts.push(`<div style="margin-top:6px;color:var(--text)">${escapeHtml(data.explanation)}</div>`);
+    if (data.variables?.length)
+      parts.push(`<div style="margin-top:6px;color:var(--muted)">🔧 运行前需填变量：${data.variables.map(escapeHtml).join('、')}</div>`);
+    if (data.warnings?.length)
+      parts.push(`<div style="margin-top:6px;color:var(--warning,#c80)">⚠️ ${data.warnings.map(escapeHtml).join('；')}</div>`);
+    if (status) status.innerHTML = parts.join('');
   } catch(e) {
     if (status) status.textContent = `❌ 错误: ${e.message}`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
   }
 };
+
+// 简易 HTML 转义，避免把 AI 文本里的尖括号当标签注入
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
 
 // 从步骤数组加载工作流到可视化画布
 function wfLoadFromSteps(steps) {
@@ -1279,6 +1454,9 @@ function renderWfCanvas(steps) {
     writer:   { icon:'✍️',  name:'写手'   },
     reader:   { icon:'📖',  name:'阅读者' },
     critic:   { icon:'🔍',  name:'评审'   },
+    researcher:      { icon:'🔬', name:'调研员' },
+    analyst:         { icon:'📊', name:'分析师' },
+    product_manager: { icon:'📋', name:'产品经理' },
   };
 
   if (!steps.length) {
@@ -1296,11 +1474,82 @@ function renderWfCanvas(steps) {
       </div>`;
     return;
   }
+  // 单个叶子（agent+prompt）渲染成一行只读摘要
+  const leafLine = (leaf, label) => {
+    const a = agentInfo[leaf?.agent] || { icon:'🤖', name: leaf?.agent || '?' };
+    const txt = escapeHtml(leaf?.prompt || '').slice(0, 80);
+    return `<div class="wf-sub-line">${label ? `<b>${label}</b> ` : ''}${a.icon} ${a.name}：<span style="color:var(--muted)">${txt || '(空)'}</span></div>`;
+  };
+
   canvas.innerHTML = `<div class="wf-flow">` +
     steps.map((s, i) => {
-      const a = agentInfo[s.agent] || { icon:'🤖', name: s.agent };
-      return `
-      <div class="wf-node" data-idx="${i}">
+      const t = s.type || 'sequential';
+      let inner;
+
+      if (t === 'parallel') {
+        const lines = (s.branches || []).map(b => leafLine(b)).join('');
+        inner = `
+        <div class="wf-node-hdr">
+          <span class="wf-node-step">步骤 ${i+1}</span>
+          <span class="wf-node-badge">⇉ 并行 ${(s.branches||[]).length} 路</span>
+          <button class="wf-node-del" onclick="wfRemoveStep(${i})">✕</button>
+        </div>
+        <div class="wf-sub-box">${lines || '(无分支)'}</div>`;
+      } else if (t === 'condition') {
+        inner = `
+        <div class="wf-node-hdr">
+          <span class="wf-node-step">步骤 ${i+1}</span>
+          <span class="wf-node-badge">⑂ 条件「${escapeHtml(s.keyword||'')}」</span>
+          <button class="wf-node-del" onclick="wfRemoveStep(${i})">✕</button>
+        </div>
+        <div class="wf-sub-box">
+          ${s.true_step ? leafLine(s.true_step, '命中→') : ''}
+          ${s.false_step ? leafLine(s.false_step, '未中→') : ''}
+        </div>`;
+      } else if (t === 'loop') {
+        inner = `
+        <div class="wf-node-hdr">
+          <span class="wf-node-step">步骤 ${i+1}</span>
+          <span class="wf-node-badge">↻ 循环 ×${s.max_iter||3}（遇「${escapeHtml(s.stop_keyword||'完成')}」停）</span>
+          <button class="wf-node-del" onclick="wfRemoveStep(${i})">✕</button>
+        </div>
+        <div class="wf-sub-box">${leafLine(s.step)}</div>`;
+      } else if (t === 'human') {
+        inner = `
+        <div class="wf-node-hdr">
+          <span class="wf-node-step">步骤 ${i+1}</span>
+          <span class="wf-node-badge" style="color:#991b1b;background:rgba(220,38,38,.12)">🙋 人审闸门</span>
+          <button class="wf-node-del" onclick="wfRemoveStep(${i})">✕</button>
+        </div>
+        <textarea class="wf-node-prompt" rows="2" placeholder="给审核者看的说明…"
+          onchange="wfUpdateStep(${i},'message',this.value)">${escapeHtml(s.message||'')}</textarea>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">运行到这里会暂停，等你点「通过/终止」。通过时填的备注会作为上下文传给下一步。</div>`;
+      } else if (t === 'router') {
+        const routeLines = (s.routes||[]).map(r =>
+          `<div class="wf-sub-line"><b>${escapeHtml(r.label||'?')}</b> → ${leafLine(r.step).replace('<div class="wf-sub-line">','').replace('</div>','')}</div>`
+        ).join('');
+        inner = `
+        <div class="wf-node-hdr">
+          <span class="wf-node-step">步骤 ${i+1}</span>
+          <span class="wf-node-badge" style="color:#166534;background:rgba(22,101,52,.12)">🧭 AI 路由 ${(s.routes||[]).length} 路</span>
+          <button class="wf-node-del" onclick="wfRemoveStep(${i})">✕</button>
+        </div>
+        <textarea class="wf-node-prompt" rows="2" placeholder="让 AI 判断该走哪条路线的依据…"
+          onchange="wfUpdateStep(${i},'question',this.value)">${escapeHtml(s.question||'')}</textarea>
+        <div class="wf-sub-box">${routeLines || '(无路线)'}</div>`;
+      } else if (t === 'taozu') {
+        inner = `
+        <div class="wf-node-hdr">
+          <span class="wf-node-step">步骤 ${i+1}</span>
+          <span class="wf-node-badge" style="color:#6b21a8;background:rgba(107,33,168,.12)">🏢 陶朱动态节点</span>
+          <button class="wf-node-del" onclick="wfRemoveStep(${i})">✕</button>
+        </div>
+        <textarea class="wf-node-prompt" rows="2" placeholder="一句话目标，运行时陶朱会现拆成子流程，例如：调研竞品并产出对比报告"
+          onchange="wfUpdateStep(${i},'goal',this.value)">${escapeHtml(s.goal||'')}</textarea>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">运行时陶朱把这个目标编译成子工作流并就地执行——适合"具体步骤跑前才知道"的情况。</div>`;
+      } else {
+        const a = agentInfo[s.agent] || { icon:'🤖', name: s.agent };
+        inner = `
         <div class="wf-node-hdr">
           <span class="wf-node-step">步骤 ${i+1}</span>
           <div class="wf-node-agent">
@@ -1314,12 +1563,15 @@ function renderWfCanvas(steps) {
           <button class="wf-node-del" onclick="wfRemoveStep(${i})">✕</button>
         </div>
         <textarea class="wf-node-prompt" rows="2" placeholder="给 ${a.name} 的指令…"
-          onchange="wfUpdateStep(${i},'prompt',this.value)">${s.prompt||''}</textarea>
+          onchange="wfUpdateStep(${i},'prompt',this.value)">${escapeHtml(s.prompt||'')}</textarea>
         <label class="wf-node-ctx">
           <input type="checkbox" ${s.pass_context!==false?'checked':''} onchange="wfUpdateStep(${i},'pass_context',this.checked)">
           传递上下文
-        </label>
-      </div>
+        </label>`;
+      }
+
+      return `
+      <div class="wf-node" data-idx="${i}">${inner}</div>
       ${i < steps.length-1 ? '<div class="wf-arrow">↓</div>' : ''}`;
     }).join('') + `</div>`;
 }

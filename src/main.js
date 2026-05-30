@@ -6,6 +6,7 @@
 // ── Module imports (side effects: each module registers its window.* functions) ──
 import { CONFIG, AGENTS, runtime } from './state.js';
 import { checkBackend, wsSend } from './ws.js';
+import './auth.js';
 import './chat.js';
 import './overview.js';
 import './workflow.js';
@@ -106,11 +107,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   setInterval(checkBackend, 30_000);
   setInterval(() => { for (const id of Object.keys(AGENTS)) wsSend(id, { action:'status' }); }, 60_000);
 
-  // 2. 加载 agent 配置（名称/音色）
+  // 2. 登录门控（首次设置密码 / 返回登录）。后端离线时自动跳过。
+  await window.runAuthGate?.();
+
+  // 3. 加载 agent 配置（名称/音色）
   if (ok) {
     await window.loadAgentConfig?.();
 
-    // 3. 检查是否需要显示 Onboarding 向导
+    // 4. 检查是否需要显示 Onboarding 向导
     try {
       const r = await fetch(`${CONFIG.api}/setup/status`);
       const { configured } = await r.json();

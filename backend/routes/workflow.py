@@ -4,12 +4,15 @@ routes/workflow.py — 工作流 CRUD + 定时任务 + 文件监视器 + 群聊 
 import asyncio
 import json
 import time as _time
+import aiohttp
 from aiohttp import web
 
 from .auth import CORS_HEADERS
 from knowledge_base import kb as _kb
 from scheduler import scheduler as _scheduler
 from file_watcher import watcher as _watcher
+from workflow_ai import ai_build_workflow
+from workflow_engine import run_workflow, WorkflowRunner
 
 
 # ══════════════════════════════════════════════════════
@@ -34,6 +37,39 @@ async def workflow_save_handler(request):
     return web.json_response(result, headers=CORS_HEADERS)
 
 
+async def workflow_ai_build_handler(request):
+    """POST /workflow/ai_build — 把一句话目标编译成可编辑的工作流图。
+
+    body: {description, current_steps?}
+      - description: 用户的目标 / 修改指令（必填）。
+      - current_steps: 传了就是"在现有图上改"（对话式编辑）。
+    返回 workflow_ai.ai_build_workflow 的结构：
+      {ok, name, steps, explanation, variables, warnings} 或 {ok:False, error}。
+
+    用陶朱（tianyuan）的模型当规划器——它本就是"把模糊目标拆成计划"的人格；
+    拿不到就退回 xi。注意走 _call_api(tools=None) 纯生成，不触发 ReAct/delegate。
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid json"}, status=400, headers=CORS_HEADERS)
+    description   = (body.get("description") or "").strip()
+    current_steps = body.get("current_steps") or None
+    if not description:
+        return web.json_response({"ok": False, "error": "目标描述为空"},
+                                 status=400, headers=CORS_HEADERS)
+
+    servers = request.app["servers"]
+    srv = servers.get("tianyuan") or servers.get("xi")
+    if srv is None:
+        return web.json_response({"ok": False, "error": "无可用规划器 agent"},
+                                 status=503, headers=CORS_HEADERS)
+
+    result = await ai_build_workflow(srv.worker, description, current_steps)
+    status = 200 if result.get("ok") else 422
+    return web.json_response(result, status=status, headers=CORS_HEADERS)
+
+
 async def workflow_delete_handler(request):
     """DELETE /workflow/{wf_id}"""
     wf_id = request.match_info["wf_id"]
@@ -43,33 +79,21 @@ async def workflow_delete_handler(request):
 
 
 # ══════════════════════════════════════════════════════
-#  工作流执行引擎
+#  工作流执行引擎（逻辑已抽到 workflow_engine.WorkflowRunner）
 # ══════════════════════════════════════════════════════
 
-async def _run_step(srv, full_prompt: str) -> tuple:
-    """安全执行单个 Agent 步骤"""
-    t0 = _time.time()
-    try:
-        result = await srv.worker.run(full_prompt)
-        elapsed = round(_time.time() - t0, 1)
-        if isinstance(result, dict):
-            output = result.get("summary") or result.get("content") or str(result)
-        else:
-            output = str(result)
-    except Exception as e:
-        output  = f"执行错误: {e}"
-        elapsed = round(_time.time() - t0, 1)
-    return output, elapsed
+def _planner_for(servers):
+    """挑一个规划器（供 AI 路由 / 陶朱动态展开），拿不到返回 None。"""
+    gen = servers.get("tianyuan") or servers.get("xi")
+    return gen.worker if gen else None
 
 
 async def workflow_run_handler(request):
-    """POST /workflow/run — 执行工作流步骤
+    """POST /workflow/run — 一次性（阻塞）执行工作流，最后返回全部结果。
 
-    支持节点类型:
-      sequential（默认）— 顺序执行
-      parallel            — 并行执行多个 Agent
-      condition           — 根据关键词选择分支
-      loop                — 循环直到满足条件
+    支持节点类型: sequential / parallel / condition / router / loop / human / taozu。
+    人审节点在阻塞模式下默认放行（无交互通道）；要交互人审/实时回显请走
+    WebSocket /ws/workflow。
     """
     try:
         body = await request.json()
@@ -79,108 +103,106 @@ async def workflow_run_handler(request):
     steps   = body.get("steps", [])
     use_kb  = body.get("use_kb", False)
     servers = request.app["servers"]
-
     if not steps:
         return web.json_response({"error": "steps 为空"}, status=400, headers=CORS_HEADERS)
 
-    results     = []
-    prev_output = ""
+    result = await run_workflow(steps, servers, use_kb=use_kb, kb=_kb,
+                                generator=_planner_for(servers))
+    return web.json_response({
+        "results":     result["results"],
+        "ok":          result["ok"],
+        "stopped":     result.get("stopped", False),
+        "stop_reason": result.get("stop_reason", ""),
+        "error":       result.get("error"),
+    }, headers=CORS_HEADERS)
 
-    async def exec_single(step_def: dict, step_idx: int, ctx: str) -> dict:
-        """执行单个 sequential 步骤"""
-        agent_id = step_def.get("agent", "xi")
-        prompt   = step_def.get("prompt", "").strip()
-        pass_ctx = step_def.get("pass_context", True)
-        if not prompt:
-            return {"step": step_idx, "agent": agent_id,
-                    "output": "(跳过：提示词为空)", "elapsed": 0, "type": "sequential"}
-        srv = servers.get(agent_id)
-        if not srv:
-            return {"step": step_idx, "agent": agent_id,
-                    "output": f"错误：未知 agent {agent_id}", "elapsed": 0, "type": "sequential"}
-        full_prompt = prompt
-        if pass_ctx and ctx:
-            full_prompt = f"【上一步输出】\n{ctx}\n\n【当前任务】\n{prompt}"
-        if use_kb:
-            kb_ctx = await asyncio.to_thread(_kb.build_context, prompt, 3)
-            if kb_ctx:
-                full_prompt = kb_ctx + "\n\n" + full_prompt
-        output, elapsed = await _run_step(srv, full_prompt)
-        return {"step": step_idx, "agent": agent_id, "output": output,
-                "elapsed": elapsed, "prompt": prompt, "type": "sequential"}
 
-    for i, step in enumerate(steps):
-        node_type = step.get("type", "sequential")
+async def _safe_ws_send(ws, payload):
+    try:
+        await ws.send_json(payload)
+    except Exception:
+        pass
 
-        if node_type == "parallel":
-            branches = step.get("branches", [])
-            if not branches:
-                results.append({"step": i+1, "type": "parallel",
-                                "output": "(并行节点无分支)", "elapsed": 0})
+
+async def workflow_ws_handler(request):
+    """WS /ws/workflow — 流式执行 + 交互式人审。
+
+    客户端 → 服务端:
+      {"action":"run","steps":[...],"use_kb":false}
+      {"action":"gate_response","decision":"approve|reject","note":"..."}
+      {"action":"cancel"}
+    服务端 → 客户端（engine emit 的事件）:
+      {"event":"start|step_start|step_retry|step_done|human_gate|
+                router_decision|taozu_expanded|done|error", ...}
+    """
+    ws = web.WebSocketResponse(heartbeat=30)
+    await ws.prepare(request)
+    servers = request.app["servers"]
+
+    pending_gate = {"fut": None}
+    run_task = {"t": None}
+
+    async def emit(ev):
+        await _safe_ws_send(ws, ev)
+
+    async def gate(step_idx, message):
+        loop = asyncio.get_event_loop()
+        fut = loop.create_future()
+        pending_gate["fut"] = fut
+        try:
+            return await fut
+        finally:
+            pending_gate["fut"] = None
+
+    try:
+        async for msg in ws:
+            if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
-            t0 = _time.time()
-            tasks = [exec_single(b, i+1, prev_output) for b in branches]
-            branch_results = await asyncio.gather(*tasks, return_exceptions=True)
-            elapsed = round(_time.time() - t0, 1)
-            outputs = []
-            for br in branch_results:
-                if isinstance(br, dict):
-                    outputs.append(f"[{br['agent']}] {br['output']}")
-                elif isinstance(br, Exception):
-                    outputs.append(f"[错误] {br}")
-            combined = "\n\n---\n\n".join(outputs)
-            prev_output = combined
-            results.append({
-                "step": i+1, "type": "parallel",
-                "output": combined, "elapsed": elapsed,
-                "branches": [br for br in branch_results if isinstance(br, dict)],
-            })
-
-        elif node_type == "condition":
-            keyword    = step.get("keyword", "")
-            true_step  = step.get("true_step")
-            false_step = step.get("false_step")
-            matched    = keyword.lower() in prev_output.lower() if keyword else False
-            chosen     = true_step if matched else false_step
-            if not chosen:
-                results.append({"step": i+1, "type": "condition",
-                                "output": f"(条件 '{keyword}' {'满足' if matched else '不满足'}，无对应分支)",
-                                "matched": matched, "elapsed": 0})
+            try:
+                data = json.loads(msg.data)
+            except json.JSONDecodeError:
+                await _safe_ws_send(ws, {"event": "error", "message": "无效 JSON"})
                 continue
-            r = await exec_single(chosen, i+1, prev_output)
-            r["type"]    = "condition"
-            r["keyword"] = keyword
-            r["matched"] = matched
-            prev_output  = r["output"]
-            results.append(r)
+            action = data.get("action", "")
 
-        elif node_type == "loop":
-            max_iter   = int(step.get("max_iter", 3))
-            stop_word  = step.get("stop_keyword", "完成")
-            inner_step = step.get("step")
-            if not inner_step:
-                results.append({"step": i+1, "type": "loop",
-                                "output": "(循环节点缺少 step 定义)", "elapsed": 0})
-                continue
-            t0 = _time.time()
-            loop_output = prev_output
-            iteration = 0
-            for iteration in range(max_iter):
-                r = await exec_single(inner_step, i+1, loop_output)
-                loop_output = r["output"]
-                if stop_word.lower() in loop_output.lower():
-                    break
-            elapsed = round(_time.time() - t0, 1)
-            prev_output = loop_output
-            results.append({"step": i+1, "type": "loop", "output": loop_output,
-                            "elapsed": elapsed, "iterations": iteration+1})
+            if action == "run":
+                if run_task["t"] and not run_task["t"].done():
+                    await _safe_ws_send(ws, {"event": "error", "message": "已有工作流在运行"})
+                    continue
+                steps  = data.get("steps", [])
+                use_kb = data.get("use_kb", False)
+                if not steps:
+                    await _safe_ws_send(ws, {"event": "error", "message": "steps 为空"})
+                    continue
 
-        else:
-            r = await exec_single(step, i+1, prev_output)
-            prev_output = r["output"]
-            results.append(r)
+                async def _go(steps=steps, use_kb=use_kb):
+                    try:
+                        await run_workflow(steps, servers, use_kb=use_kb, kb=_kb,
+                                           generator=_planner_for(servers),
+                                           emit=emit, gate=gate)
+                    except asyncio.CancelledError:
+                        await _safe_ws_send(ws, {"event": "error", "message": "已取消"})
+                    except Exception as e:  # noqa: BLE001
+                        await _safe_ws_send(ws, {"event": "error", "message": str(e)})
+                run_task["t"] = asyncio.create_task(_go())
 
-    return web.json_response({"results": results, "ok": True}, headers=CORS_HEADERS)
+            elif action == "gate_response":
+                fut = pending_gate["fut"]
+                if fut and not fut.done():
+                    fut.set_result({"action": data.get("decision", "approve"),
+                                    "note": data.get("note", "")})
+
+            elif action == "cancel":
+                if run_task["t"] and not run_task["t"].done():
+                    run_task["t"].cancel()
+                # 解开正卡在人审上的执行，避免悬挂
+                fut = pending_gate["fut"]
+                if fut and not fut.done():
+                    fut.set_result({"action": "reject", "note": "已取消"})
+    finally:
+        if run_task["t"] and not run_task["t"].done():
+            run_task["t"].cancel()
+    return ws
 
 
 # ══════════════════════════════════════════════════════
@@ -346,6 +368,8 @@ def register(app):
     app.router.add_get("/workflow/list",         workflow_list_handler)
     app.router.add_post("/workflow/save",        workflow_save_handler)
     app.router.add_post("/workflow/run",         workflow_run_handler)
+    app.router.add_post("/workflow/ai_build",    workflow_ai_build_handler)
+    app.router.add_get("/ws/workflow",           workflow_ws_handler)
     app.router.add_delete("/workflow/{wf_id}",   workflow_delete_handler)
     # 定时任务
     app.router.add_get("/scheduler/tasks",                       sched_list_handler)

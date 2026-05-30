@@ -141,6 +141,20 @@ def test_handle_stream_ignores_malformed_chunks(tmp_path):
     assert out["content"] == "ok"
 
 
+def test_handle_stream_empty_choices_chunk(tmp_path):
+    """回归：DeepSeek/Qwen 末尾常发 choices=[] 的 usage 统计 chunk，
+    不能让 [0] 越界（曾导致晞排盘时 IndexError）。"""
+    agent = _make_agent(tmp_path)
+    lines = [
+        _delta({"content": "正常内容"}),
+        _sse({"choices": [], "usage": {"prompt_tokens": 10, "completion_tokens": 5}}),
+        b"data: [DONE]\n",
+    ]
+    out = asyncio.run(agent._handle_stream(_FakeResp(lines)))
+    assert out["content"] == "正常内容"
+    assert out["tool_calls"] is None
+
+
 # ════════════════════════════════════════════════════════════════════
 #  _compress_history
 # ════════════════════════════════════════════════════════════════════
@@ -170,6 +184,86 @@ def test_compress_history_keeps_system_first_and_tail(tmp_path):
     assert any(m.get("content") == "[中间对话已压缩]" for m in out)
     # 尾部最近的消息保留
     assert out[-1] == msgs[-1]
+
+
+def test_coding_compress_off_by_default(tmp_path):
+    """默认 coding_compress=False：占位符就是裸字符串，不带摘要。"""
+    agent = _make_agent(tmp_path)
+    assert agent.coding_compress is False
+    msgs = [{"role": "system", "content": "SYS"},
+            {"role": "user", "content": "FIRST"}]
+    for i in range(10):
+        msgs.append({"role": "assistant", "tool_calls": [
+            {"id": f"c{i}", "type": "function",
+             "function": {"name": "file_edit",
+                          "arguments": json.dumps({"path": f"f{i}.py",
+                                                   "old_string": "a", "new_string": "b"})}}]})
+        msgs.append({"role": "tool", "tool_call_id": f"c{i}", "content": "{}"})
+    out = agent._compress_history(msgs)
+    assert any(m.get("content") == "[中间对话已压缩]" for m in out)
+
+
+def test_coding_compress_digests_files_and_commands(tmp_path):
+    """coding_compress=True：占位符里带上"已改文件 + 关键命令/退出码"摘要。"""
+    agent = _make_agent(tmp_path)
+    agent.coding_compress = True
+    msgs = [{"role": "system", "content": "SYS"},
+            {"role": "user", "content": "FIRST"}]
+    # 中间：改了 calc.py、跑了 pytest（exit=0）
+    msgs.append({"role": "assistant", "tool_calls": [
+        {"id": "e1", "type": "function",
+         "function": {"name": "file_edit",
+                      "arguments": json.dumps({"path": "calc.py",
+                                               "old_string": "x", "new_string": "y"})}}]})
+    msgs.append({"role": "tool", "tool_call_id": "e1", "content": json.dumps({"replaced": 1})})
+    msgs.append({"role": "assistant", "tool_calls": [
+        {"id": "s1", "type": "function",
+         "function": {"name": "shell_run",
+                      "arguments": json.dumps({"command": "pytest -q"})}}]})
+    msgs.append({"role": "tool", "tool_call_id": "s1",
+                 "content": json.dumps({"exit_code": 0, "stdout": "1 passed"})})
+    # 再灌一堆消息把上面挤进"被压缩"区间
+    for i in range(8):
+        msgs.append({"role": "assistant", "content": f"a{i}"})
+        msgs.append({"role": "user", "content": f"u{i}"})
+
+    out = agent._compress_history(msgs)
+    ph = next(m["content"] for m in out
+              if m["role"] == "assistant" and "[中间对话已压缩]" in (m.get("content") or ""))
+    assert "calc.py" in ph
+    assert "pytest -q" in ph and "exit=0" in ph
+
+
+def test_compress_history_no_orphan_tool_at_tail_head(tmp_path):
+    """回归：tail 切片若落在工具调用序列中间，会把对应 assistant.tool_calls
+    压缩掉、只剩孤儿 tool 消息开头 → 供应商 400
+    'tool must be a response to a preceding message with tool_calls'。
+    压缩后 tail 的首条业务消息绝不能是 role=tool。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "SYS"},
+            {"role": "user", "content": "FIRST_USER"}]
+    # 制造交替的 assistant(tool_calls)+tool 序列，使 rest[-6:] 大概率切进中间
+    for i in range(10):
+        msgs.append({"role": "assistant",
+                     "tool_calls": [{"id": f"c{i}", "type": "function",
+                                     "function": {"name": "t", "arguments": "{}"}}]})
+        msgs.append({"role": "tool", "tool_call_id": f"c{i}", "content": "r"})
+
+    out = agent._compress_history(msgs)
+    # 压缩占位符之后、真正 tail 的第一条不得是孤儿 tool
+    # 找到第一条非 system、非占位符 assistant 的消息
+    placeholder = "[中间对话已压缩]"
+    body = [m for m in out
+            if not (m["role"] == "system")
+            and not (m["role"] == "assistant" and m.get("content") == placeholder)
+            and not (m["role"] == "user" and m.get("content") == "FIRST_USER")]
+    if body:
+        assert body[0]["role"] != "tool", "tail 不能以孤儿 tool 消息开头"
+    # 每个 tool 消息前必有带 tool_calls 的 assistant（整体配对完整性）
+    for i, m in enumerate(out):
+        if m["role"] == "tool":
+            assert i > 0 and out[i - 1].get("tool_calls"), \
+                "tool 消息必须紧跟在 assistant.tool_calls 之后"
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -206,6 +300,35 @@ def test_trim_result_file_read_fingerprint(tmp_path):
     out = agent._trim_result("file_read", big, set())
     d = json.loads(out)
     assert "fingerprint" in d
+
+
+def test_trim_result_caps_are_per_agent(tmp_path):
+    """M8 grounding：工具结果截断上限可 per-agent 覆盖。
+    默认档把代码截到 500（聊天人格友好）；编程 agent 调大后能真看见代码，
+    file_read 大文件也不再被降级成指纹。"""
+    agent = _make_agent(tmp_path)
+    # 默认值
+    assert agent.tool_result_cap == 500
+    assert agent.file_read_cap == 2048
+
+    code = {"content": "c" * 6000, "path": "/big.py"}
+    # 默认档：file_read 超 2048 → 只回指纹（半瞎）
+    default_out = agent._trim_result("file_read", code, set())
+    assert "fingerprint" in json.loads(default_out)
+
+    # 编程档：调大两个 cap 后，完整内容回传（真看得见）
+    agent.tool_result_cap = 16000
+    agent.file_read_cap = 24000
+    full_out = agent._trim_result("file_read", code, set())
+    assert "fingerprint" not in full_out
+    assert "c" * 6000 in full_out
+
+    # 普通工具结果同样受 tool_result_cap 控制
+    small = _make_agent(tmp_path / "b")
+    long_text = {"results": "y" * 3000}
+    assert "[截断" in small._trim_result("search_code", long_text, set())  # 默认 500 截断
+    small.tool_result_cap = 16000
+    assert "[截断" not in small._trim_result("search_code", long_text, set())
 
 
 # ════════════════════════════════════════════════════════════════════

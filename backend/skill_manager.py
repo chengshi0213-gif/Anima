@@ -8,6 +8,7 @@ Anima — Skill 管理系统
 import json
 import uuid
 import time
+import shutil
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -879,8 +880,12 @@ def init_builtin_skills():
         _save_registry(reg)
 
 
-def list_skills(category: str = None, enabled_only: bool = True) -> list[dict]:
-    """列出所有 Skill（含完整元数据 + premium/locked 状态）"""
+def list_skills(category: str = None, enabled_only: bool = True,
+                agent_id: str = None) -> list[dict]:
+    """列出所有 Skill（含完整元数据 + premium/locked 状态）
+
+    agent_id 非空时，只返回该 agent 可用的 skill（全局 + 绑定到它的）。
+    """
     from membership import is_pro
     pro = is_pro()
     reg = _load_registry()
@@ -888,16 +893,29 @@ def list_skills(category: str = None, enabled_only: bool = True) -> list[dict]:
     for sid, info in reg["skills"].items():
         if enabled_only and not info.get("enabled", True):
             continue
-        path = _skill_path(sid)
-        if not path.exists():
+        agents = _skill_agents(info)
+        if agent_id is not None and agents and agent_id not in agents:
             continue
-        try:
-            skill = _parse_skill_file(path)
-        except Exception:
-            continue
+        if _is_bundle(sid, reg):
+            try:
+                skill = _parse_bundle_entry(sid)
+            except Exception:
+                continue
+            skill["type"] = "bundle"
+            skill["refs"] = info.get("refs", [])
+        else:
+            path = _skill_path(sid)
+            if not path.exists():
+                continue
+            try:
+                skill = _parse_skill_file(path)
+            except Exception:
+                continue
+            skill["type"] = "single"
         if category and skill.get("category") != category:
             continue
         skill["id"] = sid
+        skill["agents"] = agents
         premium = _is_premium(sid)
         skill["premium"] = premium
         skill["locked"] = premium and not pro
@@ -907,28 +925,180 @@ def list_skills(category: str = None, enabled_only: bool = True) -> list[dict]:
 
 def get_skill(skill_id: str) -> Optional[dict]:
     """获取单个 Skill 完整信息（含 premium/locked 状态）"""
-    path = _skill_path(skill_id)
-    if not path.exists():
-        return None
     from membership import is_pro
-    skill = _parse_skill_file(path)
+    reg = _load_registry()
+    info = reg["skills"].get(skill_id, {})
+    if _is_bundle(skill_id, reg):
+        skill = _parse_bundle_entry(skill_id)
+        skill["type"] = "bundle"
+        skill["refs"] = info.get("refs", []) or list_skill_references(skill_id)
+    else:
+        path = _skill_path(skill_id)
+        if not path.exists():
+            return None
+        skill = _parse_skill_file(path)
+        skill["type"] = "single"
     skill["id"] = skill_id
+    skill["agents"] = _skill_agents(info)
     premium = _is_premium(skill_id)
     skill["premium"] = premium
     skill["locked"] = premium and not is_pro()
     return skill
 
 
-def get_skill_prompt(skill_id: str) -> str:
+def get_skill_prompt(skill_id: str, agent_id: str = None) -> str:
     """获取 Skill 的 System Prompt（注入到 Agent 对话中）
-    Premium Skill 在非 Pro 状态下返回空字符串（拒绝注入）
+
+    - Premium Skill 在非 Pro 状态下返回空字符串（拒绝注入）
+    - 若 Skill 绑定了特定 agent（registry.agents 非空），仅这些 agent 能取到 prompt；
+      其它 agent（含未指定 agent_id 的调用方）一律返回空字符串，防止越权注入。
+    - 多文件 bundle：返回 SKILL.md 正文（工作流主体）；reference 由 load_skill_reference 按需加载。
     """
+    reg = _load_registry()
+    info = reg["skills"].get(skill_id, {})
+    agents = _skill_agents(info)
+    if agents and (agent_id is None or agent_id not in agents):
+        return ""  # 绑定了 agent 而当前调用方不在名单 → 拒绝注入
+
+    if _is_premium(skill_id) and not _pro():
+        return ""
+
+    if _is_bundle(skill_id, reg):
+        meta = _parse_bundle_entry(skill_id)
+        return (meta.get("_body") or "").strip()
+
     skill = get_skill(skill_id)
     if not skill:
         return ""
     if skill.get("locked"):
         return ""  # 免费用户无法使用 premium skill 的 prompt
     return skill.get("_body", "").replace("## System Prompt\n\n", "").split("\n## ")[0].strip()
+
+
+# ── 多文件 bundle + agent 绑定 ─────────────────────────────
+_BUNDLED_DIR = Path(__file__).parent / "skills_bundle"
+
+# 随后端分发、首次运行自动安装并绑定的 bundle 技能
+_BUNDLED_SKILLS = {
+    "minglijushi": {"agents": ["yiyi"]},   # 命理巨师 → 固定给晞
+}
+
+
+def _pro() -> bool:
+    from membership import is_pro
+    return is_pro()
+
+
+def _bundle_dir(skill_id: str) -> Path:
+    return SKILLS_DIR / skill_id
+
+
+def _is_bundle(skill_id: str, reg: dict = None) -> bool:
+    reg = reg or _load_registry()
+    if reg["skills"].get(skill_id, {}).get("type") == "bundle":
+        return True
+    return (_bundle_dir(skill_id) / "SKILL.md").exists()
+
+
+def _skill_agents(info: dict) -> list:
+    a = info.get("agents")
+    return a if isinstance(a, list) else []
+
+
+def _parse_bundle_entry(skill_id: str) -> dict:
+    """解析 bundle 入口 SKILL.md（frontmatter + 工作流正文）。"""
+    return _parse_skill_file(_bundle_dir(skill_id) / "SKILL.md")
+
+
+def list_skill_references(skill_id: str) -> list[str]:
+    """列出 bundle 的 reference 文件名（供 worker 渐进式加载）。"""
+    d = _bundle_dir(skill_id) / "references"
+    if not d.exists():
+        return []
+    return sorted(f.name for f in d.glob("*.md"))
+
+
+def load_skill_reference(skill_id: str, ref_name: str, agent_id: str = None) -> Optional[str]:
+    """按需加载某个 reference 文件内容（progressive disclosure）。
+
+    - 做路径净化（只取文件名，防目录穿越）。
+    - 遵守 agent 绑定：未授权 agent 返回 None。
+    """
+    reg = _load_registry()
+    info = reg["skills"].get(skill_id, {})
+    agents = _skill_agents(info)
+    if agents and (agent_id is None or agent_id not in agents):
+        return None
+    ref_name = Path(ref_name).name  # 净化，去掉任何路径片段
+    p = _bundle_dir(skill_id) / "references" / ref_name
+    if not p.exists() or p.suffix != ".md":
+        return None
+    return p.read_text("utf-8")
+
+
+def install_bundle_skill(src_dir, agents: list = None, skill_id: str = None,
+                         source: str = "bundle") -> dict:
+    """安装一个多文件 bundle 技能（本地目录：SKILL.md + references/）。"""
+    src = Path(src_dir)
+    entry = src / "SKILL.md"
+    if not entry.exists():
+        return {"error": f"{src} 缺少 SKILL.md"}
+    meta = _parse_skill_file(entry)
+    sid = skill_id or meta.get("name") or meta.get("id") or src.name
+    dst = _bundle_dir(sid)
+    if dst.exists():
+        shutil.rmtree(dst)
+    shutil.copytree(src, dst)
+    refs = list_skill_references(sid)
+    reg = _load_registry()
+    reg["skills"][sid] = {
+        "name": meta.get("name", sid),
+        "version": meta.get("version", 1),
+        "source": source,
+        "enabled": True,
+        "type": "bundle",
+        "entry": "SKILL.md",
+        "refs": refs,
+        "agents": list(agents) if agents else [],
+        "description": meta.get("description", ""),
+    }
+    _save_registry(reg)
+    return {"ok": True, "skill_id": sid, "refs": refs, "agents": agents or []}
+
+
+def bind_skill_to_agents(skill_id: str, agents: list) -> dict:
+    """设置 Skill 的 agent 绑定（空列表=全局可用）。"""
+    reg = _load_registry()
+    if skill_id not in reg["skills"]:
+        return {"error": f"Skill {skill_id} 不存在"}
+    reg["skills"][skill_id]["agents"] = list(agents)
+    _save_registry(reg)
+    return {"ok": True, "skill_id": skill_id, "agents": list(agents)}
+
+
+def get_agent_skills(agent_id: str, enabled_only: bool = True) -> list[str]:
+    """返回某 agent 可用的 skill id 列表（全局 + 绑定到它的）。"""
+    reg = _load_registry()
+    out = []
+    for sid, info in reg["skills"].items():
+        if enabled_only and not info.get("enabled", True):
+            continue
+        agents = _skill_agents(info)
+        if not agents or agent_id in agents:
+            out.append(sid)
+    return out
+
+
+def init_bundled_skills():
+    """首次运行：安装随后端分发的 bundle 技能并按预设绑定 agent。"""
+    reg = _load_registry()
+    for name, opts in _BUNDLED_SKILLS.items():
+        if name in reg["skills"]:
+            continue
+        src = _BUNDLED_DIR / name
+        if (src / "SKILL.md").exists():
+            install_bundle_skill(src, agents=opts.get("agents"),
+                                  skill_id=name, source="bundled")
 
 
 def record_usage(skill_id: str, score: float = None):
@@ -1050,3 +1220,4 @@ def get_skills_summary() -> dict:
 
 # 启动时初始化
 init_builtin_skills()
+init_bundled_skills()

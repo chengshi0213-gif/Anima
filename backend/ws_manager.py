@@ -18,6 +18,25 @@ class WorkerServer:
         self.usage = usage_tracker
         self.current_task = None
         self.current_session_id = None
+        # 每个会话的完整对话累积（session_id -> [ {role,content}, ... ]）。
+        # 关键：index_session 是"删旧重写"语义，必须每轮传**整段**对话，
+        # 否则多轮会话只会保留最后一轮 → 历史记录形同虚设。
+        self._session_msgs: dict[str, list] = {}
+
+    def _record_turn(self, session_id: str, user_msg: str, assistant_summary: str):
+        """把这一轮 user/assistant 追加进该会话的完整对话，并整段重新索引。
+        续接旧会话（进程重启后）时先从 DB 捞回已存消息，避免覆盖历史。"""
+        hist = self._session_msgs.get(session_id)
+        if hist is None:
+            try:
+                hist = self.search.get_session_messages(session_id) or []
+            except Exception:
+                hist = []
+            self._session_msgs[session_id] = hist
+        hist.append({"role": "user", "content": user_msg})
+        hist.append({"role": "assistant", "content": assistant_summary})
+        self.search.index_session(session_id, self.worker.name, hist)
+        return hist
 
     async def handle(self, request):
         ws = web.WebSocketResponse()
@@ -108,10 +127,7 @@ class WorkerServer:
             except Exception as e:
                 await self._safe_send(ws, {"type": "error", "message": str(e)})
                 return
-            self.search.index_session(session_id, self.worker.name, [
-                {"role": "user", "content": message},
-                {"role": "assistant", "content": result.get("summary", "")},
-            ])
+            self._record_turn(session_id, message, result.get("summary", ""))
             await self._safe_send(ws, {"type": "response", "data": {
                 "session_id":    session_id,
                 "status":        result["status"],

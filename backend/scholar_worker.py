@@ -16,6 +16,7 @@ from datetime import datetime, date, timedelta
 sys.path.insert(0, str(Path(__file__).parent))
 from agent_base import AgentBase
 from config import KIMI_KEY, DATA_DIR, SESSIONS_DB, get_user_address
+from persona import compose_base_prompt
 
 # ── Obsidian Vault 路径 ─────────────────────────────────
 VAULT_DIR = Path(DATA_DIR).parent.parent / "Anima-Vault"   # ~/Anima-Vault
@@ -57,36 +58,6 @@ def _ensure_vault():
 """, "utf-8")
 
 _ensure_vault()
-
-SHOUCANG_SYSTEM_PROMPT = """你是守藏，Anima 团队的知识守护者，同时也是 Anima 的成长管理者。
-你服务的用户叫{user_name}。
-
-## 双重身份
-
-### 身份一：知识研究员（守藏之职）
-擅长文献分析、学术研究、摘要梳理和知识整合。
-- 分析时注重逻辑严密、论据充分
-- 引用要准确，观点要有依据
-- 对复杂概念给出清晰的分层解释
-- 善于比较不同视角，提出综合判断
-
-### 身份二：Anima 的成长守护者
-你负责 Anima 的持续成长：
-- 定期扫描所有对话记录，提炼知识写入 Obsidian
-- 分析 Skill 使用数据，识别改进机会
-- 升级表现不佳的 Skill，记录改进日志
-- 维护用户记忆（USER.md），让 Anima 越来越了解用户
-
-## 工作原则
-- 严谨但不刻板，有观点有立场
-- 写 Obsidian 笔记时使用标准 Markdown + [[双向链接]] + #标签
-- 升级 Skill 时要分析失败案例，找到根本原因
-- 对不确定的信息明确标注"待核实"
-
-## 说话风格
-- 与用户对话：温和学术风，偶有书卷气
-- 汇报工作：简洁清晰，附上数据
-"""
 
 # ─────────────────────────────────────────────────────────
 #  工具定义
@@ -224,6 +195,51 @@ LIST_SKILLS_DEF = {
             "properties": {
                 "min_usage": {"type": "integer", "description": "最少使用次数（过滤低样本）"},
                 "max_score": {"type": "number",  "description": "只列出平均分低于此值的"},
+            },
+            "required": [],
+        },
+    },
+}
+
+REMEMBER_DEF = {
+    "type": "function",
+    "function": {
+        "name": "remember",
+        "description": "把值得长期记住的事实写入记忆库。这是会被注入到各人格 system prompt "
+                       "的持久记忆，不依赖 Obsidian——无论用户是否安装 Obsidian 都生效。"
+                       "同一 key 再写会更新而非重复。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "key":   {"type": "string", "description": "记忆要点的简短标题，如 '职业' '常驻城市' '近期情绪'"},
+                "value": {"type": "string", "description": "记忆内容正文"},
+                "category": {
+                    "type": "string",
+                    "description": "分类：user_profile(用户画像) / preference(偏好) / emotional(情感) / "
+                                   "business(创业) / knowledge(知识背景) / writing_style(写作风格) / "
+                                   "project(项目) / note(笔记) / general(其他)",
+                },
+                "agent_id": {
+                    "type": "string",
+                    "description": "这条记忆服务于哪个人格（xi/yiyi/tianyuan/shoucang）。"
+                                   "留空=全局，所有人格都可见（用户画像类建议留空）。",
+                },
+                "importance": {"type": "integer", "description": "重要度 1-5，默认 3"},
+            },
+            "required": ["key", "value"],
+        },
+    },
+}
+
+LIST_MEMORY_DEF = {
+    "type": "function",
+    "function": {
+        "name": "list_memory",
+        "description": "列出记忆库中已有的记忆条目（避免重复写入、便于更新用户画像）。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "agent_id": {"type": "string", "description": "只看某人格相关记忆，留空=全部"},
             },
             "required": [],
         },
@@ -378,12 +394,55 @@ def _list_skills_for_review(min_usage: int = 5, max_score: float = 4.0) -> dict:
     }
 
 
+_VALID_CATEGORIES = {
+    "user_profile", "preference", "emotional", "business",
+    "knowledge", "writing_style", "project", "note", "general",
+}
+
+
+def _remember(key: str, value: str, category: str = "general",
+              agent_id: str = None, importance: int = 3) -> dict:
+    """把事实写入激活的记忆后端（默认 SQLite，无需 Obsidian），下次对话即注入。"""
+    if not key or not value:
+        return {"error": "key / value 不能为空"}
+    if category not in _VALID_CATEGORIES:
+        category = "general"
+    agent_id = (agent_id or "").strip() or None   # 空串=全局
+    try:
+        importance = max(1, min(5, int(importance)))
+    except Exception:
+        importance = 3
+    try:
+        from memory_injector import write_memory
+        eid = write_memory(key=key, value=value, category=category,
+                           agent_id=agent_id, importance=importance)
+        return {"ok": True, "id": eid, "key": key,
+                "category": category, "agent_id": agent_id}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def _list_memory(agent_id: str = None) -> dict:
+    """列出记忆库已有条目（便于去重 / 更新用户画像）。"""
+    agent_id = (agent_id or "").strip() or None
+    try:
+        from memory_injector import list_memory
+        entries = list_memory(agent_id)
+        return {"total": len(entries),
+                "entries": [{"id": e.id, "key": e.key, "value": e.value,
+                             "category": e.category, "agent_id": e.agent_id,
+                             "importance": e.importance} for e in entries]}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ─────────────────────────────────────────────────────────
 #  ShoucangWorker
 # ─────────────────────────────────────────────────────────
 
 class ShoucangWorker(AgentBase):
     def __init__(self):
+        from websearch import WEB_SEARCH_TOOL_DEFS, build_dispatch
         tool_defs = [
             FILE_READ_DEF,
             READ_CHAT_HISTORY_DEF,
@@ -392,6 +451,9 @@ class ShoucangWorker(AgentBase):
             LIST_OBSIDIAN_DEF,
             UPGRADE_SKILL_DEF,
             LIST_SKILLS_DEF,
+            REMEMBER_DEF,            # 写入可注入记忆库（不依赖 Obsidian）
+            LIST_MEMORY_DEF,
+            *WEB_SEARCH_TOOL_DEFS,   # 文献研究需要联网检索（共享 websearch 能力）
         ]
         tool_dispatch = {
             "file_read":            _file_read,
@@ -401,15 +463,18 @@ class ShoucangWorker(AgentBase):
             "list_obsidian_notes":  _list_obsidian_notes,
             "upgrade_skill":        _upgrade_skill,
             "list_skills_for_review": _list_skills_for_review,
+            "remember":             lambda **kw: _remember(
+                                        kw["key"], kw["value"], kw.get("category", "general"),
+                                        kw.get("agent_id"), kw.get("importance", 3)),
+            "list_memory":          lambda **kw: _list_memory(kw.get("agent_id")),
+            **build_dispatch(),
         }
         super().__init__(
             name="shoucang",
             api_key=KIMI_KEY,
             model="kimi-k2.6",
             base_url="https://api.moonshot.cn/v1",
-            system_prompt=SHOUCANG_SYSTEM_PROMPT.format(
-                user_name=get_user_address("shoucang"),
-            ),
+            system_prompt=compose_base_prompt("shoucang"),
             tool_defs=tool_defs,
             tool_dispatch=tool_dispatch,
         )
@@ -449,15 +514,23 @@ class ShoucangWorker(AgentBase):
 
 步骤1：read_chat_history(agent="all", days=1, limit=100)
 步骤2：提炼关键信息（人名/项目/任务/决策/知识点/情绪状态/用户喜好变化）
-步骤3：write_obsidian_note(section="daily", filename="{today}", content=<今日日记>)
+步骤3【长期记忆，最重要】：把值得长期记住的事实写进记忆库——这是会被注入到各人格对话里的记忆，
+       不依赖 Obsidian，所有用户都生效。先 list_memory() 看已有的，避免重复；再用 remember() 写入/更新：
+       - 用户画像、稳定事实（职业/城市/家庭等）→ remember(category="user_profile", agent_id=null)  ← 留空=全局，所有人格可见
+       - 偏好/习惯 → remember(category="preference", agent_id=null)
+       - 情绪状态、心结、在意的人 → remember(category="emotional", agent_id="yiyi")  ← 给晞
+       - 创业/业务进展 → remember(category="business", agent_id="tianyuan")  ← 给陶朱
+       - 知识背景 → remember(category="knowledge", agent_id=null)
+       同一件事用同一个 key，再写即更新，不要堆重复条目。
+步骤4【人类可读日志，本地 Markdown】：写 Obsidian 笔记（即使没装 Obsidian 也只是本地 .md 文件，可正常生成）：
+       write_obsidian_note(section="daily", filename="{today}", content=<今日日记>)
        如有新人物 → write_obsidian_note(section="people", filename=<人名>, content=<信息>)
        如有项目进展 → write_obsidian_note(section="projects", filename=<项目名>, content=<进展>, append=True)
        如有值得保存的知识 → write_obsidian_note(section="knowledge", filename=<主题>, content=<内容>)
-步骤4：read_obsidian_note(section="memory", filename="USER") → 分析是否需要更新用户画像
-       如需要 → write_obsidian_note(section="memory", filename="USER", content=<更新后全文>)
 步骤5：list_skills_for_review() → 对平均分<3.5的Skill进行分析 → upgrade_skill()
-步骤6：输出本次 SOP 执行摘要（一段话，包含：今日日记、更新了哪些笔记、Skill升级情况）
+步骤6：输出本次 SOP 执行摘要（一段话，包含：写入了哪些长期记忆、今日日记、Skill升级情况）
 
+注意：长期记忆以步骤3的 remember() 为准（保证无 Obsidian 也能闭环）；Obsidian 笔记是给人看的本地日志，二者都要做。
 请开始，逐步执行。"""
 
         _cb(1, 6, "守藏开始读取对话记录...")

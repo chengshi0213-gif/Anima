@@ -8,6 +8,7 @@ from .auth import CORS_HEADERS, _json_error
 from skill_manager import (
     list_skills, get_skill, record_usage, upgrade_skill,
     install_community_skill, get_skills_summary,
+    list_skill_references, load_skill_reference, bind_skill_to_agents,
 )
 from report_generator import (
     get_or_generate_report, get_latest_report,
@@ -21,11 +22,48 @@ import notifier as _notifier
 # ══════════════════════════════════════════════════════
 
 async def skills_list_handler(request):
-    """GET /skills — 列出所有 Skill"""
+    """GET /skills — 列出所有 Skill（?category= 分类 ?agent= 只看某 agent 可用）"""
     category = request.query.get("category") or None
-    skills = await asyncio.to_thread(list_skills, category)
+    agent = request.query.get("agent") or None
+    skills = await asyncio.to_thread(list_skills, category, True, agent)
     summary = await asyncio.to_thread(get_skills_summary)
     return web.json_response({"skills": skills, "summary": summary}, headers=CORS_HEADERS)
+
+
+async def skill_references_handler(request):
+    """GET /skills/{skill_id}/references — 列出 bundle 的 reference 文件名"""
+    sid = request.match_info["skill_id"]
+    refs = await asyncio.to_thread(list_skill_references, sid)
+    return web.json_response({"skill_id": sid, "references": refs}, headers=CORS_HEADERS)
+
+
+async def skill_reference_get_handler(request):
+    """GET /skills/{skill_id}/references/{ref} — 按需加载某 reference 内容
+    ?agent= 用于校验 agent 绑定权限。"""
+    sid = request.match_info["skill_id"]
+    ref = request.match_info["ref"]
+    agent = request.query.get("agent") or None
+    content = await asyncio.to_thread(load_skill_reference, sid, ref, agent)
+    if content is None:
+        return web.json_response({"error": "reference 不存在或无权访问"},
+                                 status=404, headers=CORS_HEADERS)
+    return web.json_response({"skill_id": sid, "ref": ref, "content": content},
+                             headers=CORS_HEADERS)
+
+
+async def skill_bind_handler(request):
+    """POST /skills/{skill_id}/bind — 设置 agent 绑定 {"agents": [...]}（空=全局）"""
+    sid = request.match_info["skill_id"]
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid json"}, status=400, headers=CORS_HEADERS)
+    agents = body.get("agents", [])
+    if not isinstance(agents, list):
+        return web.json_response({"error": "agents 必须是数组"}, status=400, headers=CORS_HEADERS)
+    result = await asyncio.to_thread(bind_skill_to_agents, sid, agents)
+    status = 404 if result.get("error") else 200
+    return web.json_response(result, status=status, headers=CORS_HEADERS)
 
 
 async def skill_get_handler(request):
@@ -232,10 +270,13 @@ async def notif_push_handler(request):
 def register(app):
     # Skills
     app.router.add_get("/skills",                          skills_list_handler)
+    app.router.add_post("/skills/install",                 skill_install_handler)
     app.router.add_get("/skills/{skill_id}",               skill_get_handler)
+    app.router.add_get("/skills/{skill_id}/references",    skill_references_handler)
+    app.router.add_get("/skills/{skill_id}/references/{ref}", skill_reference_get_handler)
     app.router.add_post("/skills/{skill_id}/usage",        skill_record_usage_handler)
     app.router.add_post("/skills/{skill_id}/upgrade",      skill_upgrade_handler)
-    app.router.add_post("/skills/install",                 skill_install_handler)
+    app.router.add_post("/skills/{skill_id}/bind",         skill_bind_handler)
     # Membership
     app.router.add_get("/membership/status",               membership_status_handler)
     app.router.add_post("/membership/activate",            membership_activate_handler)

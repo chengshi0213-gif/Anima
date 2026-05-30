@@ -14,6 +14,9 @@ numpy>=1.26.0           # 向量运算
 openai>=1.30.0          # OpenAI 兼容协议（Qwen Embedding 用）
 dashscope>=1.14.0       # 通义千问 Embedding（可选）
 
+# ── 命理排盘（晞 专用，确定性算法）──
+lunar-python>=1.4.0     # 农历/节气/八字四柱/藏干/十神/大运/纳音（纯 Python，无外部依赖）
+
 # ── 定时任务 ──
 apscheduler>=3.10.0
 

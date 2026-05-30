@@ -9,8 +9,9 @@ from knowledge_base import kb as _kb
 
 
 async def kb_docs_handler(request):
-    """GET /kb/docs — 列出所有文档"""
-    docs = await asyncio.to_thread(_kb.list_docs)
+    """GET /kb/docs — 列出文档（?agent= 只看某 agent 私有 + 共享语料）"""
+    agent = request.query.get("agent") or None
+    docs = await asyncio.to_thread(_kb.list_docs, agent)
     return web.json_response({"docs": docs}, headers=CORS_HEADERS)
 
 
@@ -25,10 +26,11 @@ async def kb_search_handler(request):
     query  = body.get("query", "").strip()
     top_k  = int(body.get("top_k", 5))
     doc_id = body.get("doc_id") or None
+    agent  = body.get("agent") or None
     if not query:
         return web.json_response({"error": "query is empty"}, status=400, headers=CORS_HEADERS)
     try:
-        hits = await asyncio.to_thread(_kb.search, query, top_k, doc_id)
+        hits = await asyncio.to_thread(_kb.search, query, top_k, doc_id, agent)
         return web.json_response({"hits": hits}, headers=CORS_HEADERS)
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500, headers=CORS_HEADERS)
@@ -54,15 +56,14 @@ async def kb_upload_handler(request):
                         text = raw.decode("latin-1", errors="replace")
                 elif part.name == "name":
                     name = (await part.read()).decode("utf-8", errors="replace")
-        else:
-            body = await request.json()
-            text = body.get("text", "")
-            name = body.get("name", "粘贴内容")
+        agent = request.query.get("agent") or None
+        if "multipart" not in ct:
+            agent = body.get("agent") or agent
 
         if not text.strip():
             return web.json_response({"error": "文件内容为空"}, status=400, headers=CORS_HEADERS)
 
-        result = await asyncio.to_thread(_kb.ingest, text, name)
+        result = await asyncio.to_thread(_kb.ingest, text, name, None, agent)
         return web.json_response(result, headers=CORS_HEADERS)
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500, headers=CORS_HEADERS)

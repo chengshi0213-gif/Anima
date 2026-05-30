@@ -1581,6 +1581,24 @@ kbd {
 /* ═══════════════════════════════════════
    Onboarding 向导
 ═══════════════════════════════════════ */
+/* ── 登录门控 ─────────────────────────────────────────── */
+.auth-mode.hidden { display: none; }
+.auth-err {
+  min-height: 18px; width: 100%;
+  font-size: 12px; color: #e11d48;
+  text-align: center; margin-bottom: 6px;
+}
+.auth-birth {
+  width: 100%;
+  border: 1px dashed var(--border); border-radius: 12px;
+  padding: 12px 14px; margin-bottom: 12px;
+  background: var(--surface);
+}
+.auth-birth-title { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.auth-birth-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.auth-birth label { display: block; font-size: 11px; color: var(--muted); }
+.auth-birth label .ob-input { width: 100%; margin-top: 3px; }
+
 .ob-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,.55);

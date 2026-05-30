@@ -66,6 +66,28 @@ async def agent_config_get(request):
     return web.json_response({"names": names, "voices": voices}, headers=CORS_HEADERS)
 
 
+async def personas_handler(request):
+    """GET /config/personas — 返回四个核心人格的人格卡（前端展示用，不含完整 prompt）。
+
+    名称若被用户在 /config/agents 改过，则用改后的名字覆盖人格卡默认显示名。
+    """
+    from persona import list_personas
+    cfg   = _load_agent_config()
+    names = {**DEFAULT_AGENT_NAMES, **cfg.get("names", {})}
+    cards = list_personas()
+    for c in cards:
+        if c["id"] in names:
+            c["name"] = names[c["id"]]
+    return web.json_response({"personas": cards}, headers=CORS_HEADERS)
+
+
+async def search_usage_handler(request):
+    """GET /search/usage — 当月联网检索用量 + Tavily 剩余额度"""
+    from websearch import get_usage
+    usage = await asyncio.to_thread(get_usage)
+    return web.json_response(usage, headers=CORS_HEADERS)
+
+
 async def agent_config_set(request):
     """POST /config/agents — 保存 agent 名称 / 音色"""
     try:
@@ -364,6 +386,9 @@ def register(app):
     # Agent 配置
     app.router.add_get("/config/agents",           agent_config_get)
     app.router.add_post("/config/agents",          agent_config_set)
+    app.router.add_get("/config/personas",         personas_handler)
+    # 联网检索用量
+    app.router.add_get("/search/usage",            search_usage_handler)
     # TTS
     app.router.add_post("/tts",                    tts_handler)
     app.router.add_get("/tts/voices",              tts_voices_handler)

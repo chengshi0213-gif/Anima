@@ -727,8 +727,11 @@
             </div>
             <textarea id="wfAiDesc" placeholder="描述你想要的工作流，例如：「每天自动搜索 AI 新闻，让写手总结成报告，最后评审检查质量」" rows="3"
               style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;resize:vertical;font-family:inherit;background:var(--surface);color:var(--text);box-sizing:border-box;margin-bottom:8px"></textarea>
-            <div style="display:flex;gap:8px">
-              <button class="btn-primary" style="font-size:12px;padding:6px 14px" onclick="wfAiGenerate()">✨ 生成工作流</button>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <button class="btn-primary" id="wfAiGenBtn" style="font-size:12px;padding:6px 14px" onclick="wfAiGenerate()">✨ 生成工作流</button>
+              <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer" title="勾选后，AI 会在当前画布的流程上按你的指令修改，而不是从零重搭">
+                <input type="checkbox" id="wfAiEditMode"> 在当前流程上修改
+              </label>
             </div>
             <div id="wfAiStatus" style="margin-top:8px;font-size:12px;color:var(--muted)"></div>
           </div>
@@ -762,11 +765,21 @@
             <button class="wf-add-btn" style="background:#e0f2fe;color:#0369a1;border-color:#7dd3fc" onclick="wfAddStep('loop')">
               <span style="font-size:16px">🔁</span> 循环
             </button>
+            <button class="wf-add-btn" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5" onclick="wfAddStep('human')" title="暂停工作流，等你审核后再继续">
+              <span style="font-size:16px">🙋</span> 人审
+            </button>
+            <button class="wf-add-btn" style="background:#dcfce7;color:#166534;border-color:#86efac" onclick="wfAddStep('router')" title="让 AI 判断该走哪条路线">
+              <span style="font-size:16px">🧭</span> AI路由
+            </button>
+            <button class="wf-add-btn" style="background:#f3e8ff;color:#6b21a8;border-color:#d8b4fe" onclick="wfAddStep('taozu')" title="运行时让陶朱把一句话目标动态拆成子流程">
+              <span style="font-size:16px">🏢</span> 陶朱
+            </button>
           </div>
 
           <!-- 操作栏 -->
           <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
             <button class="btn-primary" onclick="wfRun()" id="wfRunBtn">▶ 运行工作流</button>
+            <button class="hdr-btn-sm" onclick="wfCancelRun()" id="wfCancelBtn" style="display:none">⏹ 停止</button>
             <button class="hdr-btn-sm" onclick="wfSave()">💾 保存</button>
             <button class="hdr-btn-sm" onclick="wfNew()" style="margin-left:auto">🗑 清空</button>
           </div>
@@ -1354,6 +1367,85 @@
     <div class="offline-title">后端未连接</div>
     <div class="offline-desc">请运行 <code>.\dev.ps1</code> 启动后端服务</div>
     <button class="settings-btn" onclick="checkBackend(true)">重试</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     登录门控（本地密码）
+══════════════════════════════════════ -->
+<div class="ob-overlay hidden" id="authOverlay">
+  <div class="ob-card" style="width:440px">
+
+    <!-- 模式：登录 -->
+    <div class="auth-mode" id="authMode-login">
+      <div class="ob-page active" style="padding-top:40px">
+        <div class="ob-hero">🔐</div>
+        <h2 class="ob-title">欢迎回来</h2>
+        <p class="ob-desc">输入密码解锁 Anima</p>
+        <input type="password" id="authLoginPwd" class="ob-input" style="width:100%;margin-bottom:6px"
+               placeholder="密码" onkeydown="if(event.key==='Enter')authLogin()">
+        <div class="auth-err" id="authLoginErr"></div>
+        <div class="ob-actions">
+          <button class="ob-btn-secondary" onclick="authShowReset()">忘记密码？</button>
+          <button class="ob-btn-primary" onclick="authLogin()">解锁 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 模式：首次设置 -->
+    <div class="auth-mode hidden" id="authMode-setup">
+      <div class="ob-page active" style="padding-top:32px">
+        <div class="ob-hero">✨</div>
+        <h2 class="ob-title">设置你的登录密码</h2>
+        <p class="ob-desc">本地加密存储，绝不上传。<br>这是你私人空间的钥匙。</p>
+        <input type="password" id="authSetupPwd" class="ob-input" style="width:100%;margin-bottom:10px" placeholder="设置密码（至少 4 位）">
+        <input type="password" id="authSetupConfirm" class="ob-input" style="width:100%;margin-bottom:14px" placeholder="再次输入密码">
+
+        <div class="auth-birth">
+          <div class="auth-birth-title">🔮 出生信息（可选 · 让晞为你解读命理与星盘）</div>
+          <div class="auth-birth-grid">
+            <label>出生日期<input type="date" id="authBirthDate" class="ob-input"></label>
+            <label>出生时辰<input type="time" id="authBirthTime" class="ob-input"></label>
+            <label>历法
+              <select id="authBirthCal" class="ob-input">
+                <option value="solar">公历</option>
+                <option value="lunar">农历</option>
+              </select>
+            </label>
+            <label>性别
+              <select id="authBirthGender" class="ob-input">
+                <option value="">不填</option>
+                <option value="female">女</option>
+                <option value="male">男</option>
+              </select>
+            </label>
+          </div>
+          <label style="display:block;margin-top:8px">出生地<input type="text" id="authBirthPlace" class="ob-input" placeholder="例如：浙江·杭州" style="width:100%"></label>
+        </div>
+
+        <div class="auth-err" id="authSetupErr"></div>
+        <div class="ob-actions">
+          <button class="ob-btn-primary" onclick="authSetup()" style="width:100%">创建并进入 ✨</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 模式：忘记密码 / 重置 -->
+    <div class="auth-mode hidden" id="authMode-reset">
+      <div class="ob-page active" style="padding-top:36px">
+        <div class="ob-hero">🗝️</div>
+        <h2 class="ob-title">用激活码重置密码</h2>
+        <p class="ob-desc">输入你的激活码即可设置新密码。<br>离线验证，无需联网。</p>
+        <input type="text" id="authResetCode" class="ob-input" style="width:100%;margin-bottom:10px" placeholder="ANIMA-XXXX-XXXX-XXXX-XXXX-XXXXXXXX">
+        <input type="password" id="authResetPwd" class="ob-input" style="width:100%;margin-bottom:6px" placeholder="新密码（至少 4 位）">
+        <div class="auth-err" id="authResetErr"></div>
+        <div class="ob-actions">
+          <button class="ob-btn-secondary" onclick="authBackToLogin()">← 返回登录</button>
+          <button class="ob-btn-primary" onclick="authReset()">重置并进入 →</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
