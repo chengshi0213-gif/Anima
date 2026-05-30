@@ -114,6 +114,15 @@ async def main():
     except Exception as _e:
         print(f"  飞书机器人接线失败: {_e}")
 
+    # ── 企业微信 / 公众号：回调模式，接线人格入口（端点常驻，按需启用）──
+    try:
+        import wechat_bot
+        wechat_bot.bot.configure(_run_agent, asyncio.get_running_loop())
+        if wechat_bot.load_config().get("enabled"):
+            print("  企业微信/公众号: 已启用（回调端点 /integrations/wechat/callback）")
+    except Exception as _e:
+        print(f"  微信机器人接线失败: {_e}")
+
     # ── 启动 HTTP 服务 ──
     runner = web.AppRunner(app)
     await runner.setup()

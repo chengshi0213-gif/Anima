@@ -1320,6 +1320,61 @@
         </div>
       </div>
 
+      <!-- 企业微信 / 公众号 -->
+      <div class="settings-section">
+        <h3>💬 企业微信 / 微信公众号</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:6px">把人格接进企业微信或公众号：用户发消息，人格回复。两者都走<b>回调模式</b>，需要一条内网穿透隧道把本机暴露成公网地址。</p>
+        <details style="margin-bottom:12px">
+          <summary style="font-size:12px;color:var(--accent);cursor:pointer">怎么配（含内网穿透方案）？点开看</summary>
+          <ol style="font-size:12px;color:var(--muted);margin:8px 0 0;padding-left:18px;line-height:1.8">
+            <li><b>开隧道</b>：装 cpolar / ngrok / frp 任一，把本机 <code>9100</code> 端口映射出去，得到一个公网 https 地址（如 <code>https://xxx.cpolar.cn</code>）。</li>
+            <li><b>回调 URL</b> = 你的公网地址 + <code id="wechatCbPath">/integrations/wechat/callback</code>，填进微信后台「接收消息服务器配置」。</li>
+            <li>在微信后台自定义 <b>Token</b> 和 <b>EncodingAESKey</b>（43 位，可随机生成），消息加解密方式选<b>安全模式</b>，一并填到下面。</li>
+            <li>企业微信：再填 <b>CorpID / 应用 Secret / AgentId</b>（用于主动推送回复）。公众号：填 <b>AppID / AppSecret</b>（客服消息需认证服务号）。</li>
+            <li>保存并勾选启用 → 回微信后台点「保存」，它会来验证回调 URL，通过即接通。</li>
+          </ol>
+          <p style="font-size:12px;color:var(--muted);margin:8px 0 0">注：微信回调有 5 秒限制，人格回复较慢，所以先即时确认、答案稍后由「主动推送」发回——属正常现象。</p>
+        </details>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center">
+            <label style="font-size:13px;color:var(--muted)">平台</label>
+            <select id="wechatProvider" onchange="wechatToggleProvider()" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)">
+              <option value="wecom">企业微信（自建应用）</option>
+              <option value="mp">微信公众号（服务号）</option>
+            </select>
+          </div>
+          <input id="wechatToken" placeholder="Token（回调令牌）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+          <input id="wechatAesKey" type="password" placeholder="EncodingAESKey（43 位，已存留空不改）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+          <!-- 企业微信专属 -->
+          <div id="wechatWecomFields" style="display:flex;flex-direction:column;gap:8px">
+            <input id="wechatCorpId" placeholder="CorpID（企业 ID）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+            <input id="wechatCorpSecret" type="password" placeholder="应用 Secret（已存留空不改）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+            <input id="wechatAgentId" placeholder="AgentId（应用 ID，数字）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+          </div>
+          <!-- 公众号专属 -->
+          <div id="wechatMpFields" style="display:none;flex-direction:column;gap:8px">
+            <input id="wechatAppId" placeholder="AppID" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+            <input id="wechatAppSecret" type="password" placeholder="AppSecret（已存留空不改）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center">
+            <label style="font-size:13px;color:var(--muted)">由谁回复</label>
+            <select id="wechatAgent" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)">
+              <option value="xi">Anima（主助理）</option>
+              <option value="yiyi">晞（情感 · 命理）</option>
+              <option value="tianyuan">陶朱（创业 CEO）</option>
+              <option value="shoucang">守藏（知识 · 谏臣）</option>
+            </select>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)">
+            <input type="checkbox" id="wechatEnabled"> 启用（回调端点接收消息）
+          </label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="settings-btn" onclick="wechatSave()">保存并应用</button>
+            <span id="wechatStatus" style="font-size:12px;color:var(--muted)"></span>
+          </div>
+        </div>
+      </div>
+
       <!-- 角色名称设置 -->
       <div class="settings-section">
         <h3>🎭 角色命名</h3>

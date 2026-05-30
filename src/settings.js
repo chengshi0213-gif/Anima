@@ -912,6 +912,78 @@ window.computerSave = async function() {
   } catch (e) { toast('保存失败: ' + e.message, 'error'); }
 };
 
+// ── 企业微信 / 公众号 ───────────────────────────────────
+const WECHAT_API = () => `${CONFIG.api}/integrations/wechat`;
+
+window.wechatToggleProvider = function() {
+  const prov = document.getElementById('wechatProvider')?.value || 'wecom';
+  const we = document.getElementById('wechatWecomFields');
+  const mp = document.getElementById('wechatMpFields');
+  if (we) we.style.display = prov === 'wecom' ? 'flex' : 'none';
+  if (mp) mp.style.display = prov === 'mp' ? 'flex' : 'none';
+};
+
+function _wechatRenderStatus(status) {
+  const el = document.getElementById('wechatStatus');
+  if (!el || !status) return;
+  if (status.error)          { el.textContent = '● ' + status.error; el.style.color = 'var(--error,#e74c3c)'; }
+  else if (status.enabled && status.configured) { el.textContent = '● 已启用 · 回调待接收'; el.style.color = 'var(--success,#2ecc71)'; }
+  else if (status.enabled)   { el.textContent = '○ 已启用但配置不全'; el.style.color = 'var(--muted)'; }
+  else                       { el.textContent = '○ 未启用'; el.style.color = 'var(--muted)'; }
+}
+
+async function wechatLoad() {
+  const tk = document.getElementById('wechatToken');
+  if (!tk) return;
+  try {
+    const { config, status } = await fetch(WECHAT_API(), CONFIG.fetchOpts()).then(r => r.json());
+    const prov = document.getElementById('wechatProvider'); if (prov) prov.value = config.provider || 'wecom';
+    window.wechatToggleProvider();
+    tk.value = config.token || '';
+    const setPh = (id, has, txt) => { const e = document.getElementById(id); if (e) e.placeholder = has ? (txt + '（已存，留空不改）') : txt; };
+    setPh('wechatAesKey', config.has_aes_key, 'EncodingAESKey（43 位）');
+    setPh('wechatCorpSecret', config.has_corp_secret, '应用 Secret');
+    setPh('wechatAppSecret', config.has_app_secret, 'AppSecret');
+    const ci = document.getElementById('wechatCorpId'); if (ci) ci.value = config.corp_id || '';
+    const ai = document.getElementById('wechatAgentId'); if (ai) ai.value = config.agent_id || '';
+    const ap = document.getElementById('wechatAppId'); if (ap) ap.value = config.app_id || '';
+    const ag = document.getElementById('wechatAgent'); if (ag) ag.value = config.default_agent || 'xi';
+    const en = document.getElementById('wechatEnabled'); if (en) en.checked = !!config.enabled;
+    _wechatRenderStatus(status);
+  } catch (e) { /* 后端未起时静默 */ }
+}
+
+window.wechatSave = async function() {
+  const prov = document.getElementById('wechatProvider')?.value || 'wecom';
+  const body = {
+    provider: prov,
+    token: document.getElementById('wechatToken')?.value.trim() || '',
+    default_agent: document.getElementById('wechatAgent')?.value || 'xi',
+    enabled: document.getElementById('wechatEnabled')?.checked || false,
+  };
+  const aes = document.getElementById('wechatAesKey')?.value;       if (aes) body.aes_key = aes;
+  if (prov === 'wecom') {
+    body.corp_id = document.getElementById('wechatCorpId')?.value.trim() || '';
+    body.agent_id = document.getElementById('wechatAgentId')?.value.trim() || '';
+    const cs = document.getElementById('wechatCorpSecret')?.value; if (cs) body.corp_secret = cs;
+  } else {
+    body.app_id = document.getElementById('wechatAppId')?.value.trim() || '';
+    const as = document.getElementById('wechatAppSecret')?.value;   if (as) body.app_secret = as;
+  }
+  if (!body.token) { toast('请填写 Token', 'error'); return; }
+  try {
+    const d = await fetch(WECHAT_API(), CONFIG.fetchOpts({
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })).then(r => r.json());
+    // 清空已填的密钥框
+    ['wechatAesKey','wechatCorpSecret','wechatAppSecret'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+    _wechatRenderStatus(d.status);
+    if (body.enabled && d.status && !d.status.configured) toast('已保存，但配置还不完整', 'error');
+    else toast(body.enabled ? '已保存并启用 ✓ 回微信后台保存回调即可接通' : '已保存（未启用）', 'success');
+  } catch (e) { toast('保存失败: ' + e.message, 'error'); }
+};
+
 // Tab 切換时自动加载 (合并所有 tab 初始化)
 const _origSwitchTab = window.switchTab;
 window.switchTab = function(tabId, el) {
@@ -927,6 +999,7 @@ window.switchTab = function(tabId, el) {
     notifLoadChannels();
     feishuLoad();
     computerLoad();
+    wechatLoad();
     renderAgentNameGrid();
     renderAgentVoiceGrid();
     apiCatalogLoad();

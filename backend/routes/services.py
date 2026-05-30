@@ -356,6 +356,51 @@ async def computer_resolve_handler(request):
     return web.json_response({"ok": ok, "pending": pending}, headers=CORS_HEADERS)
 
 
+# ── 企业微信 / 公众号 ────────────────────────────────────
+import wechat_bot as _wechat
+
+
+async def wechat_get_handler(request):
+    """GET /integrations/wechat — 配置（密钥掩码）+ 状态 + 建议回调 URL"""
+    cfg = await asyncio.to_thread(_wechat.config_public)
+    status = await asyncio.to_thread(_wechat.bot.status)
+    return web.json_response({"config": cfg, "status": status}, headers=CORS_HEADERS)
+
+
+async def wechat_save_handler(request):
+    """POST /integrations/wechat — 保存配置（空密钥=不改）"""
+    try:
+        b = await request.json()
+    except Exception:
+        b = {}
+    await asyncio.to_thread(_wechat.save_config, b)
+    cfg = await asyncio.to_thread(_wechat.config_public)
+    status = await asyncio.to_thread(_wechat.bot.status)
+    return web.json_response({"config": cfg, "status": status}, headers=CORS_HEADERS)
+
+
+async def wechat_callback_get(request):
+    """GET /integrations/wechat/callback — 腾讯 URL 验证（返回解密后的 echostr）"""
+    q = request.query
+    plain = await asyncio.to_thread(
+        _wechat.bot.verify_url,
+        q.get("msg_signature", ""), q.get("timestamp", ""),
+        q.get("nonce", ""), q.get("echostr", ""),
+    )
+    if plain is None:
+        return web.Response(text="invalid signature", status=403)
+    return web.Response(text=plain, content_type="text/plain")
+
+
+async def wechat_callback_post(request):
+    """POST /integrations/wechat/callback — 收消息：立即 ack，人格回复走异步推送"""
+    q = request.query
+    body = await request.text()
+    reply = await _wechat.bot.handle_message(
+        body, q.get("msg_signature", ""), q.get("timestamp", ""), q.get("nonce", ""))
+    return web.Response(text=reply, content_type="text/plain")
+
+
 def register(app):
     # Skills
     app.router.add_get("/skills",                          skills_list_handler)
@@ -392,3 +437,8 @@ def register(app):
     app.router.add_get("/integrations/computer",          computer_get_handler)
     app.router.add_post("/integrations/computer",         computer_save_handler)
     app.router.add_post("/integrations/computer/resolve", computer_resolve_handler)
+    # 企业微信 / 公众号
+    app.router.add_get("/integrations/wechat",            wechat_get_handler)
+    app.router.add_post("/integrations/wechat",           wechat_save_handler)
+    app.router.add_get("/integrations/wechat/callback",   wechat_callback_get)
+    app.router.add_post("/integrations/wechat/callback",  wechat_callback_post)

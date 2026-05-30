@@ -69,6 +69,10 @@ async def auth_middleware(request, handler):
         return await handler(request)
     if request.path in ("/health", "/docs", "/openapi.json"):
         return await handler(request)
+    # 微信/企业微信回调：由腾讯服务器发起（非本地、无本地 Token），
+    # 其真伪由 msg_signature 签名校验保证，故此路径跳过 Bearer 鉴权。
+    if request.path.startswith("/integrations/wechat/callback"):
+        return await handler(request)
     if not _check_token(request):
         return web.json_response(
             {"error": "unauthorized — include Authorization: Bearer <local_token>"},
