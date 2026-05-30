@@ -793,6 +793,15 @@ BUILTIN_SKILLS = [
 ]
 
 
+# ── 社区/精选扩展包（70 个，来源于开源 Skill 仓库的方法论提炼）──
+try:
+    from community_skills import COMMUNITY_SKILLS
+    _existing_ids = {s["id"] for s in BUILTIN_SKILLS}
+    BUILTIN_SKILLS.extend(s for s in COMMUNITY_SKILLS if s["id"] not in _existing_ids)
+except Exception as _e:  # 扩展包出问题不应拖垮核心 skill 系统
+    import logging as _logging
+    _logging.getLogger(__name__).warning("community_skills 加载失败: %s", _e)
+
 # 构建 premium ID 集合
 _PREMIUM_IDS.update(s["id"] for s in BUILTIN_SKILLS if s.get("premium"))
 
