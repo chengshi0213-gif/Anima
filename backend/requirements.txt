@@ -23,5 +23,12 @@ apscheduler>=3.10.0
 # ── 文件监视 ──
 watchdog>=4.0.0
 
+# ── 集成：飞书双向机器人（长连接，免公网 URL）──
+lark-oapi>=1.4.0        # 飞书开放平台 SDK（事件长连接 + 消息收发）
+
+# ── 集成：桌面操作（computer use，可选，用户授权后才生效）──
+pyautogui>=0.9.54       # 鼠标/键盘控制
+pillow>=10.0            # 截屏（ImageGrab）
+
 # ── 打包 ──
 pyinstaller>=6.0        # 打包为单文件 exe

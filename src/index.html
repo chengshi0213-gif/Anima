@@ -1287,6 +1287,39 @@
         </div>
       </div>
 
+      <!-- 桌面操作（computer use） -->
+      <div class="settings-section">
+        <h3>🖱️ 桌面操作（让人格动你的鼠标键盘）</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:6px">授权后，人格能截屏看画面、点鼠标、敲键盘，帮你处理没有 API、只能在界面里点的活。<b style="color:var(--danger,#e5484d)">这是高权限能力，默认完全关闭。</b></p>
+        <details style="margin-bottom:12px">
+          <summary style="font-size:12px;color:var(--accent);cursor:pointer">安全说明（务必点开看）</summary>
+          <ul style="font-size:12px;color:var(--muted);margin:8px 0 0;padding-left:18px;line-height:1.7">
+            <li>所有动作只在<b>你本机</b>执行，不联网外传；每个动作都会写入本地审计日志。</li>
+            <li>急停：把鼠标<b>猛甩到屏幕左上角</b>即可立即中止人格的一切自动操作。</li>
+            <li>人格被告知：绝不替你点「删除 / 购买 / 发送 / 转账」这类不可逆按钮。</li>
+            <li>建议日常用「逐步确认」模式，每个控制动作执行前都问你一句。</li>
+          </ul>
+        </details>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)">
+            <input type="checkbox" id="computerEnabled"> 启用桌面操作能力
+          </label>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center">
+            <label style="font-size:13px;color:var(--muted)">授权模式</label>
+            <select id="computerMode" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)">
+              <option value="readonly">只读（仅截屏看，不动鼠标键盘）</option>
+              <option value="confirm">逐步确认（每个动作问我一次 · 推荐）</option>
+              <option value="auto">完全自动（本机内放行全部动作 · 高风险）</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="settings-btn" onclick="computerSave()">保存并应用</button>
+            <span id="computerStatus" style="font-size:12px;color:var(--muted)"></span>
+          </div>
+          <div id="computerPending" style="display:none;flex-direction:column;gap:6px;margin-top:6px;padding:10px;border:1px solid var(--accent);border-radius:8px;background:var(--surface)"></div>
+        </div>
+      </div>
+
       <!-- 角色名称设置 -->
       <div class="settings-section">
         <h3>🎭 角色命名</h3>

@@ -324,6 +324,38 @@ async def feishu_stop_handler(request):
     return web.json_response({"apply": res, "status": status}, headers=CORS_HEADERS)
 
 
+# ── 桌面操作（computer use）──────────────────────────────
+import computer_tools as _ct
+
+
+async def computer_get_handler(request):
+    """GET /integrations/computer — 当前配置 + 待确认动作列表"""
+    cfg = await asyncio.to_thread(_ct.config_public)
+    pending = await asyncio.to_thread(_ct.bridge.list_pending)
+    return web.json_response({"config": cfg, "pending": pending}, headers=CORS_HEADERS)
+
+
+async def computer_save_handler(request):
+    """POST /integrations/computer — 保存 {enabled, mode, move_duration}"""
+    try:
+        b = await request.json()
+    except Exception:
+        b = {}
+    cfg = await asyncio.to_thread(_ct.save_config, b)
+    return web.json_response({"config": _ct.config_public()}, headers=CORS_HEADERS)
+
+
+async def computer_resolve_handler(request):
+    """POST /integrations/computer/resolve — confirm 模式下批准/拒绝动作 {id, approved}"""
+    try:
+        b = await request.json()
+    except Exception:
+        b = {}
+    ok = await asyncio.to_thread(_ct.bridge.resolve, b.get("id", ""), bool(b.get("approved")))
+    pending = await asyncio.to_thread(_ct.bridge.list_pending)
+    return web.json_response({"ok": ok, "pending": pending}, headers=CORS_HEADERS)
+
+
 def register(app):
     # Skills
     app.router.add_get("/skills",                          skills_list_handler)
@@ -356,3 +388,7 @@ def register(app):
     app.router.add_post("/integrations/feishu/test",      feishu_test_handler)
     app.router.add_post("/integrations/feishu/start",     feishu_start_handler)
     app.router.add_post("/integrations/feishu/stop",      feishu_stop_handler)
+    # 桌面操作（computer use）
+    app.router.add_get("/integrations/computer",          computer_get_handler)
+    app.router.add_post("/integrations/computer",         computer_save_handler)
+    app.router.add_post("/integrations/computer/resolve", computer_resolve_handler)

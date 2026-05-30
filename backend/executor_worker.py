@@ -20,6 +20,7 @@ from xi_worker import (
 )
 from orchestrator import lead_delegate_tool_defs, build_orchestration_dispatch
 from git_safety import GIT_SAFETY_TOOL_DEFS, build_git_safety_dispatch
+from computer_tools import TOOL_DEFS as COMPUTER_TOOL_DEFS, build_dispatch as build_computer_dispatch
 
 # executor 作为"技术负责人"可派的下属（受 _MAX_DEPTH/_MAX_TREE_DELEGATIONS 约束）
 _LEAD_ROLES = {"executor", "reader", "critic"}
@@ -46,6 +47,14 @@ EXECUTOR_SYSTEM_PROMPT = """你是工程师，陶朱公司的工程交付专员�
 ## 禁止
 - 不跑验证就声称完成；不忽视报错继续往下；不做超出任务范围的破坏性操作。
 - 不臆测文件内容——读了再改。
+
+## 桌面操作（高权限，谨慎使用）
+你有截屏 / 鼠标 / 键盘工具（screen_info、screen_capture、mouse_click、keyboard_type 等），
+能在用户授权下操作本机桌面，处理没有 API、只能靠界面点的活。注意：
+- 这套能力默认关闭，需用户在设置里开启。被闸门拦下会收到权限提示——别硬试，把情况如实告诉用户。
+- 操作前先 screen_info 拿分辨率、screen_capture 看清当前画面，再下手；坐标要算准，宁可多看一眼。
+- 只做任务必需的最小操作，绝不点「删除/购买/发送/转账」这类不可逆按钮——让用户自己来。
+- 能用命令行/文件/API 解决的，优先用它们；桌面操作慢且脆，是兜底手段不是首选。
 
 ## 收尾
 给一句话总结：做了什么、测试结果如何（贴关键 exit_code/通过数）、改了哪些文件。
@@ -119,6 +128,8 @@ class ExecutorWorker(AgentBase):
             *lead_delegate_tool_defs(_LEAD_ROLES),
             # 安全网：改动前打快照 / 改崩了回滚（商用底线）
             *GIT_SAFETY_TOOL_DEFS,
+            # 桌面操作（截屏/鼠标/键盘）——默认关闭，受 computer_tools 安全闸门约束
+            *COMPUTER_TOOL_DEFS,
         ]
 
         super().__init__(
@@ -140,6 +151,8 @@ class ExecutorWorker(AgentBase):
                 **build_orchestration_dispatch(allowed_roles=_LEAD_ROLES),
                 # 安全网工具 dispatch
                 **build_git_safety_dispatch(),
+                # 桌面操作 dispatch（闸门在 computer_tools 内逐动作把关）
+                **build_computer_dispatch(),
             },
         )
         # 中型项目档（M9 Part 4）：放宽轮数/预算，撑得住多文件多轮持续开发。

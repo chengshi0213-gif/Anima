@@ -827,6 +827,91 @@ window.feishuTest = async function() {
   } catch (e) { toast('校验失败: ' + e.message, 'error'); }
 };
 
+// ── 桌面操作（computer use）─────────────────────────────
+const COMPUTER_API = () => `${CONFIG.api}/integrations/computer`;
+let _computerPoll = null;
+
+function _computerRenderStatus(cfg) {
+  const el = document.getElementById('computerStatus');
+  if (!el || !cfg) return;
+  if (!cfg.available)   { el.textContent = '● 依赖缺失：请 pip install pyautogui'; el.style.color = 'var(--error,#e74c3c)'; return; }
+  if (!cfg.enabled || cfg.mode === 'off') { el.textContent = '○ 已关闭'; el.style.color = 'var(--muted)'; return; }
+  const label = { readonly:'只读', confirm:'逐步确认', auto:'完全自动' }[cfg.mode] || cfg.mode;
+  el.textContent = '● 已启用 · ' + label;
+  el.style.color = cfg.mode === 'auto' ? 'var(--error,#e74c3c)' : 'var(--success,#2ecc71)';
+}
+
+async function computerLoad() {
+  const en = document.getElementById('computerEnabled');
+  if (!en) return;
+  try {
+    const { config, pending } = await fetch(COMPUTER_API(), CONFIG.fetchOpts()).then(r => r.json());
+    en.checked = !!config.enabled;
+    const md = document.getElementById('computerMode');
+    if (md) md.value = (config.mode && config.mode !== 'off') ? config.mode : 'confirm';
+    _computerRenderStatus(config);
+    _computerRenderPending(pending);
+    // confirm 模式下轮询待确认动作
+    _computerStartPoll(config);
+  } catch (e) { /* 后端未起时静默 */ }
+}
+
+function _computerStartPoll(config) {
+  if (_computerPoll) { clearInterval(_computerPoll); _computerPoll = null; }
+  if (config && config.enabled && config.mode === 'confirm') {
+    _computerPoll = setInterval(async () => {
+      try {
+        const { pending } = await fetch(COMPUTER_API(), CONFIG.fetchOpts()).then(r => r.json());
+        _computerRenderPending(pending);
+      } catch (e) {}
+    }, 1500);
+  }
+}
+
+function _computerRenderPending(pending) {
+  const box = document.getElementById('computerPending');
+  if (!box) return;
+  if (!pending || !pending.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'flex';
+  box.innerHTML = '<div style="font-size:12px;color:var(--accent);font-weight:600">人格请求执行桌面动作，请确认：</div>' +
+    pending.map(p => `
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+        <span style="flex:1;color:var(--text)">${_esc(p.summary)}</span>
+        <button class="hdr-btn-sm" onclick="computerResolve('${p.id}',true)">允许</button>
+        <button class="hdr-btn-sm" onclick="computerResolve('${p.id}',false)">拒绝</button>
+      </div>`).join('');
+}
+
+function _esc(s) { return String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+window.computerResolve = async function(id, approved) {
+  try {
+    const { pending } = await fetch(`${COMPUTER_API()}/resolve`, CONFIG.fetchOpts({
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, approved }),
+    })).then(r => r.json());
+    _computerRenderPending(pending);
+  } catch (e) { toast('确认失败: ' + e.message, 'error'); }
+};
+
+window.computerSave = async function() {
+  const enabled = document.getElementById('computerEnabled')?.checked || false;
+  const mode    = document.getElementById('computerMode')?.value || 'confirm';
+  if (enabled && mode === 'auto') {
+    if (!confirm('「完全自动」模式下，人格会在本机内自由点击鼠标键盘，不再逐个征求你同意。\n急停方法：把鼠标猛甩到屏幕左上角。\n\n确定开启吗？')) return;
+  }
+  try {
+    const body = { enabled, mode: enabled ? mode : 'off' };
+    const d = await fetch(COMPUTER_API(), CONFIG.fetchOpts({
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })).then(r => r.json());
+    _computerRenderStatus(d.config);
+    _computerStartPoll(d.config);
+    toast(enabled ? '已保存桌面操作设置 ✓' : '已关闭桌面操作', 'success');
+  } catch (e) { toast('保存失败: ' + e.message, 'error'); }
+};
+
 // Tab 切換时自动加载 (合并所有 tab 初始化)
 const _origSwitchTab = window.switchTab;
 window.switchTab = function(tabId, el) {
@@ -841,6 +926,7 @@ window.switchTab = function(tabId, el) {
   if (tabId === 'settings') {
     notifLoadChannels();
     feishuLoad();
+    computerLoad();
     renderAgentNameGrid();
     renderAgentVoiceGrid();
     apiCatalogLoad();
