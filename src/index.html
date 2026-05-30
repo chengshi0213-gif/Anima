@@ -1251,6 +1251,42 @@
         <div id="notifChannelList" style="font-size:13px;color:var(--muted)">加载中…</div>
       </div>
 
+      <!-- 飞书双向机器人 -->
+      <div class="settings-section">
+        <h3>🪶 飞书机器人（双向对话）</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:6px">把人格接进你的飞书：在飞书里私聊或 @机器人，它就会回复。走<b>长连接</b>，本机即可，无需公网地址。</p>
+        <details style="margin-bottom:12px">
+          <summary style="font-size:12px;color:var(--accent);cursor:pointer">怎么拿 App ID / Secret？（点开看 4 步）</summary>
+          <ol style="font-size:12px;color:var(--muted);margin:8px 0 0;padding-left:18px;line-height:1.7">
+            <li>去 <b>飞书开放平台 open.feishu.cn</b> → 创建「企业自建应用」</li>
+            <li>在「凭证与基础信息」复制 <b>App ID</b> 和 <b>App Secret</b></li>
+            <li>「添加应用能力」→ 开启<b>机器人</b>；「权限管理」加上 <code>im:message</code> 收发消息权限</li>
+            <li>「事件订阅」→ 订阅方式选 <b>长连接</b> → 添加事件 <code>接收消息 im.message.receive_v1</code> → 发布版本</li>
+          </ol>
+        </details>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+          <input id="feishuAppId" placeholder="App ID（cli_ 开头）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+          <input id="feishuSecret" type="password" placeholder="App Secret（已保存则留空不改）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center">
+            <label style="font-size:13px;color:var(--muted)">由谁回复</label>
+            <select id="feishuAgent" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)">
+              <option value="xi">Anima（主助理）</option>
+              <option value="yiyi">晞（情感 · 命理）</option>
+              <option value="tianyuan">陶朱（创业 CEO）</option>
+              <option value="shoucang">守藏（知识 · 谏臣）</option>
+            </select>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)">
+            <input type="checkbox" id="feishuEnabled"> 启用（开机随后端自动连接）
+          </label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="settings-btn" onclick="feishuSave()">保存并应用</button>
+            <button class="hdr-btn-sm" onclick="feishuTest()">测试凭证</button>
+            <span id="feishuStatus" style="font-size:12px;color:var(--muted)"></span>
+          </div>
+        </div>
+      </div>
+
       <!-- 角色名称设置 -->
       <div class="settings-section">
         <h3>🎭 角色命名</h3>

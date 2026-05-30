@@ -267,6 +267,63 @@ async def notif_push_handler(request):
     return web.json_response({"results": results}, headers=CORS_HEADERS)
 
 
+# ══════════════════════════════════════════════════════
+#  飞书双向机器人（长连接，免公网 URL）
+# ══════════════════════════════════════════════════════
+import feishu_bot as _feishu
+
+
+async def feishu_get_handler(request):
+    """GET /integrations/feishu — 当前配置（不回传明文密钥）+ 运行状态"""
+    cfg = await asyncio.to_thread(_feishu.config_public)
+    status = await asyncio.to_thread(_feishu.bot.status)
+    return web.json_response({"config": cfg, "status": status}, headers=CORS_HEADERS)
+
+
+async def feishu_save_handler(request):
+    """POST /integrations/feishu — 保存配置 {app_id, app_secret?, default_agent, enabled, strip_at}
+    app_secret 留空表示不修改已存的密钥。enabled=true 时立即尝试启动，false 则停止。"""
+    try:
+        b = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid json"}, status=400, headers=CORS_HEADERS)
+    cfg = await asyncio.to_thread(_feishu.save_config, b)
+    # 按 enabled 即时启停
+    if cfg.get("enabled"):
+        res = await asyncio.to_thread(_feishu.bot.start)
+    else:
+        res = await asyncio.to_thread(_feishu.bot.stop)
+    status = await asyncio.to_thread(_feishu.bot.status)
+    return web.json_response({"config": _feishu.config_public(), "apply": res,
+                              "status": status}, headers=CORS_HEADERS)
+
+
+async def feishu_test_handler(request):
+    """POST /integrations/feishu/test — 校验凭证 {app_id, app_secret?}
+    app_secret 留空时用已存的密钥校验。"""
+    try:
+        b = await request.json()
+    except Exception:
+        b = {}
+    stored = await asyncio.to_thread(_feishu.load_config)
+    app_id = (b.get("app_id") or stored.get("app_id") or "").strip()
+    secret = b.get("app_secret") or stored.get("app_secret") or ""
+    res = await asyncio.to_thread(_feishu.verify_credentials, app_id, secret)
+    return web.json_response(res, headers=CORS_HEADERS)
+
+
+async def feishu_start_handler(request):
+    res = await asyncio.to_thread(_feishu.bot.start)
+    status = await asyncio.to_thread(_feishu.bot.status)
+    return web.json_response({"apply": res, "status": status}, headers=CORS_HEADERS)
+
+
+async def feishu_stop_handler(request):
+    res = await asyncio.to_thread(_feishu.bot.stop)
+    status = await asyncio.to_thread(_feishu.bot.status)
+    return web.json_response({"apply": res, "status": status}, headers=CORS_HEADERS)
+
+
 def register(app):
     # Skills
     app.router.add_get("/skills",                          skills_list_handler)
@@ -293,3 +350,9 @@ def register(app):
     app.router.add_delete("/notifier/channels/{ch_id}",   notif_delete_handler)
     app.router.add_post("/notifier/channels/{ch_id}/test",notif_test_handler)
     app.router.add_post("/notifier/push",                 notif_push_handler)
+    # 飞书双向机器人
+    app.router.add_get("/integrations/feishu",            feishu_get_handler)
+    app.router.add_post("/integrations/feishu",           feishu_save_handler)
+    app.router.add_post("/integrations/feishu/test",      feishu_test_handler)
+    app.router.add_post("/integrations/feishu/start",     feishu_start_handler)
+    app.router.add_post("/integrations/feishu/stop",      feishu_stop_handler)

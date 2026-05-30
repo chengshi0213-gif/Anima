@@ -104,6 +104,16 @@ async def main():
     _watcher.set_run_fn(_run_agent)
     _watcher.start()
 
+    # ── 飞书双向机器人：接线主循环 + 人格入口，按配置自动启动 ──
+    try:
+        import feishu_bot
+        feishu_bot.bot.configure(_run_agent, asyncio.get_running_loop())
+        if feishu_bot.load_config().get("enabled"):
+            res = feishu_bot.bot.start()
+            print(f"  飞书机器人: {'已启动' if res.get('ok') else '启动失败 ' + str(res.get('error'))}")
+    except Exception as _e:
+        print(f"  飞书机器人接线失败: {_e}")
+
     # ── 启动 HTTP 服务 ──
     runner = web.AppRunner(app)
     await runner.setup()

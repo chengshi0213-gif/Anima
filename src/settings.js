@@ -755,6 +755,78 @@ window.notifDelete = async function(id) {
   } catch(e) { toast('删除失败', 'error'); }
 };
 
+// ══════════════════════════════════════════════════
+//  飞书双向机器人
+// ════════════════════════════════════════════════════
+const FEISHU_API = () => `${CONFIG.api}/integrations/feishu`;
+
+function _feishuRenderStatus(status) {
+  const el = document.getElementById('feishuStatus');
+  if (!el || !status) return;
+  if (status.running)      { el.textContent = '● 已连接，正在收消息'; el.style.color = 'var(--success, #2ecc71)'; }
+  else if (status.error)   { el.textContent = '● 未连接：' + status.error; el.style.color = 'var(--error, #e74c3c)'; }
+  else if (status.enabled) { el.textContent = '○ 已启用但未连接'; el.style.color = 'var(--muted)'; }
+  else                     { el.textContent = '○ 未启用'; el.style.color = 'var(--muted)'; }
+}
+
+async function feishuLoad() {
+  const idEl = document.getElementById('feishuAppId');
+  if (!idEl) return;
+  try {
+    const { config, status } = await fetch(FEISHU_API(), CONFIG.fetchOpts()).then(r => r.json());
+    idEl.value = config.app_id || '';
+    const secEl = document.getElementById('feishuSecret');
+    if (secEl) secEl.placeholder = config.has_secret ? 'App Secret 已保存（留空不改）' : 'App Secret';
+    const ag = document.getElementById('feishuAgent'); if (ag) ag.value = config.default_agent || 'xi';
+    const en = document.getElementById('feishuEnabled'); if (en) en.checked = !!config.enabled;
+    _feishuRenderStatus(status);
+  } catch (e) { /* 后端未起时静默 */ }
+}
+
+window.feishuSave = async function() {
+  const app_id  = document.getElementById('feishuAppId')?.value.trim();
+  const secret  = document.getElementById('feishuSecret')?.value;          // 留空=不改
+  const agent   = document.getElementById('feishuAgent')?.value || 'xi';
+  const enabled = document.getElementById('feishuEnabled')?.checked || false;
+  if (!app_id) { toast('请填写 App ID', 'error'); return; }
+  if (enabled && !secret) {
+    // 启用但本次没填密钥——依赖已存的；若从未存过则提示
+    const cur = await fetch(FEISHU_API(), CONFIG.fetchOpts()).then(r => r.json()).catch(()=>null);
+    if (cur && !cur.config.has_secret) { toast('首次启用请填写 App Secret', 'error'); return; }
+  }
+  try {
+    const body = { app_id, default_agent: agent, enabled, strip_at: true };
+    if (secret) body.app_secret = secret;
+    const d = await fetch(FEISHU_API(), CONFIG.fetchOpts({
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })).then(r => r.json());
+    const secEl = document.getElementById('feishuSecret'); if (secEl) secEl.value = '';
+    _feishuRenderStatus(d.status);
+    if (enabled && d.apply && d.apply.ok === false) {
+      toast('已保存，但连接失败：' + (d.apply.error || ''), 'error');
+    } else {
+      toast(enabled ? '已保存并连接 ✓' : '已保存（未启用）', 'success');
+    }
+  } catch (e) { toast('保存失败: ' + e.message, 'error'); }
+};
+
+window.feishuTest = async function() {
+  const app_id = document.getElementById('feishuAppId')?.value.trim();
+  const secret = document.getElementById('feishuSecret')?.value;
+  const el = document.getElementById('feishuStatus');
+  if (el) { el.textContent = '校验中…'; el.style.color = 'var(--muted)'; }
+  try {
+    const body = {}; if (app_id) body.app_id = app_id; if (secret) body.app_secret = secret;
+    const d = await fetch(`${FEISHU_API()}/test`, CONFIG.fetchOpts({
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })).then(r => r.json());
+    if (d.ok) { toast('凭证有效 ✓', 'success'); if (el){ el.textContent='● 凭证有效'; el.style.color='var(--success,#2ecc71)'; } }
+    else      { toast('凭证无效：' + (d.error || ''), 'error'); if (el){ el.textContent='● ' + (d.error||'无效'); el.style.color='var(--error,#e74c3c)'; } }
+  } catch (e) { toast('校验失败: ' + e.message, 'error'); }
+};
+
 // Tab 切換时自动加载 (合并所有 tab 初始化)
 const _origSwitchTab = window.switchTab;
 window.switchTab = function(tabId, el) {
@@ -768,6 +840,7 @@ window.switchTab = function(tabId, el) {
   if (tabId === 'skills')      skillsLoad();
   if (tabId === 'settings') {
     notifLoadChannels();
+    feishuLoad();
     renderAgentNameGrid();
     renderAgentVoiceGrid();
     apiCatalogLoad();
