@@ -45,20 +45,6 @@ class WorkflowManager:
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         return data
 
-    def list_all(self, agent: str | None = None) -> list[dict]:
-        """列出所有模板"""
-        templates = []
-        for f in sorted(self.store_dir.glob("*.json")):
-            try:
-                data = json.loads(f.read_text(encoding="utf-8"))
-                if agent and data.get("agent") != agent:
-                    continue
-                data["id"] = f.stem
-                templates.append(data)
-            except Exception:
-                pass
-        return templates
-
     def delete(self, name: str) -> bool:
         """删除模板"""
         path = self.store_dir / f"{name}.json"

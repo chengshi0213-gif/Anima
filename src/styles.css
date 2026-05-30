@@ -2623,3 +2623,42 @@ kbd {
    --accent-rgb for rgba() usage
 ══════════════════════════════════════════════════ */
 :root { --accent-rgb: 99, 102, 241; }
+
+/* ══════════════════════════════════════════════════
+   M10 工作流：富节点摘要 / 人审闸门 / 运行 spinner
+   （合并自 styles_new_features.css 2026-05-30）
+══════════════════════════════════════════════════ */
+/* 富节点（并行/条件/循环）只读摘要 */
+.wf-node-badge {
+  flex: 1; font-size: 12px; font-weight: 700; color: var(--accent, #6a5acd);
+  background: color-mix(in srgb, var(--accent, #6a5acd) 12%, transparent);
+  border-radius: 6px; padding: 3px 8px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.wf-sub-box {
+  margin-top: 8px; border: 1px dashed var(--border); border-radius: 8px;
+  padding: 8px 10px; background: var(--bg); display: flex;
+  flex-direction: column; gap: 4px;
+}
+.wf-sub-line { font-size: 12px; line-height: 1.5; }
+.wf-sub-line b { color: var(--accent, #6a5acd); font-weight: 700; }
+/* 人审闸门面板 */
+.wf-gate-panel {
+  margin-top: 12px; border: 1.5px solid #fca5a5; border-radius: 12px;
+  padding: 14px; background: color-mix(in srgb, #fee2e2 40%, var(--surface));
+}
+.wf-gate-title { font-weight: 700; font-size: 13px; color: #991b1b; margin-bottom: 6px; }
+.wf-gate-msg { font-size: 13px; color: var(--text); margin-bottom: 8px; line-height: 1.5; }
+.wf-gate-preview {
+  font-size: 12px; color: var(--muted); background: var(--bg);
+  border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px;
+  margin-bottom: 8px; max-height: 160px; overflow: auto; white-space: pre-wrap;
+}
+.wf-gate-panel textarea {
+  width: 100%; box-sizing: border-box; border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit;
+  background: var(--surface); color: var(--text); resize: vertical;
+}
+/* 运行中转圈 */
+.wf-spin { display: inline-block; animation: wf-spin 1s linear infinite; }
+@keyframes wf-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
