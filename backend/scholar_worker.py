@@ -479,6 +479,10 @@ class ShoucangWorker(AgentBase):
             tool_dispatch=tool_dispatch,
         )
         self.max_turns = 40
+        # 聊天人格：去 AI 味。只清洗最终回复；Obsidian 笔记走 write_obsidian_note
+        # 工具产出，不经此路，Markdown 格式不受影响。
+        self.humanize_output = True
+        self.temperature = 0.7
 
     def run_daily_sop(self, progress_cb=None) -> dict:
         """

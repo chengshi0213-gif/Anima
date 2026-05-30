@@ -155,6 +155,9 @@ class YiyiWorker(AgentBase):
             },
         )
         self.max_turns = 30
+        # 聊天人格：去 AI 味；晞慢而软，温度再高一点让语气更松弛自然
+        self.humanize_output = True
+        self.temperature = 0.85
 
     # 动态组装 system prompt：人格 + 命理 skill 工作流 + 适配说明 + 最新出生信息
     def _compose_system(self) -> str:

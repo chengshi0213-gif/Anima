@@ -216,3 +216,6 @@ class XiWorker(AgentBase):
                 "fetch_url":   lambda **kw: _fetch_url(kw["url"]),
             },
         )
+        # 聊天人格：回复去 AI 味（清洗 Markdown 装饰符号），温度略高更自然
+        self.humanize_output = True
+        self.temperature = 0.7

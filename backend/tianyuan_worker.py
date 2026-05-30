@@ -93,3 +93,6 @@ class TianyuanWorker(AgentBase):
             },
         )
         self.max_turns = 20
+        # 聊天人格：去 AI 味。陶朱用 deepseek-reasoner，温度参数被供应商忽略，
+        # 故不设 temperature，只靠清洗 + 对话体片段去符号去八股。
+        self.humanize_output = True

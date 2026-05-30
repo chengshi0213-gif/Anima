@@ -148,6 +148,12 @@ class AgentBase:
         # 编程型子类（executor）置 True：压缩时从被丢弃的中间消息里提炼一份
         # "已改文件 + 关键命令/退出码" 摘要塞进占位符，长会话里不会忘记自己改过什么。
         self.coding_compress = False
+        # 去 AI 味（聊天人格置 True）：最终回复经 _humanize 清洗掉 Markdown 装饰符号
+        #（**加粗** / ## 标题 / 项目符号 / 破折号 ——），保护代码块不动。
+        # 子 agent（executor/writer/...）保持 False：它们的产出要进代码/报告，符号有意义。
+        self.humanize_output = False
+        # 采样温度：None = 用供应商默认；聊天人格略调高，回复更自然不刻板。
+        self.temperature = None
 
     # ── 子类必须实现 ──
     def get_identity_files(self) -> dict[str, Path]:
@@ -184,6 +190,8 @@ class AgentBase:
         body = {"model": model_id, "messages": messages, "stream": stream}
         if tools:
             body["tools"] = tools
+        if self.temperature is not None:
+            body["temperature"] = self.temperature
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -324,6 +332,8 @@ class AgentBase:
             # 无工具调用 = 完成
             if not resp.get("tool_calls"):
                 summary = resp.get("content", "")
+                if self.humanize_output:
+                    summary = self._humanize(summary)
                 self._log(session_id, "session_complete", {"turns": turn, "files_changed": files_changed})
                 asyncio.create_task(self._async_compress(session_id, messages, summary, files_changed, turn))
                 asyncio.create_task(self._notify_feishu(session_id, "completed", turn, files_changed))
@@ -394,6 +404,41 @@ class AgentBase:
     @staticmethod
     def _normalize(text: str) -> str:
         return re.sub(r"\n{3,}", "\n\n", text.strip().replace("\r\n", "\n"))
+
+    @staticmethod
+    def _humanize(text: str) -> str:
+        """去 AI 味：剥掉 Markdown 装饰符号，让回复读起来像真人发的消息。
+        只动格式符号，不改一个字的内容；围栏代码块与行内代码原样保护。"""
+        if not text or "\x00" in text:
+            return text
+        # 1) 先把代码块/行内代码抠出来占位，避免误伤代码里的 * # - 等
+        stash: list[str] = []
+        def _keep(m):
+            stash.append(m.group(0))
+            return f"\x00{len(stash) - 1}\x00"
+        text = re.sub(r"```.*?```", _keep, text, flags=re.DOTALL)
+        text = re.sub(r"`[^`\n]+`", _keep, text)
+        # 2) 去标题井号，保留标题文字
+        text = re.sub(r"(?m)^[ \t]*#{1,6}[ \t]+", "", text)
+        # 3) 去 **加粗** __加粗__ ~~删除线~~，保留内文
+        text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+        text = re.sub(r"__(.+?)__", r"\1", text)
+        text = re.sub(r"~~(.+?)~~", r"\1", text)
+        # 4) 去行首项目符号（- * +），保留这一行的文字
+        text = re.sub(r"(?m)^[ \t]*[-*+][ \t]+", "", text)
+        # 4b) 去行首编号清单标记「1. 」「2、」，保留文字。只匹配 1-2 位数字 + 标点
+        #     + 空格，避开版本号 3.14（无空格）、年份 2024.（4 位）等。
+        text = re.sub(r"(?m)^[ \t]*\d{1,2}[.、][ \t]+", "", text)
+        # 5) 破折号：双破折号 —— → 逗号；单破折号仅在非数字间替换（保留 3—5 这类区间）
+        text = text.replace("——", "，")
+        text = re.sub(r"(?<!\d)—(?!\d)", "，", text)
+        # 6) 收尾：连续逗号、逗号紧贴句末标点、过多空行
+        text = re.sub(r"，{2,}", "，", text)
+        text = re.sub(r"，([。！？，、])", r"\1", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        # 7) 还原代码
+        text = re.sub(r"\x00(\d+)\x00", lambda m: stash[int(m.group(1))], text)
+        return text.strip()
 
     def _trim_result(self, tool_name: str, result: dict, seen: set[str]) -> str:
         text = json.dumps(result, ensure_ascii=False)
