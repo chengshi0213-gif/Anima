@@ -76,6 +76,26 @@ async def memory_learn_handler(request):
         return _json_error(str(e), 500)
 
 
+async def memory_import_handler(request):
+    """POST /memory/import — Transfer Memory：从别的 AI 导入记忆。
+    body: {text, source?, agent?}。提炼成记忆条写入本地库。"""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid json"}, status=400, headers=CORS_HEADERS)
+    text   = (body.get("text") or "").strip()
+    source = (body.get("source") or "").strip()[:40]
+    agent  = body.get("agent") or "xi"
+    if not text:
+        return web.json_response({"error": "text required"}, status=400, headers=CORS_HEADERS)
+    try:
+        from memory_import import import_text
+        result = await import_text(text, source, agent)
+        return web.json_response(result, headers=CORS_HEADERS)
+    except Exception as e:
+        return _json_error(str(e), 500)
+
+
 async def memory_backend_get(request):
     """GET /memory/backend — 获取当前后端类型及状态"""
     try:
@@ -280,6 +300,7 @@ def register(app):
     app.router.add_post("/shoucang/sop",                   shoucang_sop_handler)
     # Memory
     app.router.add_post("/memory/learn",                   memory_learn_handler)
+    app.router.add_post("/memory/import",                  memory_import_handler)
     app.router.add_get("/memory/backend",                  memory_backend_get)
     app.router.add_post("/memory/backend",                 memory_backend_set)
     app.router.add_post("/memory/migrate",                 memory_migrate_handler)

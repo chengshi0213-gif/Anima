@@ -18,9 +18,6 @@ from onboarding import (
 
 DEFAULT_AGENT_NAMES = {
     "xi":       "Anima",
-    "yiyi":     "晞",
-    "tianyuan": "陶朱",
-    "shoucang": "守藏",
     "executor": "执行者",
     "writer":   "写手",
     "reader":   "阅读者",
@@ -29,10 +26,7 @@ DEFAULT_AGENT_NAMES = {
 
 # Agent 默认音色映射（edge-tts 声音）
 AGENT_VOICES = {
-    "xi":       "zh-CN-YunxiNeural",
-    "yiyi":     "zh-CN-XiaoxiaoNeural",
-    "tianyuan": "zh-CN-YunyangNeural",
-    "shoucang": "zh-CN-YunjianNeural",
+    "xi":       "zh-CN-XiaoxiaoNeural",
     "executor": "zh-CN-YunxiNeural",
     "writer":   "zh-CN-XiaoyiNeural",
     "reader":   "zh-CN-YunjianNeural",
@@ -191,6 +185,7 @@ async def setup_save_handler(request):
         for attr, key in [
             ("DEEPSEEK_KEY","deepseek_key"),("KIMI_KEY","kimi_key"),
             ("QWEN_KEY","qwen_key"),("OPENAI_KEY","openai_key"),
+            ("GLM_KEY","glm_key"),("MIMO_KEY","mimo_key"),
             ("ANTHROPIC_KEY","anthropic_key"),("OPENROUTER_KEY","openrouter_key"),
         ]:
             v = api_updates.get(key)
@@ -258,11 +253,17 @@ API_CATALOG = [
      "desc":"Anima + 陶朱主脑，国内最强编程推理模型",
      "signup_url":"https://platform.deepseek.com",  "config_key":"deepseek_key",  "required":True},
     {"id":"kimi",      "name":"Kimi",          "category":"llm",    "icon":"🌙",
-     "desc":"陶朱团队写手/阅读者，超长上下文（128K）",
-     "signup_url":"https://platform.moonshot.cn",   "config_key":"kimi_key",      "required":True},
+     "desc":"超长上下文（128K），写作/长文阅读（可选）",
+     "signup_url":"https://platform.moonshot.cn",   "config_key":"kimi_key",      "required":False},
     {"id":"qwen",      "name":"通义千问",       "category":"llm",    "icon":"🟢",
-     "desc":"知识库 Embedding + 守藏检索增强",
+     "desc":"知识库 Embedding + 守藏检索增强（可选）",
      "signup_url":"https://dashscope.aliyun.com",   "config_key":"qwen_key",      "required":False},
+    {"id":"glm",       "name":"智谱 GLM",       "category":"llm",    "icon":"🟣",
+     "desc":"GLM-4.6 旗舰，GLM-4-Flash 免费可用（可选）",
+     "signup_url":"https://open.bigmodel.cn",       "config_key":"glm_key",       "required":False},
+    {"id":"mimo",      "name":"小米 MiMo",      "category":"llm",    "icon":"🟠",
+     "desc":"小米 MiMo 推理模型，OpenAI 兼容（可选）",
+     "signup_url":"https://xiaomimimo.com",         "config_key":"mimo_key",      "required":False},
     {"id":"openai",    "name":"OpenAI",         "category":"llm",    "icon":"⚫",
      "desc":"GPT 系列模型（可选）",
      "signup_url":"https://platform.openai.com",    "config_key":"openai_key",    "required":False},
@@ -306,6 +307,8 @@ def _get_api_statuses() -> list:
         "deepseek_key":  _cfg.DEEPSEEK_KEY,
         "kimi_key":      _cfg.KIMI_KEY,
         "qwen_key":      _cfg.QWEN_KEY,
+        "glm_key":       _cfg.GLM_KEY,
+        "mimo_key":      _cfg.MIMO_KEY,
         "openai_key":    _cfg.OPENAI_KEY,
         "anthropic_key": _cfg.ANTHROPIC_KEY,
         "openrouter_key":_cfg.OPENROUTER_KEY,
@@ -340,7 +343,7 @@ async def api_save_handler(request):
     import config as _cfg
     allowed = {
         "deepseek_key", "kimi_key", "qwen_key", "openai_key",
-        "anthropic_key", "openrouter_key", "glm_key", "gemini_key",
+        "anthropic_key", "openrouter_key", "glm_key", "mimo_key", "gemini_key",
         "tavily_key", "serper_key", "jina_key", "firecrawl_key", "github_token",
         "smtp_host", "smtp_port", "smtp_user", "smtp_pass",
         "notion_key",
@@ -355,19 +358,22 @@ async def api_save_handler(request):
 async def api_test_handler(request):
     """POST /config/api-test/{api_id} — 测试 API 是否可用"""
     api_id = request.match_info["api_id"]
+    import config as _cfg
     test_urls = {
         "deepseek":  "https://api.deepseek.com/models",
         "kimi":      "https://api.moonshot.cn/v1/models",
         "qwen":      "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
         "openai":    "https://api.openai.com/v1/models",
+        "glm":       _cfg.GLM_URL.rstrip("/") + "/models",
+        "mimo":      _cfg.MIMO_URL.rstrip("/") + "/models",
         "tavily":    "https://api.tavily.com/search",
     }
     url = test_urls.get(api_id)
     if not url:
         return web.json_response({"ok": False, "error": "无法测试此 API"}, headers=CORS_HEADERS)
-    import config as _cfg
     key_map = {"deepseek":_cfg.DEEPSEEK_KEY,"kimi":_cfg.KIMI_KEY,
-               "qwen":_cfg.QWEN_KEY,"openai":_cfg.OPENAI_KEY}
+               "qwen":_cfg.QWEN_KEY,"openai":_cfg.OPENAI_KEY,
+               "glm":_cfg.GLM_KEY,"mimo":_cfg.MIMO_KEY}
     key = key_map.get(api_id,"")
     if not key:
         return web.json_response({"ok": False, "error": "API Key 未配置"}, headers=CORS_HEADERS)
@@ -380,6 +386,56 @@ async def api_test_handler(request):
         return web.json_response({"ok": ok}, headers=CORS_HEADERS)
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, headers=CORS_HEADERS)
+
+
+async def data_home_get(request):
+    """GET /config/data-home — 当前数据主目录信息"""
+    import config as _cfg
+    return web.json_response(_cfg.get_data_home(), headers=CORS_HEADERS)
+
+
+async def data_home_set(request):
+    """POST /config/data-home — 设置（可迁移）数据主目录。需重启生效。
+    body: {path, migrate?:bool}"""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid json"}, status=400, headers=CORS_HEADERS)
+    import config as _cfg
+    import shutil
+    from pathlib import Path
+    ok, resolved = _cfg.validate_data_home(body.get("path", ""))
+    if not ok:
+        return web.json_response({"ok": False, "error": resolved}, status=400, headers=CORS_HEADERS)
+    migrate = bool(body.get("migrate", True))
+    moved = []
+    if migrate:
+        try:
+            cur = Path(_cfg.get_data_home()["anima_home"])
+            for sub in _cfg.DATA_HOME_SUBDIRS:
+                src = cur / sub
+                if src.exists():
+                    await asyncio.to_thread(
+                        shutil.copytree, str(src), str(Path(resolved) / sub), dirs_exist_ok=True
+                    )
+                    moved.append(sub)
+        except Exception as e:
+            return web.json_response({"ok": False, "error": f"迁移失败：{e}"},
+                                     status=500, headers=CORS_HEADERS)
+    _cfg.save_user_config({"anima_home": resolved})
+    return web.json_response({
+        "ok": True, "path": resolved, "moved": moved,
+        "restart_required": True,
+        "message": "已保存。重启 Anima 后，数据将从新目录读取。",
+    }, headers=CORS_HEADERS)
+
+
+async def data_home_reset(request):
+    """POST /config/data-home/reset — 恢复默认目录（不删数据，仅改指向）。需重启。"""
+    import config as _cfg
+    _cfg.save_user_config({"anima_home": ""})
+    return web.json_response({"ok": True, "restart_required": True,
+                             "message": "已恢复默认目录，重启后生效。"}, headers=CORS_HEADERS)
 
 
 def register(app):
@@ -401,3 +457,7 @@ def register(app):
     app.router.add_get("/config/api-catalog",      api_catalog_handler)
     app.router.add_post("/config/api-save",        api_save_handler)
     app.router.add_post("/config/api-test/{api_id}", api_test_handler)
+    # 数据目录自定义
+    app.router.add_get("/config/data-home",        data_home_get)
+    app.router.add_post("/config/data-home",       data_home_set)
+    app.router.add_post("/config/data-home/reset", data_home_reset)

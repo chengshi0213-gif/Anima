@@ -12,9 +12,6 @@ let wfCurrentId = null;
 
 const WF_AGENTS = [
   { id:'xi',   label:'👩‍💼 Anima — 私人助理' },
-  { id:'yiyi',     label:'🌸 晞 — 情感伙伴' },
-  { id:'tianyuan', label:'🏢 陶朱 — CEO' },
-  { id:'shoucang',  label:'🎓 守藏 — 知识研究员' },
   { id:'executor', label:'⚡ 执行者 — 任务执行' },
   { id:'writer',   label:'✍️ 写手 — 内容创作' },
   { id:'reader',   label:'📖 阅读者 — 文档阅读' },
@@ -324,15 +321,10 @@ window.wfCancelRun = function() {
 
 // 运行（流式）
 window.wfRun = async function() {
-  if (!wfStepList.length) { toast('请先添加步骤', 'error'); return; }
-  const anyEmpty = wfStepList.some(s => {
-    const t = s.type || 'sequential';
-    if (t === 'sequential') return !s.prompt?.trim();
-    if (t === 'loop')  return !s.step?.prompt?.trim();
-    if (t === 'taozu') return !s.goal?.trim();
-    return false;
-  });
-  if (anyEmpty) { toast('有步骤的内容为空（顺序/循环需提示词，陶朱需目标）', 'error'); return; }
+  // n8n/扣子 画布优先：有节点就跑 DAG 图；否则回退旧线性步骤
+  const _graph = window.PersonaWF?.exportGraph?.();
+  const _useGraph = !!(_graph && Object.keys(_graph.nodes).length > 0);
+  if (!_useGraph && !wfStepList.length) { toast('画布为空，请先添加节点', 'error'); return; }
 
   const btn     = document.getElementById('wfRunBtn');
   const cbtn     = document.getElementById('wfCancelBtn');
@@ -359,7 +351,9 @@ window.wfRun = async function() {
 
   ws.onopen = () => {
     if (status) status.textContent = '运行中…';
-    ws.send(JSON.stringify({ action: 'run', steps: wfStepList, use_kb: useKb }));
+    const payload = _useGraph ? { action:'run', graph:_graph, use_kb:useKb }
+                              : { action:'run', steps: wfStepList, use_kb: useKb };
+    ws.send(JSON.stringify(payload));
   };
 
   ws.onmessage = (e) => {
@@ -550,11 +544,11 @@ const WF_TEMPLATES = [
   {
     id: 'tpl_market_research',
     name: '📊 市场调研分析',
-    desc: '陶朱主导：竞品分析 + 市场规模 + 机会洞察',
+    desc: 'Anima 主导：竞品分析 + 市场规模 + 机会洞察',
     category: 'research', icon: '📊',
     steps: [
       { type:'sequential', agent:'xi',   prompt:'收集 {{行业/产品}} 的市场数据：市场规模、主要玩家、增长趋势', pass_context:false },
-      { type:'sequential', agent:'tianyuan', prompt:'对竞品进行 SWOT 分析，找出市场空白和差异化机会', pass_context:true },
+      { type:'sequential', agent:'xi', prompt:'对竞品进行 SWOT 分析，找出市场空白和差异化机会', pass_context:true },
       { type:'sequential', agent:'writer',   prompt:'整理成一份 CEO 级别的市场洞察报告，有图表建议', pass_context:true },
     ],
   },
@@ -565,7 +559,7 @@ const WF_TEMPLATES = [
     category: 'research', icon: '👥',
     steps: [
       { type:'sequential', agent:'reader',   prompt:'阅读以下用户访谈记录，提炼关键痛点和需求：{{访谈内容}}', pass_context:false },
-      { type:'sequential', agent:'tianyuan', prompt:'基于用户洞察，分析这些需求的商业价值，按优先级排序', pass_context:true },
+      { type:'sequential', agent:'xi', prompt:'基于用户洞察，分析这些需求的商业价值，按优先级排序', pass_context:true },
       { type:'sequential', agent:'writer',   prompt:'生成用户研究报告，包括用户画像、核心诉求、产品建议', pass_context:true },
     ],
   },
@@ -588,7 +582,7 @@ const WF_TEMPLATES = [
     steps: [
       { type:'sequential', agent:'xi',  prompt:'整理以下工作记录，提炼本周完成事项、遇到的挑战：{{工作内容}}', pass_context:false },
       { type:'sequential', agent:'writer',  prompt:'撰写专业的周报：本周完成、关键进展、遇到的问题', pass_context:true },
-      { type:'sequential', agent:'tianyuan',prompt:'基于本周情况，制定下周优先级和计划', pass_context:true },
+      { type:'sequential', agent:'xi',prompt:'基于本周情况，制定下周优先级和计划', pass_context:true },
     ],
   },
 
@@ -621,7 +615,7 @@ const WF_TEMPLATES = [
     desc: '需求分析 → API 设计 → 接口文档生成',
     category: 'code', icon: '🔌',
     steps: [
-      { type:'sequential', agent:'tianyuan', prompt:'分析以下业务需求，梳理需要的核心功能：{{业务需求}}', pass_context:false },
+      { type:'sequential', agent:'xi', prompt:'分析以下业务需求，梳理需要的核心功能：{{业务需求}}', pass_context:false },
       { type:'sequential', agent:'executor', prompt:'设计 RESTful API 接口：路径、方法、请求/响应格式、状态码', pass_context:true },
       { type:'sequential', agent:'writer',   prompt:'生成 OpenAPI 格式的接口文档，包含示例', pass_context:true },
     ],
@@ -642,15 +636,15 @@ const WF_TEMPLATES = [
   {
     id: 'tpl_business_plan',
     name: '💼 商业计划书',
-    desc: '陶朱主导：市场 + 产品 + 财务 + 执行计划',
+    desc: 'Anima 主导：市场 + 产品 + 财务 + 执行计划',
     category: 'business', icon: '💼',
     steps: [
-      { type:'sequential', agent:'tianyuan', prompt:'基于以下创业想法，分析市场机会和商业模式：{{创业想法}}', pass_context:false },
+      { type:'sequential', agent:'xi', prompt:'基于以下创业想法，分析市场机会和商业模式：{{创业想法}}', pass_context:false },
       { type:'parallel', branches: [
-        { agent:'tianyuan', prompt:'撰写市场分析和竞争策略章节', pass_context:true },
+        { agent:'xi', prompt:'撰写市场分析和竞争策略章节', pass_context:true },
         { agent:'writer',   prompt:'撰写产品介绍和用户价值主张章节', pass_context:true },
       ]},
-      { type:'sequential', agent:'tianyuan', prompt:'整合以上内容，加上执行路线图和融资需求，完成完整商业计划书', pass_context:true },
+      { type:'sequential', agent:'xi', prompt:'整合以上内容，加上执行路线图和融资需求，完成完整商业计划书', pass_context:true },
     ],
   },
   {
@@ -660,7 +654,7 @@ const WF_TEMPLATES = [
     category: 'business', icon: '📈',
     steps: [
       { type:'sequential', agent:'reader',   prompt:'收集关于 {{项目/公司}} 的公开信息：团队、产品、融资历史、市场', pass_context:false },
-      { type:'sequential', agent:'tianyuan', prompt:'进行投资价值分析：市场规模、竞争壁垒、团队能力、风险点', pass_context:true },
+      { type:'sequential', agent:'xi', prompt:'进行投资价值分析：市场规模、竞争壁垒、团队能力、风险点', pass_context:true },
       { type:'sequential', agent:'writer',   prompt:'生成投资备忘录（Investment Memo），专业风格，含推荐结论', pass_context:true },
     ],
   },
@@ -681,8 +675,8 @@ const WF_TEMPLATES = [
     desc: '基于战略方向，制定季度 OKR',
     category: 'business', icon: '🎯',
     steps: [
-      { type:'sequential', agent:'tianyuan', prompt:'分析以下战略方向，确定本季度最重要的 3 个优先级：{{战略方向}}', pass_context:false },
-      { type:'sequential', agent:'tianyuan', prompt:'为每个优先级制定 OKR：1 个 Objective + 3 个可量化的 Key Results', pass_context:true },
+      { type:'sequential', agent:'xi', prompt:'分析以下战略方向，确定本季度最重要的 3 个优先级：{{战略方向}}', pass_context:false },
+      { type:'sequential', agent:'xi', prompt:'为每个优先级制定 OKR：1 个 Objective + 3 个可量化的 Key Results', pass_context:true },
       { type:'sequential', agent:'critic',   prompt:'检查 OKR 是否符合 SMART 原则，给出改进建议', pass_context:true },
     ],
   },
@@ -703,7 +697,7 @@ const WF_TEMPLATES = [
     category: 'business', icon: '🤝',
     steps: [
       { type:'sequential', agent:'reader',   prompt:'研究谈判对方的背景、诉求、历史行为：{{对方信息}}', pass_context:false },
-      { type:'sequential', agent:'tianyuan', prompt:'制定谈判策略：目标区间、让步底线、关键论点、可能的反对意见及应对', pass_context:true },
+      { type:'sequential', agent:'xi', prompt:'制定谈判策略：目标区间、让步底线、关键论点、可能的反对意见及应对', pass_context:true },
       { type:'sequential', agent:'writer',   prompt:'生成谈判准备清单和开场白脚本', pass_context:true },
     ],
   },
@@ -713,9 +707,9 @@ const WF_TEMPLATES = [
     desc: '快速生成危机处理预案和对外声明',
     category: 'business', icon: '🚨',
     steps: [
-      { type:'sequential', agent:'tianyuan', prompt:'分析以下危机情况的严重程度和影响范围：{{危机描述}}', pass_context:false },
+      { type:'sequential', agent:'xi', prompt:'分析以下危机情况的严重程度和影响范围：{{危机描述}}', pass_context:false },
       { type:'condition', keyword:'严重',
-        true_step:  { agent:'tianyuan', prompt:'制定紧急应对方案：立即行动项、对外沟通策略、后续修复计划' },
+        true_step:  { agent:'xi', prompt:'制定紧急应对方案：立即行动项、对外沟通策略、后续修复计划' },
         false_step: { agent:'xi',   prompt:'制定常规处理预案：内部通报、改进措施、预防复发' },
       },
       { type:'sequential', agent:'writer',   prompt:'生成对外公告或内部通报初稿', pass_context:true },
@@ -724,11 +718,11 @@ const WF_TEMPLATES = [
   {
     id: 'tpl_personal_growth',
     name: '🌱 个人成长计划',
-    desc: '晞 + 陶朱联手制定个人发展路径',
+    desc: 'Anima 制定个人发展路径',
     category: 'business', icon: '🌱',
     steps: [
-      { type:'sequential', agent:'yiyi',     prompt:'了解用户当前状态、困惑和对未来的期望：{{个人现状}}', pass_context:false },
-      { type:'sequential', agent:'tianyuan', prompt:'基于用户的现状和目标，制定 90 天个人成长计划：技能、习惯、里程碑', pass_context:true },
+      { type:'sequential', agent:'xi',     prompt:'了解用户当前状态、困惑和对未来的期望：{{个人现状}}', pass_context:false },
+      { type:'sequential', agent:'xi', prompt:'基于用户的现状和目标，制定 90 天个人成长计划：技能、习惯、里程碑', pass_context:true },
       { type:'sequential', agent:'writer',   prompt:'输出一份激励人心的个人成长方案，包括每周行动指引', pass_context:true },
     ],
   },
@@ -744,8 +738,10 @@ async function _refreshMembershipCache() {
     _membershipPro = m.active && m.tier === 'pro';
   } catch(_) { _membershipPro = false; }
 }
+window._refreshMembershipCache = _refreshMembershipCache;
 
 // 渲染模板库
+window.wfRenderTemplates = wfRenderTemplates;
 function wfRenderTemplates() {
   const grid = document.getElementById('wfTemplateGrid');
   if (!grid) return;
@@ -1026,9 +1022,6 @@ window.fwLoadEvents = async function() {
 // ══════════════════════════════════════════════════
 const GC_AGENT_META = {
   xi:       { icon:'👩‍💼', avatarImg:'assets/xi-avatar.png', cls:'xi-bg'   },
-  yiyi:     { icon:'🌸',  cls:'yiyi-bg'     },
-  tianyuan: { icon:'🏢',  cls:'tianyuan-bg' },
-  shoucang:  { icon:'📜',  cls:'shoucang-bg' },
   executor: { icon:'⚡',  cls:'executor-bg' },
   writer:   { icon:'✍️',  cls:'writer-bg'   },
   reader:   { icon:'📖',  cls:'reader-bg'   },
@@ -1038,14 +1031,11 @@ const GC_AGENT_META = {
 // ══════════════════════════════════════════════════
 //  Agent 配置（名称 / 音色） — 全局存储
 // ══════════════════════════════════════════════════
-let agentNames  = {};   // {xi:'Anima', yiyi:'晞', ...}
+let agentNames  = {};   // {xi:'Anima', ...}
 let agentVoices = {};   // {xi:'zh-CN-YunxiNeural', ...}
 
 const DEFAULT_AGENT_META = {
   xi:       { icon:'👩‍💼', avatarImg:'assets/xi-avatar.png', cls:'xi-bg'   },
-  yiyi:     { icon:'🌸',  cls:'yiyi-bg'     },
-  tianyuan: { icon:'🏢',  cls:'tianyuan-bg' },
-  shoucang:  { icon:'📜',  cls:'shoucang-bg' },
   executor: { icon:'⚡',  cls:'executor-bg' },
   writer:   { icon:'✍️',  cls:'writer-bg'   },
   reader:   { icon:'📖',  cls:'reader-bg'   },
@@ -1053,7 +1043,7 @@ const DEFAULT_AGENT_META = {
 };
 
 const DEFAULT_AGENT_NAMES = {
-  xi:'Anima', yiyi:'晞', tianyuan:'陶朱', shoucang:'守藏',
+  xi:'Anima',
   executor:'执行者', writer:'写手', reader:'阅读者', critic:'评审',
 };
 
@@ -1073,9 +1063,6 @@ function applyAgentNames() {
   // 更新侧边栏导航显示名称
   const navMap = {
     xi:       '[data-tab=xi]',
-    yiyi:     '[data-tab=yiyi]',
-    tianyuan: '[data-tab=tianyuan]',
-    shoucang: '[data-tab=shoucang]',
   };
   for (const [id, sel] of Object.entries(navMap)) {
     const el = document.querySelector(sel);
@@ -1135,16 +1122,17 @@ window.ttsStop = function() {
 // ══════════════════════════════════════════════════
 // 群聊状态
 const GC_STATE = {
-  selectedAgents: new Set(['xi', 'shoucang']),
+  selectedAgents: new Set(['xi']),
   messages: [],
   isRunning: false,
   recognition: null,
 };
 
+window.gcRenderMembers = gcRenderMembers;
 function gcRenderMembers() {
   const el = document.getElementById('gcMembers');
   if (!el) return;
-  const allAgents = ['xi','yiyi','tianyuan','shoucang','executor','writer','reader','critic'];
+  const allAgents = ['xi','executor','writer','reader','critic'];
   el.innerHTML = allAgents.map(id => {
     const meta    = DEFAULT_AGENT_META[id];
     const name    = agentName(id);
@@ -1447,9 +1435,6 @@ function renderWfCanvas(steps) {
   if (!canvas) return;
   const agentInfo = {
     xi:       { icon:'👩‍💼', name:'Anima' },
-    yiyi:     { icon:'🌸',  name:'晞'   },
-    tianyuan: { icon:'🏢',  name:'陶朱'   },
-    shoucang: { icon:'📜', name:'守藏'  },
     executor: { icon:'⚡',  name:'执行者' },
     writer:   { icon:'✍️',  name:'写手'   },
     reader:   { icon:'📖',  name:'阅读者' },

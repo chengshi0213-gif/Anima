@@ -28,9 +28,9 @@ import persona  # noqa: E402
 
 
 def test_core_personas_present_and_ordered():
-    assert persona.CORE_PERSONA_IDS == ["xi", "yiyi", "tianyuan", "shoucang"]
+    assert persona.CORE_PERSONA_IDS == ["xi"]
     cards = persona.list_personas()
-    assert [c["id"] for c in cards] == persona.CORE_PERSONA_IDS
+    assert [c["id"] for c in cards] == ["xi"]
 
 
 def test_public_card_fields_and_no_prompt_leak():
@@ -64,9 +64,10 @@ def test_unknown_persona():
 
 
 def test_name_voice_no_drift_with_routes_config():
-    # 人格卡的显示名/音色必须与 routes/config 的默认表一致
+    # 核心人格卡的显示名/音色必须与 routes/config 的默认表一致
     from routes.config import DEFAULT_AGENT_NAMES, AGENT_VOICES
-    for pid, card in persona.PERSONAS.items():
+    for pid in persona.CORE_PERSONA_IDS:
+        card = persona.PERSONAS[pid]
         assert DEFAULT_AGENT_NAMES[pid] == card.name
         assert AGENT_VOICES[pid] == card.voice
 
@@ -88,19 +89,14 @@ def test_shoucang_voice_polish_present():
 
 
 def test_shoucang_voice_only_persona_with_remonstrance():
-    """谏臣腔调是守藏专属，不应渗进其它三个人格底色。"""
-    for pid in ("xi", "yiyi", "tianyuan"):
-        p = persona.compose_base_prompt(pid)
-        assert "谏臣" not in p, f"{pid} 不应带守藏的谏臣腔调"
+    """谏臣腔调是守藏专属，不应渗进 Anima。"""
+    p = persona.compose_base_prompt("xi")
+    assert "谏臣" not in p, "xi 不应带守藏的谏臣腔调"
 
 
 def test_workers_consume_persona():
-    # xi / tianyuan / shoucang 的 system_prompt 即人格卡底色
+    # Anima（xi）动态拼接，底色须作为前缀出现
     from xi_worker import XiWorker
-    from tianyuan_worker import TianyuanWorker
-    assert XiWorker().system_prompt == persona.compose_base_prompt("xi")
-    assert TianyuanWorker().system_prompt == persona.compose_base_prompt("tianyuan")
-    # 晞动态拼接，底色须作为前缀出现
-    from yiyi_worker import YiyiWorker
-    s = YiyiWorker()._compose_system()
-    assert s.startswith(persona.compose_base_prompt("yiyi"))
+    w = XiWorker()
+    s = w._compose_system()
+    assert s.startswith(persona.compose_base_prompt("xi"))

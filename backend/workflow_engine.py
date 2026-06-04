@@ -366,6 +366,132 @@ class WorkflowRunner:
         return out
 
 
+    # ══════════════════════════════════════════════════════════════════════
+    #  DAG 图执行器（n8n / 扣子 风格）：节点 + 连线，拓扑就绪驱动，分支跳过，同层并发
+    #  graph = {"nodes": {id: {"type","data"}}, "connections": [{source,target,sourcePort}]}
+    #  端口约定：condition → output_1=是 / output_2=否；router → output_{k} 对应第 k 条 route
+    # ══════════════════════════════════════════════════════════════════════
+    async def _exec_graph_node(self, nid: str, node: dict, ctx: str) -> dict:
+        t = node.get("type", "agent")
+        data = node.get("data") or {}
+        await self._emit(EV_STEP, step=nid, type=t, agent=data.get("agent"))
+        live = None  # None=所有输出端口都活；否则只激活集合内端口
+        if t in ("agent", "sequential"):
+            r = await self._exec_leaf(data, nid, ctx); r["type"] = "sequential"
+        elif t == "condition":
+            kw = data.get("keyword", ""); mode = data.get("mode", "keyword")
+            if mode == "ai":
+                picked = await self._ai_pick(data.get("question") or kw or "是否满足条件", ctx, ["是", "否"])
+                matched = (picked == "是"); by = "ai"
+            else:
+                matched = bool(kw) and kw.lower() in ctx.lower(); by = "keyword"
+            await self._emit(EV_ROUTE, step=nid, kind="condition", matched=matched, by=by, keyword=kw)
+            live = {"output_1"} if matched else {"output_2"}
+            r = {"step": nid, "type": "condition", "matched": matched, "by": by, "elapsed": 0, "output": ctx}
+        elif t == "router":
+            routes = data.get("routes") or []
+            labels = [str(rt.get("label") or f"路线{k+1}") for k, rt in enumerate(routes)] or ["默认"]
+            picked = await self._ai_pick(data.get("question") or "内容最匹配哪一类", ctx, labels) or labels[0]
+            idx = labels.index(picked)
+            await self._emit(EV_ROUTE, step=nid, kind="router", chosen=picked, options=labels)
+            live = {f"output_{idx+1}"}
+            r = {"step": nid, "type": "router", "chosen": picked, "options": labels, "elapsed": 0, "output": ctx}
+        elif t == "loop":
+            r = await self._run_loop({"max_iter": data.get("max_iter"), "stop_keyword": data.get("stop_keyword"),
+                                      "step": {"agent": data.get("agent", "xi"), "prompt": data.get("prompt", "")}}, nid, ctx)
+        elif t == "human":
+            r = await self._run_human(data, nid, ctx)
+        elif t == "taozu":
+            r = await self._run_taozu(data, nid, ctx, 0)
+        elif t in ("merge", "output", "start", "note"):
+            r = {"step": nid, "type": t, "elapsed": 0, "output": ctx}
+        else:
+            r = await self._exec_leaf(data, nid, ctx); r["type"] = "sequential"
+        r["node"] = nid
+        r["_live_ports"] = live
+        await self._emit(EV_DONE, step=nid, type=r.get("type"), output=r.get("output", ""),
+                         elapsed=r.get("elapsed", 0), ok=r.get("ok", True),
+                         extra={k: r[k] for k in ("matched", "chosen", "action", "iterations") if k in r})
+        return r
+
+    async def run_graph(self, graph: dict) -> dict:
+        nodes = {str(k): v for k, v in (graph.get("nodes") or {}).items()}
+        if not nodes:
+            return {"ok": False, "error": "图为空", "results": []}
+        edges = []
+        for e in (graph.get("connections") or []):
+            s, tgt = str(e.get("source")), str(e.get("target"))
+            if s in nodes and tgt in nodes:
+                edges.append({"source": s, "target": tgt, "port": str(e.get("sourcePort") or "output_1")})
+        incoming = {nid: [] for nid in nodes}
+        for e in edges:
+            incoming[e["target"]].append(e)
+
+        await self._emit(EV_START, total=len(nodes))
+        outputs: dict = {}
+        live_ports: dict = {}     # node -> set|None
+        done: set = set()
+        skipped: set = set()
+        results: list = []
+
+        def resolved(n): return n in done or n in skipped
+
+        def edge_live(e):
+            s = e["source"]
+            if s in skipped:
+                return False
+            if s not in done:
+                return None
+            lp = live_ports.get(s)
+            return True if lp is None else (e["port"] in lp)
+
+        try:
+            while not self.stopped:
+                run_now = []
+                made_skip = False
+                for nid in nodes:
+                    if resolved(nid):
+                        continue
+                    inc = incoming[nid]
+                    if not all(resolved(e["source"]) for e in inc):
+                        continue  # 还有上游没就绪
+                    if not inc:
+                        run_now.append((nid, ""))
+                    else:
+                        liveedges = [e for e in inc if edge_live(e) is True]
+                        if liveedges:
+                            ctx = "\n\n---\n\n".join(outputs.get(e["source"], "") for e in liveedges)
+                            run_now.append((nid, ctx))
+                        else:
+                            skipped.add(nid); made_skip = True   # 所有入边皆死 → 跳过
+                if not run_now:
+                    if made_skip:
+                        continue
+                    break
+                res = await asyncio.gather(*[self._exec_graph_node(nid, nodes[nid], ctx) for nid, ctx in run_now])
+                for (nid, _), r in zip(run_now, res):
+                    outputs[nid] = r.get("output", "")
+                    live_ports[nid] = r.get("_live_ports")
+                    done.add(nid)
+                    results.append(r)
+        except asyncio.CancelledError:
+            await self._emit(EV_ERROR, message="已取消")
+            raise
+        except Exception as e:  # noqa: BLE001
+            await self._emit(EV_ERROR, message=str(e))
+            return {"ok": False, "error": str(e), "results": results}
+
+        out = {"ok": True, "results": results, "stopped": self.stopped,
+               "stop_reason": self.stop_reason, "skipped": sorted(skipped)}
+        await self._emit(EV_FINISH, results=results, stopped=self.stopped, stop_reason=self.stop_reason)
+        return out
+
+
 async def run_workflow(steps, servers, **kw) -> dict:
-    """便捷入口：构造 WorkflowRunner 并执行。"""
+    """便捷入口：构造 WorkflowRunner 并执行（线性步骤数组）。"""
     return await WorkflowRunner(servers, **kw).run(steps)
+
+
+async def run_workflow_graph(graph, servers, **kw) -> dict:
+    """便捷入口：执行 DAG 图（n8n/扣子 风格）。"""
+    return await WorkflowRunner(servers, **kw).run_graph(graph)

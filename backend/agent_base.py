@@ -33,7 +33,8 @@ class PermissionRequest(Exception):
 from config import (
     LOG_DIR, WORKSPACE_DIR,
     DEEPSEEK_KEY, OPENAI_KEY, ANTHROPIC_KEY,
-    QWEN_KEY, KIMI_KEY, GLM_KEY, GEMINI_KEY, OPENROUTER_KEY,
+    QWEN_KEY, KIMI_KEY, GLM_KEY, MIMO_KEY, GEMINI_KEY, OPENROUTER_KEY,
+    GLM_URL, MIMO_URL,
 )
 
 # ── 模型注册表：前端显示名 → API 参数 ──────────────────────────────────────
@@ -56,6 +57,8 @@ _RELAY = _get_relay()
 _DS    = "https://api.deepseek.com"
 _QWEN  = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 _KIMI  = "https://api.moonshot.cn/v1"
+_GLM   = GLM_URL    # 智谱 GLM（open.bigmodel.cn，OpenAI 兼容）
+_MIMO  = MIMO_URL   # 小米 MiMo（OpenAI 兼容，base_url 可在 config.yaml 覆盖）
 
 MODEL_REGISTRY: dict[str, tuple] = {
     # ── DeepSeek 直连 ─────────────────────────────────────────────────────
@@ -81,6 +84,16 @@ MODEL_REGISTRY: dict[str, tuple] = {
     "Kimi-32K":          (lambda: KIMI_KEY, _KIMI, "moonshot-v1-32k"),      # 均衡
     "Kimi-8K":           (lambda: KIMI_KEY, _KIMI, "moonshot-v1-8k"),       # 经济
 
+    # ── 智谱 GLM 直连（open.bigmodel.cn）─────────────────────────────────
+    "GLM-4.6":           (lambda: GLM_KEY, _GLM, "glm-4.6"),                # 最新旗舰
+    "GLM-4-Plus":        (lambda: GLM_KEY, _GLM, "glm-4-plus"),             # 高性能
+    "GLM-4-Air":         (lambda: GLM_KEY, _GLM, "glm-4-air"),              # 高性价比
+    "GLM-4-Flash":       (lambda: GLM_KEY, _GLM, "glm-4-flash"),            # 免费/最快
+
+    # ── 小米 MiMo 直连（OpenAI 兼容）──────────────────────────────────────
+    "MiMo-7B":           (lambda: MIMO_KEY, _MIMO, "mimo-7b-rl"),           # 推理强化
+    "MiMo-VL":           (lambda: MIMO_KEY, _MIMO, "mimo-vl-7b-rl"),        # 多模态
+
     # ── GPT（via 中转，需配置 OpenRouter Key）────────────────────────────
     "GPT-5.5":            (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.5"),                  # 旗舰
     "GPT-5.5-Compact":    (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.5-openai-compact"),   # 快速
@@ -92,6 +105,24 @@ MODEL_REGISTRY: dict[str, tuple] = {
     "Claude-Sonnet-4.6":     (lambda: OPENROUTER_KEY, _RELAY, "claude-sonnet-4.6"),        # 均衡
     "Claude-Haiku-4.5":      (lambda: OPENROUTER_KEY, _RELAY, "claude-haiku-4-5-20251001"),# 最快
 }
+
+# 单 key 即可用全功能：任何模型/agent 拿不到 key 时，落到「首个已配 provider」的稳健默认模型。
+# 优先级：DeepSeek > Kimi > Qwen > 中转(GPT/Claude)。
+_FALLBACK_CHAIN = [
+    (lambda: DEEPSEEK_KEY,   _DS,   "deepseek-chat"),
+    (lambda: KIMI_KEY,       _KIMI, "kimi-k2.5"),
+    (lambda: QWEN_KEY,       _QWEN, "qwen3.6-plus"),
+    (lambda: GLM_KEY,        _GLM,  "glm-4-plus"),
+    (lambda: MIMO_KEY,       _MIMO, "mimo-7b-rl"),
+    (lambda: OPENROUTER_KEY, _RELAY, "claude-sonnet-4.6"),
+]
+def first_available_model() -> tuple[str, str, str]:
+    """返回首个已配置 provider 的 (api_key, base_url, model_id)；都没配则返回空。"""
+    for key_fn, base_url, model_id in _FALLBACK_CHAIN:
+        k = key_fn()
+        if k and base_url:
+            return k, base_url, model_id
+    return "", "", ""
 
 
 class AgentBase:
@@ -177,7 +208,15 @@ class AgentBase:
                         related=["relay_url"],
                     )
                 return key, base_url, model_id
-        return self.api_key, self.base_url, self.model
+            # 选了某模型但其 provider 未配 → 落到首个已配 provider（单 key 即可用全功能）
+            fk, fu, fm = first_available_model()
+            if fk:
+                return fk, fu, fm
+        # agent 默认；若默认 provider 也没配，落到首个已配 provider
+        if self.api_key and self.base_url:
+            return self.api_key, self.base_url, self.model
+        fk, fu, fm = first_available_model()
+        return (fk, fu, fm) if fk else (self.api_key, self.base_url, self.model)
 
     # ── API ──
     async def _call_api(self, messages: list[dict], tools: list[dict] | None = None,
@@ -263,9 +302,9 @@ class AgentBase:
         try:
             from memory_injector import (
                 get_memory_injection, get_project_context,
-                get_active_project_context,
+                get_active_project_context, get_memory_self_description,
             )
-            memory_ctx = get_memory_injection(self.name)
+            memory_ctx = get_memory_injection(self.name) + get_memory_self_description(self.name)
             # 优先：明确传入的 project 参数；其次：当前活跃项目；最后：无
             if project:
                 project_ctx = get_project_context(project)

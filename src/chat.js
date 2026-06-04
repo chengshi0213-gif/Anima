@@ -8,6 +8,21 @@ import { wsSend } from './ws.js';
 // ══════════════════════════════════════════════════
 //  Tab 切换
 // ══════════════════════════════════════════════════
+// 含独立人格主题的 Tab → 归一化的 data-agent 值（驱动 CSS 换主色/动效性格）
+const AGENT_THEME_MAP = {
+  xi: 'xi',
+  'worker-executor': 'executor', 'worker-writer': 'writer',
+  'worker-reader': 'reader', 'worker-critic': 'critic',
+};
+
+function applyAgentTheme(tabId) {
+  const theme = AGENT_THEME_MAP[tabId];
+  if (theme) document.body.dataset.agent = theme;
+  else delete document.body.dataset.agent;
+  // 沉浸世界跟随切换（仅四主人格有世界；其余隐藏）
+  window.PersonaFX?.setMode(theme || tabId);
+}
+
 window.switchTab = function(tabId, el) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -15,9 +30,12 @@ window.switchTab = function(tabId, el) {
   if (el) el.classList.add('active');
   else document.querySelector(`[data-tab="${tabId}"]`)?.classList.add('active');
 
+  applyAgentTheme(tabId);
+
   if (tabId === 'overview') window.loadOverview?.();
   if (tabId === 'dashboard') window.loadDashboard?.();
-  if (tabId === 'settings') window.membershipLoad?.();
+  if (tabId === 'settings') { window.membershipLoad?.(); window.inviteLoadPanel?.(); window.mailerLoad?.(); }
+  if (tabId === 'workflow') setTimeout(() => window.PersonaWF?.init(), 30);  // Drawflow 需容器可见后初始化
 
   // 初始化子员工详情页
   const wrap = document.querySelector(`#tab-${tabId} .worker-detail-wrap`);
@@ -33,12 +51,7 @@ window.switchTab = function(tabId, el) {
 // ══════════════════════════════════════════════════
 window.toggleTeam = function(e) {
   e.stopPropagation();
-  const sub = document.getElementById('subGroup-tianyuan');
-  const chev = document.getElementById('chevron-tianyuan');
-  if (!sub) return;
-  const isOpen = !sub.classList.contains('hidden');
-  sub.classList.toggle('hidden', isOpen);
-  if (chev) chev.classList.toggle('open', !isOpen);
+  // 陶朱团队展开/折叠已移除（人格合并），保留空函数避免调用报错
 };
 
 // ══════════════════════════════════════════════════

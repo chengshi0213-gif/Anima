@@ -151,6 +151,36 @@ def get_memory_injection(agent_id: str) -> str:
     return result
 
 
+def get_memory_self_description(agent_id: str = "") -> str:
+    """记忆自述块：让人格如实回答「你的记忆存在哪」。
+    所有信息从真实配置/后端读取，绝不编造。注入到 system prompt 末尾。"""
+    try:
+        from config import DATA_DIR
+        st = get_backend().get_status()
+        btype = st.get("type", "sqlite")
+        if btype == "obsidian":
+            loc = st.get("vault_path", "")
+            store_line = f"长期记忆：Obsidian 笔记库（{loc}），都是普通 Markdown，可直接打开编辑"
+        else:
+            loc = st.get("db_path", "")
+            store_line = f"长期记忆：本地数据库（{loc}），守藏每天夜里整理归档"
+        entries = st.get("entries", 0)
+        return (
+            "\n\n## 关于「我的记忆」——用户问起时，照实说，别含糊\n"
+            "我的记忆和全部数据都只存在用户本地这台电脑，从不上传云端。具体目录：\n"
+            f"  {DATA_DIR}\n"
+            "几处核心：\n"
+            f"  · {store_line}（当前约 {entries} 条）\n"
+            "  · 技能库与成长记录：skills/\n"
+            "  · 成就与灵犀：economy.json\n"
+            "  · 会话记录：sessions.db\n"
+            "这些都是用户的东西——随时可以打开看、改、或删；想清空或导出，去「设置 → 数据」。\n"
+            "回答这类问题时要坦诚、具体、让用户安心，不要泛泛说「存在本地」就完事。"
+        )
+    except Exception:
+        return ""
+
+
 def write_memory(key: str,
                  value: str,
                  category: str = "general",

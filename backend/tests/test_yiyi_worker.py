@@ -27,6 +27,14 @@ _BACKEND = Path(__file__).parent.parent
 sys.path.insert(0, str(_BACKEND))
 
 import yiyi_worker as yw  # noqa: E402
+import cap_divination as cd  # noqa: E402
+
+# 命理工具现住在 cap_divination（能力模块），晞与 Anima 共用。
+# 工具级测试指向新家；worker 接线测试仍验 yiyi 正确组装它们。
+_DISP = cd.divination_dispatch("yiyi")
+_tool_paipan = cd._tool_paipan
+_tool_load_reference = _DISP["load_mingli_reference"]
+_tool_search_knowledge = _DISP["search_knowledge"]
 
 
 def test_tools_registered():
@@ -51,7 +59,7 @@ def test_compose_system_assembles_layers():
 
 
 def test_paipan_deterministic():
-    r = yw._tool_paipan(date="1995-08-15", time="06:30", gender="male")
+    r = _tool_paipan(date="1995-08-15", time="06:30", gender="male")
     assert r.get("ok") is True
     assert r.get("time_unknown") is False
     md = r.get("markdown") or ""
@@ -64,22 +72,22 @@ def test_paipan_deterministic():
 def test_paipan_needs_date():
     # 不传 date 又没有 use_saved，且存档为空时应提示采集
     # （存档可能有值；这里只验证返回结构合理，不强依赖存档状态）
-    r = yw._tool_paipan(date="2000-01-01", gender="female")
+    r = _tool_paipan(date="2000-01-01", gender="female")
     assert r.get("ok") is True
 
 
 def test_load_reference_listing_and_gating():
-    avail = yw._tool_load_reference().get("available")
+    avail = _tool_load_reference().get("available")
     assert "ziwei-paipan.md" in avail
-    r = yw._tool_load_reference(ref="ziwei-paipan.md")
+    r = _tool_load_reference(ref="ziwei-paipan.md")
     assert "命宫" in (r.get("content") or "")
 
 
 def test_load_reference_path_traversal_blocked():
-    assert "error" in yw._tool_load_reference(ref="../../config.py")
-    assert "error" in yw._tool_load_reference(ref="..\\..\\config.py")
-    assert "error" in yw._tool_load_reference(ref="nonexistent.md")
+    assert "error" in _tool_load_reference(ref="../../config.py")
+    assert "error" in _tool_load_reference(ref="..\\..\\config.py")
+    assert "error" in _tool_load_reference(ref="nonexistent.md")
 
 
 def test_search_knowledge_empty_query():
-    assert "error" in yw._tool_search_knowledge(query="")
+    assert "error" in _tool_search_knowledge(query="")

@@ -32,7 +32,7 @@ from skill_manager import init_builtin_skills
 
 from ws_manager import WorkerServer
 from routes.auth import auth_middleware, CORS_HEADERS
-from routes import core, knowledge, workflow, config as config_routes, services, data, login
+from routes import core, knowledge, workflow, config as config_routes, services, data, login, economy, invite
 
 
 async def main():
@@ -59,6 +59,7 @@ async def main():
     app["search_engine"] = search_engine
     app["servers"]       = servers
     app["workflow_mgr"]  = workflow_mgr
+    app["usage_tracker"] = usage_tracker
 
     # ── WebSocket 端点 ──
     for agent_id, srv in servers.items():
@@ -71,6 +72,8 @@ async def main():
     config_routes.register(app)
     services.register(app)
     data.register(app)
+    economy.register(app)
+    invite.register(app)
     login.register(app)
 
     # ── OpenAPI docs ──
@@ -122,6 +125,16 @@ async def main():
             print("  企业微信/公众号: 已启用（回调端点 /integrations/wechat/callback）")
     except Exception as _e:
         print(f"  微信机器人接线失败: {_e}")
+
+    # ── 邮箱管家：IMAP 收申请 → 自动发结缘码（仅总代理实例启用）──
+    try:
+        import invite_mailer
+        invite_mailer.mailer.configure(asyncio.get_running_loop())
+        if invite_mailer.load_config().get("enabled"):
+            res = invite_mailer.mailer.start()
+            print(f"  邮箱管家: {'已启动' if res.get('ok') else '未启动 ' + str(res.get('error'))}")
+    except Exception as _e:
+        print(f"  邮箱管家接线失败: {_e}")
 
     # ── 启动 HTTP 服务 ──
     runner = web.AppRunner(app)

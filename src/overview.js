@@ -128,26 +128,23 @@ function renderOverview(usage, statusAll, skillsData = {}, membershipData = {}) 
   const body = document.getElementById('overviewBody');
   if (!body) return;
 
-  const agentCards = Object.values(AGENTS).map(agent => {
-    const s = statusAll[agent.id] || null;
-    const isBusy = s?.busy;
-    const isOff  = !s;
-    const pillClass = isOff ? 'off' : isBusy ? 'busy' : 'ready';
-    const pillText  = isOff ? '离线' : isBusy ? '⚡ 工作中' : '✓ 就绪';
+  const MAIN = ['xi'];
+  const AGCOL = { xi: '#C99A2E' };
+  const agentCards = MAIN.map(id => {
+    const agent = AGENTS[id]; if (!agent) return '';
+    const s = statusAll[id] || null;
+    const isBusy = s?.busy, isOff = !s;
+    const pillCls = isOff ? '' : isBusy ? 'busy' : 'ok';
+    const pillText = isOff ? '离线' : isBusy ? '工作中' : '就绪';
     return `
-      <div class="card agent-card" onclick="switchTab('${agent.id}',document.querySelector('[data-tab=${agent.id}]'))">
-        <div class="agent-card-top">
-          <div class="agent-card-avatar ${agent.colorClass}">${agent.icon}</div>
-          <div>
-            <div class="agent-card-name">${agent.name}</div>
-            <div class="agent-card-title">${agent.title}</div>
-          </div>
+      <div class="glass agent-tile" style="--ag:${AGCOL[id]}" onclick="switchTab('${id}',document.querySelector('[data-tab=${id}]'))">
+        <div class="agent-tile-top">
+          <div class="agent-tile-av ${agent.colorClass}">${agent.icon}</div>
+          <span class="pill ${pillCls}"><span class="pdot"></span>${pillText}</span>
         </div>
-        <div class="agent-status-pill ${pillClass}">${pillText}</div>
-        <div class="agent-stat-row">
-          <div class="agent-stat">模型 <strong>${s?.model || '-'}</strong></div>
-          <div class="agent-stat">工具 <strong>${s?.tools || 0}</strong></div>
-        </div>
+        <div class="agent-tile-name">${agent.name}</div>
+        <div class="agent-tile-title">${agent.title}</div>
+        <div class="agent-tile-meta">${s?.model || '未连接'} · ${s?.tools || 0} 工具</div>
       </div>`;
   }).join('');
 
@@ -171,60 +168,58 @@ function renderOverview(usage, statusAll, skillsData = {}, membershipData = {}) 
     </div>`).join('') : `<div style="color:var(--muted);font-size:12px">暂无 Skill 数据</div>`;
   const summary = skillsData.summary || {};
 
-  body.innerHTML = agentCards + `
-    <div class="card">
-      <h3>💰 API 用量（7天）</h3>
-      <div class="big">¥${(usage.total_cost||0).toFixed(2)}</div>
-      <div class="sub">预估月费 ¥${projCost} · ${usage.total_sessions||0} 会话</div>
-      <div class="api-bar-wrap" style="margin-top:12px">
-        <div class="api-bar-label"><span>Token 消耗</span><span>${((usage.total_tokens||0)/1000).toFixed(1)}K</span></div>
-        <div class="api-bar"><div class="api-fill safe" style="width:${Math.min(100,((usage.total_cost||0)/50)*100).toFixed(0)}%"></div></div>
-      </div>
+  const isPro = membershipData.active && membershipData.tier === 'pro';
+  body.innerHTML = `<div class="bento">
+    <div class="b-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">${agentCards}</div>
+
+    <div class="glass num-tile b-md">
+      <div class="nt-label">💰 API 用量 · 7天</div>
+      <div class="nt-value">¥${(usage.total_cost||0).toFixed(2)}</div>
+      <div class="nt-sub">预估月费 ¥${projCost} · ${usage.total_sessions||0} 会话</div>
+      <div class="api-bar" style="margin-top:12px"><div class="api-fill safe" style="width:${Math.min(100,((usage.total_cost||0)/50)*100).toFixed(0)}%;background:linear-gradient(90deg,#C99A2E,#E8B84B)"></div></div>
     </div>
-    <div class="card">
-      <h3>📈 7日趋势</h3>
-      ${trendHtml}
+    <div class="glass num-tile b-sm">
+      <div class="nt-label">🔋 Token</div>
+      <div class="nt-value">${((usage.total_tokens||0)/1000).toFixed(1)}<span style="font-size:18px;color:var(--muted)">K</span></div>
+      <div class="nt-sub">累计消耗</div>
     </div>
-    <div class="card skill-overview-card">
+    <div class="glass b-lg" style="padding:18px 20px">
+      <h3 style="margin:0 0 12px">📈 7 日趋势</h3>${trendHtml}
+    </div>
+
+    <div class="glass b-lg" style="padding:18px 20px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <h3 style="margin:0">🧩 Skill 概览</h3>
         <button class="hdr-btn-sm" onclick="switchTab('skills',document.querySelector('[data-tab=skills]'))">查看全部 →</button>
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:10px;font-size:12px;color:var(--muted)">
-        <span>共 <b>${summary.total||0}</b> 个 Skill</span>
-        <span>·</span>
-        <span>守藏已升级 <b>${summary.upgraded||0}</b> 次</span>
+      <div style="display:flex;gap:8px;margin-bottom:12px;font-size:12px;color:var(--muted)">
+        <span>共 <b style="color:var(--text)">${summary.total||0}</b> 个</span><span>·</span>
+        <span>守藏升级 <b style="color:var(--text)">${summary.upgraded||0}</b> 次</span><span>·</span>
+        <span>均质 <b style="color:var(--text)">${summary.avg_score?summary.avg_score.toFixed(1):'-'}</b></span>
       </div>
       <div class="skill-mini-row">${skillMini}</div>
     </div>
-    <div class="card">
-      <h3>🕸 Skill 雷达图</h3>
-      ${buildRadarChart(skillsData.skills || [])}
+    <div class="glass b-md" style="padding:18px 20px">
+      <h3 style="margin:0 0 8px">🕸 能力雷达</h3>${buildRadarChart(skillsData.skills || [])}
     </div>
-    <div class="card">
-      <h3>👑 会员</h3>
-      ${membershipData.active && membershipData.tier === 'pro'
-        ? `<div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-            <span class="membership-badge-pro">PRO</span>
-            <span style="font-size:13px;color:var(--muted)">有效至 ${membershipData.expires}（${membershipData.days_left} 天）</span>
-          </div>
-          ${membershipData.days_left <= 14
-            ? `<div style="margin-top:8px;padding:6px 12px;background:#fef3cd;border-radius:8px;font-size:12px;color:#856404">⚠️ 会员即将到期，届时 Pro Skill 将被锁定</div>`
-            : `<div style="font-size:12px;color:var(--muted);margin-top:8px">全部 ${summary.total||30} 个 Skill + 工作流模板已解锁</div>`
-          }`
-        : `<div style="font-size:13px;color:var(--muted);margin-top:6px">
-            当前 Free · ${(skillsData.skills||[]).filter(s=>s.locked).length} 个 Skill 已锁定
-          </div>
-          <button class="hdr-btn-sm" style="margin-top:10px" onclick="switchTab('settings',document.querySelector('[data-tab=settings]'))">🔑 激活 Pro →</button>`
-      }
+
+    <div class="glass b-md" style="padding:18px 20px">
+      <h3 style="margin:0 0 10px">👑 会员</h3>
+      ${isPro
+        ? `<div style="display:flex;align-items:center;gap:10px"><span class="membership-badge-pro">PRO</span><span style="font-size:13px;color:var(--muted)">有效至 ${membershipData.expires}（${membershipData.days_left} 天）</span></div>
+           <div style="font-size:12px;color:var(--muted);margin-top:10px">全部 ${summary.total||30} 个 Skill + 工作流模板已解锁</div>`
+        : `<div style="font-size:13px;color:var(--muted)">当前 Free · ${(skillsData.skills||[]).filter(s=>s.locked).length} 个 Skill 锁定中</div>
+           <button class="hdr-btn-sm" style="margin-top:12px" onclick="switchTab('settings',document.querySelector('[data-tab=settings]'))">🔑 激活 Pro →</button>`}
     </div>
-    <div class="card">
-      <h3>⚡ 快速操作</h3>
-      ${Object.values(AGENTS).map(a=>`<button class="quick-btn" onclick="switchTab('${a.id}',document.querySelector('[data-tab=${a.id}]'))">${a.icon} ${a.name}</button>`).join('')}
-      <button class="quick-btn" onclick="switchTab('tianyuan-team',document.querySelector('[data-tab=tianyuan-team]'))">🏢 陶朱团队</button>
-      <button class="quick-btn" onclick="switchTab('reports',document.querySelector('[data-tab=reports]'))">📈 今日报告</button>
-      <button class="quick-btn" onclick="loadOverview()">↺ 刷新</button>
-    </div>`;
+    <div class="glass b-xl" style="padding:18px 20px">
+      <h3 style="margin:0 0 12px">⚡ 快速操作</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${MAIN.map(id=>`<button class="quick-btn" onclick="switchTab('${id}',document.querySelector('[data-tab=${id}]'))">${AGENTS[id].icon} ${AGENTS[id].name}</button>`).join('')}
+        <button class="quick-btn" onclick="switchTab('reports',document.querySelector('[data-tab=reports]'))">📈 今日报告</button>
+        <button class="quick-btn" onclick="loadOverview()">↺ 刷新</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 // ══════════════════════════════════════════════════
@@ -553,6 +548,93 @@ function renderReportCard(report, type) {
 
 //  Skill 墙 tab-skills
 // ════════════════════════════════════════════════════
+let _SKILLS = [];
+function _skillRank(score) {
+  return score >= 4.5 ? '大师' : score >= 3.5 ? '精通' : score >= 2 ? '熟练' : score > 0 ? '新手' : '见习';
+}
+const _CAT_COLOR = {
+  '命理': ['#8B5CF6', '#6D28D9'], '内容': ['#EC4899', '#BE185D'], '调研': ['#3B82F6', '#1D4ED8'],
+  '代码': ['#10B981', '#047857'], '效率': ['#F59E0B', '#B45309'], '生活': ['#14B8A6', '#0F766E'],
+  '设计': ['#F43F5E', '#9F1239'], '运营': ['#6366F1', '#3730A3'], '通用': ['#64748b', '#475569'],
+};
+function _catColor(c) { return _CAT_COLOR[c] || ['#64748b', '#475569']; }
+// 双轴段位：品质 Q(内在成熟度) + 历练 M(我的使用) → 六阶
+const _TIERS = [
+  { min: 0, key: 'fan', name: '凡品', icon: '·' }, { min: 30, key: 'bronze', name: '良品', icon: '◆' },
+  { min: 50, key: 'silver', name: '精品', icon: '◆' }, { min: 78, key: 'gold', name: '珍品', icon: '★' },
+  { min: 115, key: 'diamond', name: '史诗', icon: '◆' }, { min: 165, key: 'legend', name: '传说', icon: '✦' },
+];
+function _skillTier(s) {
+  // 品质 Q：来源底 + 内在评分 + 完整度(用例/标签/文档) + 发布成熟度。与我用不用无关。
+  const srcBase = s.premium ? 26 : (s.source === 'community' ? 18 : 24);
+  const quality = (+s.avg_score || 0) * 8;
+  const complete = Math.min((s.use_cases || []).length, 5) * 2.5
+    + Math.min((s.tags || []).length, 5) * 1.5 + ((s.description || '').length > 40 ? 4 : 0);
+  const mature = Math.min((s.version || 1) - 1, 5) * 2;
+  const Q = Math.round(srcBase + quality + complete + mature);
+  // 历练 M：使用次数 + 守藏为我精进的次数
+  const upg = (s.improvement_log && s.improvement_log.length) || Math.max(0, (s.version || 1) - 1);
+  const M = Math.round((s.usage_count || 0) * 1.5 + upg * 12);
+  const total = Q + M;
+  let i = 0; for (let k = 0; k < _TIERS.length; k++) if (total >= _TIERS[k].min) i = k;
+  const cur = _TIERS[i], next = _TIERS[i + 1] || null;
+  const prog = next ? Math.max(5, Math.round((total - cur.min) / (next.min - cur.min) * 100)) : 100;
+  return { Q, M, total, exp: total, cur, next, prog, idx: i + 1 };
+}
+function _renderSkillWall(cat) {
+  const wall = document.getElementById('skillWall');
+  if (!wall) return;
+  const list = (cat && cat !== '全部') ? _SKILLS.filter(s => s.category === cat) : _SKILLS;
+  wall.className = 'sk-wall';
+  if (!list.length) { wall.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);font-size:13px;padding:16px 0">该分类暂无 Skill</div>'; return; }
+  wall.innerHTML = list.map(s => {
+    const score = +s.avg_score || 0;
+    const [c1, c2] = _catColor(s.category);
+    const t = _skillTier(s);
+    const f = Math.round(score);
+    const stars = '★'.repeat(f) + `<span class="off">${'★'.repeat(5 - f)}</span>`;
+    const src = s.premium ? '<span class="sk-src pro">◆ Pro</span>'
+      : (s.source === 'community' ? '<span class="sk-src">社区</span>' : '<span class="sk-src">内置</span>');
+    return `<div class="sk-card lvl-${t.cur.key}${s.locked ? ' locked' : ''}" data-id="${s.id}" style="--cat:${c1};--cat2:${c2};--p:${t.prog}">
+      <div class="sk-bar"></div>
+      <div class="sk-tier">${t.cur.icon} ${t.cur.name}</div>
+      <div class="sk-top">
+        <div class="sk-gem-wrap"><div class="sk-gem">${s.icon || '⚙️'}</div><div class="sk-lv">LV.${t.idx}</div></div>
+        <div class="sk-id">
+          <div class="sk-name">${s.name}${s.version > 1 ? `<span class="sk-up">↑v${s.version}</span>` : ''}</div>
+          <div class="sk-stars">${stars}</div>
+          <div class="sk-rank-tag">${s.category || '通用'} · ${src}</div>
+        </div>
+      </div>
+      <div class="sk-desc">${s.description || ''}</div>
+      <div class="sk-uses">${(s.use_cases || []).slice(0, 4).map(u => `<span class="sk-use">${u}</span>`).join('')}</div>
+      <div class="sk-foot" title="段位 = 品质(来源·内在评分·完整度·成熟度) + 历练(使用·守藏精进)">
+        <span>品质 ${t.Q}<span style="opacity:.5"> · </span>历练 ${t.M}</span>
+        <span class="grow">${t.next ? `距${t.next.name} ${t.next.min - t.total}` : '✦ 满阶'}</span>
+      </div>
+    </div>`;
+  }).join('');
+  // 高阶闪粒（钻/传说）
+  wall.querySelectorAll('.sk-card.lvl-legend, .sk-card.lvl-diamond').forEach(card => {
+    const n = card.classList.contains('lvl-legend') ? 4 : 2;
+    for (let i = 0; i < n; i++) {
+      const sp = document.createElement('i'); sp.className = 'sk-spark';
+      sp.style.left = (10 + Math.random() * 80) + '%';
+      sp.style.top = (12 + Math.random() * 64) + '%';
+      sp.style.animationDelay = (Math.random() * 1.8) + 's';
+      card.appendChild(sp);
+    }
+  });
+  wall.querySelectorAll('.sk-card.locked').forEach(c => c.addEventListener('click', () => {
+    toast('🔒 此 Skill 为 Pro 专属，去设置激活会员', 'info');
+    setTimeout(() => switchTab('settings', document.querySelector('[data-tab=settings]')), 1200);
+  }));
+}
+window._skillFilter = function (btn, cat) {
+  btn.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === btn));
+  _renderSkillWall(cat);
+};
+
 async function skillsLoad() {
   const wall = document.getElementById('skillWall');
   const sumRow = document.getElementById('skillSummaryRow');
@@ -561,14 +643,14 @@ async function skillsLoad() {
   try {
     const data = await fetch(`${CONFIG.api}/skills`).then(r => r.json());
     const { skills, summary } = data;
-    // 摘要行
+    // ── 战绩 bento ──
     if (sumRow && summary) {
+      sumRow.className = 'sk-stats';
       sumRow.innerHTML = `
-        <div class="skill-sum-chip">共 <b>${summary.total||0}</b> 个 Skill</div>
-        <div class="skill-sum-chip">内置 <b>${summary.builtin||0}</b> · 社区 <b>${summary.community||0}</b></div>
-        <div class="skill-sum-chip">守藏升级 <b>${summary.upgraded||0}</b> 次</div>
-        <div class="skill-sum-chip">平均评分 <b>${summary.avg_score ? summary.avg_score.toFixed(1) : '-'}</b></div>
-      `;
+        <div class="num-tile glass"><div class="nt-label">Skill 总数</div><div class="nt-value">${summary.total||0}</div><div class="nt-sub">能力模块</div></div>
+        <div class="num-tile glass"><div class="nt-label">内置 / 社区</div><div class="nt-value">${summary.builtin||0}<span style="font-size:18px;color:var(--muted)"> / ${summary.community||0}</span></div><div class="nt-sub">官方 / 社区</div></div>
+        <div class="num-tile glass"><div class="nt-label">守藏升级</div><div class="nt-value">${summary.upgraded||0}</div><div class="nt-sub">次自我精进</div></div>
+        <div class="num-tile glass"><div class="nt-label">平均掌握</div><div class="nt-value">${summary.avg_score?summary.avg_score.toFixed(1):'–'}<span style="font-size:18px;color:var(--muted)">/5</span></div><div class="nt-sub">段位均值</div></div>`;
     }
     // Skill 网格
     if (wall) {
@@ -586,32 +668,14 @@ async function skillsLoad() {
           </div>`;
         return;
       }
-      wall.innerHTML = (skills||[]).map(s => `
-        <div class="skill-card${s.locked?' locked':''}" data-id="${s.id}">
-          <div class="skill-card-top">
-            <div class="skill-icon">${s.icon||'⚙️'}</div>
-            <div class="skill-card-meta">
-              <div class="skill-card-name">${s.name}${s.premium?'<span class="skill-premium-badge">Pro</span>':''}</div>
-              <div class="skill-card-cat">${s.category||''} · v${s.version||1}</div>
-            </div>
-            <div class="skill-score-badge">${s.avg_score ? s.avg_score.toFixed(1) : 'new'}</div>
-          </div>
-          <div class="skill-desc">${s.description||''}</div>
-          <div class="skill-uses">${(s.use_cases||[]).map(u=>`<span class="skill-use-chip">${u}</span>`).join('')}</div>
-          <div class="skill-footer">
-            <span class="skill-stat">使用 ${s.usage_count||0} 次</span>
-            ${s.last_improved ? `<span class="skill-stat">上次升级 ${s.last_improved}</span>` : ''}
-            <span class="skill-source-badge ${s.source||'builtin'}">${s.source==='community'?'社区':'内置'}</span>
-          </div>
-        </div>
-      `).join('') || '<div style="color:var(--muted)">暂无 Skill</div>';
-      // Locked Skill 点击提示
-      wall.querySelectorAll('.skill-card.locked').forEach(card => {
-        card.addEventListener('click', () => {
-          toast('🔒 此 Skill 为 Pro 专属，请在设置页激活会员', 'info');
-          setTimeout(() => switchTab('settings', document.querySelector('[data-tab=settings]')), 1500);
-        });
-      });
+      // 分类筛选条 + 游戏化成长墙
+      _SKILLS = skills || [];
+      let filterEl = document.getElementById('skillFilter');
+      if (!filterEl) { filterEl = document.createElement('div'); filterEl.id = 'skillFilter'; filterEl.style.margin = '2px 0 16px'; wall.parentNode.insertBefore(filterEl, wall); }
+      const cats = ['全部', ...Array.from(new Set(_SKILLS.map(s => s.category).filter(Boolean)))];
+      filterEl.className = 'seg';
+      filterEl.innerHTML = cats.map((c, i) => `<button class="${i===0?'on':''}" onclick="window._skillFilter(this,'${c}')">${c}</button>`).join('');
+      _renderSkillWall('全部');
     }
     // 成长记录：从升级记录里提取
     if (growthEl) {

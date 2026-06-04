@@ -1666,7 +1666,11 @@ kbd {
   background: var(--surface);
 }
 
-.ob-key-list { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+.ob-key-list { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.ob-more { width: 100%; margin-bottom: 18px; }
+.ob-more summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 8px 0; list-style: none; text-align: center; transition: color .15s; }
+.ob-more summary::-webkit-details-marker { display: none; }
+.ob-more summary:hover, .ob-more[open] summary { color: var(--text); }
 .ob-key-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ob-key-label { display: flex; align-items: center; gap: 6px; min-width: 200px; }
 .ob-key-badge {
@@ -1676,7 +1680,29 @@ kbd {
 .ob-key-badge.deepseek { background: #2563eb; }
 .ob-key-badge.kimi     { background: #7c3aed; }
 .ob-key-badge.qwen     { background: #059669; }
+.ob-key-badge.glm      { background: #8b5cf6; }
+.ob-key-badge.mimo     { background: #f97316; }
 .ob-key-badge.openai   { background: #0ea5e9; }
+
+/* ── Onboarding · 称呼步骤（精致重制：元素色家族）── */
+.ob-addr2-list{ display:flex; flex-direction:column; gap:9px; margin:18px 0 4px; }
+.ob-addr2-row{ position:relative; display:flex; align-items:center; gap:13px; cursor:text;
+  padding:11px 15px 11px 14px; border-radius:15px;
+  background:color-mix(in srgb, var(--accent) 5%, #fff);
+  border:1px solid color-mix(in srgb, var(--accent) 16%, rgba(0,0,0,.05));
+  box-shadow:inset 3px 0 0 var(--accent), 0 1px 2px rgba(0,0,0,.03);
+  transition:border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+.ob-addr2-row:focus-within{ background:color-mix(in srgb, var(--accent) 9%, #fff);
+  border-color:color-mix(in srgb, var(--accent) 42%, transparent);
+  box-shadow:inset 3px 0 0 var(--accent), 0 6px 18px color-mix(in srgb, var(--accent) 22%, transparent); }
+.ob-addr2-av{ flex:0 0 auto; width:38px; height:38px; border-radius:11px; display:grid; place-items:center;
+  font-size:18px; box-shadow:0 2px 8px rgba(0,0,0,.10); }
+.ob-addr2-meta{ flex:0 0 auto; display:flex; flex-direction:column; line-height:1.25; min-width:62px; }
+.ob-addr2-meta b{ font-size:14.5px; font-weight:650; color:var(--text); letter-spacing:.01em; }
+.ob-addr2-meta i{ font-style:normal; font-size:11px; color:var(--muted); margin-top:1px; }
+.ob-addr2-input{ flex:1; min-width:0; border:none; background:transparent; outline:none; text-align:right;
+  font-size:14px; color:var(--text); padding:4px 2px; font-family:inherit; }
+.ob-addr2-input::placeholder{ color:color-mix(in srgb, var(--muted) 70%, transparent); font-size:13px; }
 .ob-key-hint { font-size: 11px; color: var(--muted); }
 .ob-input {
   flex: 1; min-width: 180px;
@@ -2662,3 +2688,545 @@ kbd {
 /* 运行中转圈 */
 .wf-spin { display: inline-block; animation: wf-spin 1s linear infinite; }
 @keyframes wf-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+
+/* ════════════════════════════════════════════════════════════════
+   Anima — Motion & Per-Agent Theme Layer  ·  P1
+   接入 Emil Kowalski 设计工程 + taste 反模板 + GSAP 编排预备
+   追加式覆盖，不改动上方既有规则。
+   ════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* —— 缓动曲线（Emil：浏览器内置 ease 太软，UI 必须自定义曲线）—— */
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);    /* 入场/反馈主力：起步快，有劲 */
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);   /* 屏内移动/morph */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);    /* 抽屉/浮层：iOS 质感 */
+
+  /* —— 时长阶梯（Emil：UI 动效一律 <300ms）—— */
+  --t-press: 130ms;   /* 按压反馈 */
+  --t-pop:   180ms;   /* tooltip/小浮层 */
+  --t-menu:  220ms;   /* 下拉/选择 */
+  --t-modal: 320ms;   /* 模态/抽屉 */
+
+  /* —— 人格主题默认（无 agent 上下文时＝Claude 琥珀）——
+     每个 token 都为"层次感"准备：solid 主色 + 渐变 + 淡洗 + 顶部多层洗 + 辉光 */
+  --agent:      var(--accent);                                  /* 主色：文字/边框/图标 */
+  --agent-2:    #B8860B;                                        /* 次色：渐变另一端 */
+  --agent-grad: linear-gradient(135deg, #E8B84B, #C99A2E);      /* 强调渐变：发送键/条 */
+  --agent-soft: #FBF6EC;                                        /* 整页极淡底洗 */
+  --agent-wash: linear-gradient(180deg, #FBF1DA 0%, #FBF6EC 46%, transparent 100%); /* 列表顶多层洗 */
+  --agent-glow: rgba(201,154,46,.20);                           /* 聚焦/头像辉光 */
+  --t-scale:    1;                                              /* 动效节奏倍率 */
+}
+
+/* —— 每个人格一套主题（body[data-agent] 由 switchTab 注入）——
+   配色按用户方向：层次渐变，不用单一平色。
+   Anima=米黄神女光明 / 晞=桃花层次粉 / 陶朱=很蓝的蓝调 / 守藏=水墨 */
+
+/* Anima｜私人助理｜米黄·光明神女：暖金从高光到沉金，顶部一抹神性光晕 */
+body[data-agent="xi"] {
+  --agent:#B8860B; --agent-2:#E8B84B;
+  --agent-grad: linear-gradient(135deg, #F6D98B 0%, #E8B84B 50%, #C99A2E 100%);
+  --agent-soft:#FCF7EC;
+  --agent-wash: radial-gradient(120% 70% at 50% 0%, #FBEAB8 0%, #FCF3DC 38%, transparent 72%);
+  --agent-glow: rgba(214,168,23,.24);
+  --t-scale:1;
+}
+/* 晞｜情感伙伴｜桃花·层次粉：花瓣由浅到深三层，温柔舒缓 */
+body[data-agent="yiyi"] {
+  --agent:#E0518A; --agent-2:#F49AC1;
+  --agent-grad: linear-gradient(135deg, #FBD3E0 0%, #F49AC1 48%, #E0518A 100%);
+  --agent-soft:#FDF0F5;
+  --agent-wash: linear-gradient(180deg, #FBDDE8 0%, #FCEAF1 44%, transparent 100%);
+  --agent-glow: rgba(224,81,138,.22);
+  --t-scale:1.15;
+}
+/* 陶朱｜创业CEO｜蓝调·很蓝：天青→靛蓝纵深，利落决断 */
+body[data-agent="tianyuan"],
+body[data-agent="tianyuan-team"] {
+  --agent:#1D4ED8; --agent-2:#3B82F6;
+  --agent-grad: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 52%, #1E3A8A 100%);
+  --agent-soft:#EEF3FE;
+  --agent-wash: linear-gradient(180deg, #D7E3FD 0%, #E9F0FE 46%, transparent 100%);
+  --agent-glow: rgba(29,78,216,.22);
+  --t-scale:.82;
+}
+/* 守藏｜研究员｜水墨：宣纸暖灰底 + 焦墨渐淡，沉静典雅 */
+body[data-agent="shoucang"] {
+  --agent:#3A3F47; --agent-2:#6B7280;
+  --agent-grad: linear-gradient(135deg, #6B7280 0%, #374151 55%, #161A20 100%);
+  --agent-soft:#F4F2EC;
+  --agent-wash: radial-gradient(130% 80% at 22% 0%, rgba(40,44,52,.16) 0%, rgba(75,85,99,.06) 34%, transparent 70%);
+  --agent-glow: rgba(55,65,81,.20);
+  --t-scale:1.28;
+}
+/* workers（沿用渐变思路） */
+body[data-agent="executor"] { --agent:#C2410C; --agent-2:#F97316; --agent-grad:linear-gradient(135deg,#FB923C,#C2410C); --agent-soft:#FFF1E6; --agent-wash:linear-gradient(180deg,#FCE3CE 0%,#FFF1E6 46%,transparent 100%); --agent-glow:rgba(234,88,12,.20); --t-scale:.82; }
+body[data-agent="writer"]   { --agent:#0E7490; --agent-2:#22D3EE; --agent-grad:linear-gradient(135deg,#67E8F9,#0E7490); --agent-soft:#E8FBFE; --agent-wash:linear-gradient(180deg,#CFF6FB 0%,#E8FBFE 46%,transparent 100%); --agent-glow:rgba(8,145,178,.20); --t-scale:1.1; }
+body[data-agent="reader"]   { --agent:#4D7C0F; --agent-2:#84CC16; --agent-grad:linear-gradient(135deg,#A3E635,#4D7C0F); --agent-soft:#F2FBE3; --agent-wash:linear-gradient(180deg,#E2F6C7 0%,#F2FBE3 46%,transparent 100%); --agent-glow:rgba(101,163,13,.20); --t-scale:1.15; }
+body[data-agent="critic"]   { --agent:#7E22CE; --agent-2:#A855F7; --agent-grad:linear-gradient(135deg,#C084FC,#7E22CE); --agent-soft:#F6ECFE; --agent-wash:linear-gradient(180deg,#EDD9FC 0%,#F6ECFE 46%,transparent 100%); --agent-glow:rgba(147,51,234,.20); --t-scale:1.1; }
+
+/* ── 聊天区染上人格色（仅当前 agent 面板，其它 Tab 不受影响）── */
+/* 整页极淡底洗：让人格氛围铺满，但不抢内容 */
+body[data-agent] .tab-panel.active { background-color: var(--agent-soft); }
+
+/* 发送键：人格渐变 + 主色辉光，press 时下沉（层次：渐变面+辉光阴影） */
+body[data-agent] .send-btn:not(:disabled) {
+  background: var(--agent-grad);
+  box-shadow: 0 2px 8px var(--agent-glow);
+}
+/* 输入卡聚焦环：人格主色描边 + glow 软环（Emil：聚焦要明确反馈） */
+body[data-agent] .composer-card:focus-within {
+  border-color: var(--agent);
+  box-shadow: 0 1px 6px rgba(0,0,0,.06), 0 0 0 3px var(--agent-glow);
+}
+/* 助手气泡：左侧渐变细条（::before，比平色边框更有层次） */
+body[data-agent] .msg.assistant .msg-bubble { position: relative; }
+body[data-agent] .msg.assistant .msg-bubble::before {
+  content: ""; position: absolute; left: 0; top: 6px; bottom: 6px;
+  width: 3px; border-radius: 3px; background: var(--agent-grad);
+  opacity: .85;
+}
+/* 助手头像：双层光环（内实主色 + 外柔 glow）＝立体感 */
+body[data-agent] .msg.assistant .msg-avatar {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--agent) 55%, transparent),
+              0 0 0 5px var(--agent-glow);
+}
+/* 模型菜单选中项：人格主色 */
+body[data-agent] .model-option.selected { color: var(--agent); }
+/* 消息列表顶端：多层人格洗（radial/linear，"层次"的主场） */
+body[data-agent] [id^="messages-"] {
+  background-image: var(--agent-wash);
+  background-repeat: no-repeat;
+  background-size: 100% 320px;
+}
+
+/* ── 动效性格：消息入场用人格曲线 + 节奏倍率 ── */
+@media (prefers-reduced-motion: no-preference) {
+  body[data-agent] .msg {
+    animation: msgIn calc(180ms * var(--t-scale)) var(--ease-out);
+  }
+}
+
+/* ── 全局按压反馈（Emil：可按元素必须对按压有 scale 反馈）──
+   保留各自原有的 background/color 过渡，仅追加 transform。 */
+@media (prefers-reduced-motion: no-preference) {
+  .nav-item, .new-chat-btn, .hdr-btn-sm, .agent-card,
+  .cmd-result-item, .model-option, .history-item {
+    transition: background var(--t-press) var(--ease-out),
+                color      var(--t-press) var(--ease-out),
+                border-color var(--t-press) var(--ease-out),
+                transform  var(--t-press) var(--ease-out);
+  }
+  .nav-item:active, .new-chat-btn:active, .hdr-btn-sm:active,
+  .agent-card:active, .cmd-result-item:active, .model-option:active,
+  .history-item:active {
+    transform: scale(0.97);
+  }
+}
+
+/* ── 无障碍：减弱动效时去掉位移类动画，保留淡入（Emil/taste）── */
+@media (prefers-reduced-motion: reduce) {
+  .msg, .toast, .agent-dot.busy, .status-dot.loading { animation: none !important; }
+  * { scroll-behavior: auto !important; }
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   P2 — 微交互打磨（hover 抬升 · 染色阴影 · 卡片质感）
+   仅指针精确设备启用 hover（Emil：触屏 tap 会误触 hover）
+   ════════════════════════════════════════════════════════════════ */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  /* 卡片类：hover 微抬 + 柔和阴影（层次：浮起来） */
+  .agent-card, .card, .dash-stat-card, .stat-card, .rstat-card, .kanban-card {
+    transition: transform var(--t-pop) var(--ease-out),
+                box-shadow var(--t-pop) var(--ease-out),
+                border-color var(--t-pop) var(--ease-out);
+  }
+  .agent-card:hover, .card:hover, .dash-stat-card:hover,
+  .stat-card:hover, .rstat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,.07);
+  }
+  /* 在人格上下文里，卡片 hover 阴影染人格色 */
+  body[data-agent] .card:hover,
+  body[data-agent] .stat-card:hover,
+  body[data-agent] .agent-card:hover {
+    box-shadow: 0 6px 22px var(--agent-glow);
+    border-color: color-mix(in srgb, var(--agent) 35%, var(--border));
+  }
+  /* 发送键 hover：轻微放大（press 时再缩回，形成弹性手感） */
+  .send-btn:hover:not(:disabled) { transform: scale(1.06); opacity: 1; }
+  /* 侧栏项 hover：左移一点点，暗示"可进入" */
+  .history-item:hover { transform: translateX(2px); }
+}
+
+/* ── 每个人格的聊天头：底部一条渐变细线 + 大头像染色环（身份层次）── */
+body[data-agent] .chat-header {
+  border-bottom-color: transparent;
+  background-image: linear-gradient(var(--bg), var(--bg)),
+                    var(--agent-grad);
+  background-clip: padding-box, border-box;
+  background-origin: padding-box, border-box;
+  border-bottom: 2px solid transparent;
+}
+body[data-agent] .chat-header .agent-avatar-lg {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--agent) 50%, transparent),
+              0 2px 10px var(--agent-glow);
+}
+
+/* ── 消息流式光标：人格色（细节 compound）── */
+body[data-agent] .typing-dot,
+body[data-agent] .thinking-dot { background: var(--agent) !important; }
+
+
+/* ════════════════════════════════════════════════════════════════
+   沉浸人格世界（WebGL）+ 艺术字体  ·  全程沉浸（可开关）
+   ════════════════════════════════════════════════════════════════ */
+/* Geist 本地字体 */
+@font-face{ font-family:Geist; font-weight:400; font-display:swap; src:url("/assets/vendor/fonts/geist-sans-latin-400-normal.woff2") format("woff2");}
+@font-face{ font-family:Geist; font-weight:600; font-display:swap; src:url("/assets/vendor/fonts/geist-sans-latin-600-normal.woff2") format("woff2");}
+@font-face{ font-family:Geist; font-weight:700; font-display:swap; src:url("/assets/vendor/fonts/geist-sans-latin-700-normal.woff2") format("woff2");}
+
+/* 每人格书法字体（系统自带，回退到全 Windows 都有的楷/宋）：神女宋·晞行楷·陶朱新魏·守藏隶 */
+body[data-agent="xi"]       .agent-name, body[data-agent="xi"]       .welcome-name{ font-family:"STSong","SimSun","宋体",serif; letter-spacing:.04em; }
+body[data-agent="yiyi"]     .agent-name, body[data-agent="yiyi"]     .welcome-name{ font-family:"STXingkai","华文行楷","STKaiti","KaiTi",cursive; letter-spacing:.04em; }
+body[data-agent="tianyuan"] .agent-name, body[data-agent="tianyuan"] .welcome-name{ font-family:"STXinwei","华文新魏","STZhongsong","SimSun",serif; letter-spacing:.04em; }
+body[data-agent="shoucang"] .agent-name, body[data-agent="shoucang"] .welcome-name{ font-family:"STLiti","隶书","STKaiti","KaiTi",serif; letter-spacing:.08em; }
+.agent-name, .welcome-name{ font-weight:600; }
+
+/* —— 画布层 + 堆叠：sidebar/content 必须在画布之上 —— */
+#persona-fx{ position:fixed; inset:0; z-index:0; display:block; pointer-events:none; opacity:0; transition:opacity .8s ease; }
+.sidebar{ position:relative; z-index:2; }
+.content{ position:relative; z-index:1; }
+body.fx-on.fx-show #persona-fx{ opacity:1; }
+
+/* —— FX 开 + 在人格页：内容区透出世界 —— */
+body.fx-on.fx-show .content{ background:transparent; }
+body.fx-on.fx-show .tab-panel.active{ background:transparent !important; background-image:none !important; }
+body.fx-on.fx-show .tab-panel.active .chat-wrap{ background:transparent !important; }
+body.fx-on.fx-show .tab-panel.active .chat-welcome{ background:transparent !important; }
+body.fx-on.fx-show .chat-header{ background:rgba(0,0,0,.06); backdrop-filter:blur(8px);
+  border-bottom-color:rgba(255,255,255,.14); }
+/* 可读性蒙版：聊天列居中加柔暗/柔亮罩，让文字浮起、边缘透世界 */
+body.fx-on.fx-show .chat-messages{
+  background:radial-gradient(135% 64% at 50% 38%, var(--fx-scrim, rgba(8,6,14,.36)) 0%, transparent 80%); }
+body[data-agent="xi"]       { --fx-scrim:rgba(28,18,2,.30); }
+body[data-agent="yiyi"]     { --fx-scrim:rgba(8,4,18,.42); }
+body[data-agent="tianyuan"] { --fx-scrim:rgba(2,12,22,.42); }
+body[data-agent="shoucang"] { --fx-scrim:rgba(236,232,222,.50); }
+/* 气泡玻璃化 + 阴影增强可读 */
+body.fx-on.fx-show .msg.assistant .msg-bubble{ box-shadow:0 6px 22px rgba(0,0,0,.18); }
+body.fx-on.fx-show:not([data-agent="shoucang"]) .msg.assistant .msg-bubble{
+  background:rgba(255,255,255,.93); backdrop-filter:blur(6px); color:#1a1a1a; border-color:rgba(255,255,255,.5); }
+body.fx-on.fx-show[data-agent="shoucang"] .msg.assistant .msg-bubble{
+  background:rgba(251,250,245,.95); backdrop-filter:blur(6px); }
+body.fx-on.fx-show .composer-card{ background:rgba(255,255,255,.88); backdrop-filter:blur(12px); }
+body.fx-on.fx-show[data-agent="shoucang"] .composer-card{ background:rgba(251,250,245,.9); }
+
+/* —— 特效开关按钮（侧栏底）—— */
+.fx-toggle{ display:flex; align-items:center; gap:8px; padding:7px 10px; margin:0 8px 6px;
+  border-radius:8px; cursor:pointer; color:var(--muted); font-size:12px; user-select:none;
+  transition:background .15s, color .15s; }
+.fx-toggle:hover{ background:var(--hover); color:var(--text); }
+.fx-switch{ width:30px; height:17px; border-radius:999px; background:#CBC9C2; position:relative; flex-shrink:0; transition:background .2s; }
+.fx-switch::after{ content:""; position:absolute; top:2px; left:2px; width:13px; height:13px; border-radius:50%;
+  background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.25); transition:transform .2s var(--ease-out, ease); }
+.fx-toggle.on .fx-switch{ background:#16A34A; }
+.fx-toggle.on .fx-switch::after{ transform:translateX(13px); }
+
+/* ── 治割裂：所有页内容区透出世界 + 工具页面板毛玻璃浮起 ── */
+body.fx-on.fx-show .tab-panel.active{ background:transparent !important; background-image:none !important; }
+body.fx-on.fx-show .tab-panel.active > .overview-wrap,
+body.fx-on.fx-show .tab-panel.active > .dash-wrap,
+body.fx-on.fx-show .tab-panel.active > .settings-wrap,
+body.fx-on.fx-show .tab-panel.active > .kb-wrap,
+body.fx-on.fx-show .tab-panel.active > .wf-outer{ background:transparent !important; }
+/* 工具页主面板/卡片 → 毛玻璃（深色环境底上，白玻璃浮起、暗字可读）*/
+body.fx-on.fx-show .card,
+body.fx-on.fx-show .dash-stat-card,
+body.fx-on.fx-show .stat-card,
+body.fx-on.fx-show .rstat-card,
+body.fx-on.fx-show .kanban-col,
+body.fx-on.fx-show .report-card,
+body.fx-on.fx-show .mem-card,
+body.fx-on.fx-show .mem-backend-card,
+body.fx-on.fx-show .membership-card,
+body.fx-on.fx-show .offline-card,
+body.fx-on.fx-show .skill-mini-card,
+body.fx-on.fx-show .skill-overview-card,
+body.fx-on.fx-show .wf-left,
+body.fx-on.fx-show .wf-right,
+body.fx-on.fx-show .wf-ai-panel,
+body.fx-on.fx-show .set-card,
+body.fx-on.fx-show .set-section,
+body.fx-on.fx-show .setting-section,
+body.fx-on.fx-show .worker-detail-wrap{
+  background:rgba(255,255,255,.82) !important;
+  backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+  border:1px solid rgba(255,255,255,.55) !important;
+  box-shadow:0 8px 30px rgba(0,0,0,.12) !important;
+}
+/* 工具页标题/正文在玻璃上保持暗字（环境底深，避免继承浅色）*/
+body.fx-on.fx-show .content{ color:var(--text); }
+
+@media (prefers-reduced-motion: reduce){ #persona-fx{ display:none; } }
+
+
+/* ════════════════════════════════════════════════════════════════
+   工作流 Drawflow 画布（n8n / 扣子 风格）+ 玻璃节点
+   ════════════════════════════════════════════════════════════════ */
+#wfCanvas{ position:relative; width:100%; height:560px; min-height:460px; overflow:hidden;
+  display:block; border:1px solid var(--border); border-radius:14px; background:var(--surface);
+  background-image:linear-gradient(rgba(0,0,0,.04) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(0,0,0,.04) 1px,transparent 1px);
+  background-size:22px 22px; }
+#wfCanvas .drawflow{ width:100%; height:100%; }
+#wfCanvas .parent-node{ position:relative; }
+.drawflow-node{ background:transparent !important; border:none !important; padding:0 !important;
+  box-shadow:none !important; width:232px !important; }
+.drawflow-node .drawflow_content_node{ width:100%; }
+.wfx{ background:#fff; border:1px solid var(--border); border-radius:12px; padding:10px 12px;
+  box-shadow:0 6px 20px rgba(0,0,0,.10); font-size:12.5px; text-align:left; }
+.wfx-hd{ font-weight:700; font-size:12px; display:flex; align-items:center; gap:6px; margin-bottom:8px; color:var(--text); }
+.wfx-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.wfx-sel,.wfx-in,.wfx-ta{ width:100%; box-sizing:border-box; border:1px solid var(--border);
+  border-radius:7px; padding:5px 8px; font-size:12px; font-family:inherit;
+  background:var(--surface); color:var(--text); margin-bottom:6px; }
+.wfx-ta{ resize:vertical; min-height:44px; }
+.wfx-row{ display:flex; gap:6px; }
+.wfx-ports{ display:flex; justify-content:space-between; font-size:10px; color:var(--muted); padding:2px 2px 0; }
+.wfx-note{ font-size:11px; color:var(--muted); }
+/* 连线 + 端口 */
+.drawflow svg .connection .main-path{ stroke:#9aa0aa; stroke-width:2.4px; }
+.drawflow-node .input,.drawflow-node .output{ background:#fff; border:2px solid #8a8f99;
+  width:13px; height:13px; border-radius:50%; }
+.drawflow-node .output{ border-color:#2563EB; }
+.drawflow-node .input{ border-color:#16a34a; }
+/* 沉浸下：画布玻璃化 */
+body.fx-on.fx-show #wfCanvas{ background-color:rgba(255,255,255,.05); border-color:rgba(255,255,255,.28);
+  background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px); background-size:22px 22px; }
+body.fx-on.fx-show .wfx{ background:rgba(255,255,255,.88) !important; backdrop-filter:blur(12px); }
+body.fx-on.fx-show[data-agent="shoucang"] .wfx{ background:rgba(251,250,245,.9) !important; }
+
+
+/* ════════════════════════════════════════════════════════════════
+   设计语言「Anima 沉浸玻璃」组件库  ·  令牌 + 玻璃 + Bento + 段位 + 成长卡
+   ════════════════════════════════════════════════════════════════ */
+:root{
+  --glass-1:rgba(255,255,255,.55); --glass-2:rgba(255,255,255,.74); --glass-3:rgba(255,255,255,.88);
+  --glass-stroke:rgba(255,255,255,.6);
+  --depth-1:0 2px 8px rgba(20,20,30,.06); --depth-2:0 10px 28px rgba(20,20,30,.10); --depth-3:0 18px 50px rgba(20,20,30,.16);
+  --r-1:8px; --r-2:12px; --r-3:18px; --r-pill:999px;
+  --tier-builtin:#64748b; --tier-community:#0d9488; --tier-pro:#C99A2E;
+}
+/* 玻璃面板（无论开不开特效都成立：关特效=白卡，开=磨砂浮于世界）*/
+.glass{ background:var(--glass-2); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+  border:1px solid var(--glass-stroke); border-radius:var(--r-3); box-shadow:var(--depth-2); }
+.glass-soft{ background:var(--glass-1); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.45); border-radius:var(--r-2); box-shadow:var(--depth-1); }
+/* Bento 网格 */
+.bento{ display:grid; grid-template-columns:repeat(12,1fr); gap:16px; width:100%; box-sizing:border-box; }
+#overviewBody{ display:block !important; }
+.bento .b-sm{ grid-column:span 3; } .bento .b-md{ grid-column:span 4; }
+.bento .b-lg{ grid-column:span 6; } .bento .b-xl{ grid-column:span 8; } .bento .b-row{ grid-column:1/-1; }
+@media (max-width:1100px){ .bento .b-sm{grid-column:span 6} .bento .b-md{grid-column:span 6}
+  .bento .b-lg,.bento .b-xl{grid-column:1/-1} }
+/* 数字 tile */
+.num-tile{ padding:18px 20px; border-radius:var(--r-3); }
+.num-tile .nt-label{ font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+.num-tile .nt-value{ font-size:32px; font-weight:800; line-height:1; letter-spacing:-.01em; color:var(--text);
+  font-variant-numeric:tabular-nums; }
+.num-tile .nt-sub{ font-size:12px; color:var(--muted); margin-top:6px; }
+/* 状态 pill */
+.pill{ display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:var(--r-pill);
+  font-size:11px; font-weight:600; background:var(--surface2); color:var(--muted); border:1px solid var(--border); }
+.pill .pdot{ width:6px; height:6px; border-radius:50%; background:currentColor; }
+.pill.ok{ color:#0d9488; background:rgba(13,148,136,.1); border-color:rgba(13,148,136,.25); }
+.pill.pro{ color:var(--tier-pro); background:rgba(201,154,46,.12); border-color:rgba(201,154,46,.3); }
+/* Segmented control（分段筛选）*/
+.seg{ display:inline-flex; gap:2px; padding:3px; border-radius:var(--r-pill); background:var(--surface2);
+  border:1px solid var(--border); flex-wrap:wrap; }
+.seg button{ border:none; background:none; cursor:pointer; padding:6px 14px; border-radius:var(--r-pill);
+  font-size:12.5px; color:var(--muted); font-family:inherit; transition:all .18s var(--ease-out,ease); }
+.seg button:hover{ color:var(--text); }
+.seg button.on{ background:var(--text); color:var(--bg); font-weight:600; }
+/* 骨架屏 */
+.skel{ background:linear-gradient(100deg, rgba(0,0,0,.05) 30%, rgba(0,0,0,.09) 50%, rgba(0,0,0,.05) 70%);
+  background-size:200% 100%; animation:skel 1.3s infinite; border-radius:10px; }
+@keyframes skel{ from{background-position:200% 0} to{background-position:-200% 0} }
+
+/* ── Skill 墙：游戏化成长卡（分类色 + 稀有度 + 等级）── */
+.sk-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:18px; }
+.sk-wall{ display:grid; grid-template-columns:repeat(auto-fill,minmax(272px,1fr)); gap:18px; }
+.sk-card{ --cat:#64748b; --cat2:#475569; position:relative; padding:16px 16px 12px; border-radius:18px; overflow:hidden;
+  background:linear-gradient(155deg, color-mix(in srgb,var(--cat) 20%, #fff) 0%, color-mix(in srgb,var(--cat) 6%, #fff) 52%, #fff 100%);
+  border:1px solid color-mix(in srgb,var(--cat) 30%, rgba(255,255,255,.6));
+  box-shadow:0 8px 24px color-mix(in srgb,var(--cat) 16%, transparent), var(--depth-1);
+  transition:transform .26s var(--ease-out,ease), box-shadow .26s var(--ease-out,ease); cursor:default; }
+.sk-card:hover{ transform:translateY(-5px); box-shadow:0 18px 44px color-mix(in srgb,var(--cat) 32%, transparent); }
+.sk-card::before{ content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(120deg, transparent 42%, rgba(255,255,255,.6) 50%, transparent 58%);
+  transform:translateX(-130%); transition:transform .75s var(--ease-out,ease); }
+.sk-card:hover::before{ transform:translateX(130%); }
+body.fx-on.fx-show .sk-card{ -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+  background:linear-gradient(155deg, color-mix(in srgb,var(--cat) 34%, rgba(255,255,255,.82)) 0%, rgba(255,255,255,.85) 60%); }
+body.fx-on.fx-show[data-agent="shoucang"] .sk-card{ background:linear-gradient(155deg, color-mix(in srgb,var(--cat) 28%, rgba(251,250,245,.85)) 0%, rgba(251,250,245,.88) 60%); }
+.sk-bar{ position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--cat),var(--cat2)); z-index:1; }
+/* 段位角标（等级指标，逐阶变色变料）*/
+.sk-tier{ position:absolute; top:11px; right:11px; font-size:10px; font-weight:800; padding:3px 10px;
+  border-radius:999px; letter-spacing:.04em; z-index:3; display:flex; align-items:center; gap:4px; }
+/* 来源小标 */
+.sk-src{ font-size:10px; color:var(--muted); }
+.sk-src.pro{ color:#B8860B; font-weight:700; }
+
+/* ── 六段位：逐阶升级的边框/辉光/特效 ── */
+.sk-card.lvl-fan   { box-shadow:0 6px 18px rgba(0,0,0,.07); }
+.sk-card.lvl-fan    .sk-tier{ color:#64748b; background:rgba(100,116,139,.14); }
+.sk-card.lvl-bronze{ box-shadow:0 0 0 1.5px rgba(200,137,59,.5), 0 8px 22px rgba(160,100,40,.18); }
+.sk-card.lvl-bronze .sk-tier{ color:#7c4a16; background:linear-gradient(135deg,#E8C39A,#C8893B); }
+.sk-card.lvl-silver{ box-shadow:0 0 0 1.5px rgba(168,176,189,.7), 0 8px 24px rgba(120,130,150,.2); }
+.sk-card.lvl-silver .sk-tier{ color:#475569; background:linear-gradient(135deg,#E5E9EF,#A8B0BD); }
+.sk-card.lvl-silver::after{ content:""; position:absolute; inset:0; pointer-events:none; border-radius:inherit;
+  background:linear-gradient(120deg,transparent 45%,rgba(255,255,255,.35) 50%,transparent 55%);
+  transform:translateX(-130%); animation:sheen 5s ease-in-out infinite; }
+/* 金阶：流光金边 + 辉光 */
+.sk-card.lvl-gold{ box-shadow:0 0 0 2px #E8B84B, 0 10px 30px rgba(201,154,46,.32); }
+.sk-card.lvl-gold .sk-tier{ color:#7a5210; background:linear-gradient(135deg,#FCE9A8,#E8B84B); box-shadow:0 2px 10px rgba(201,154,46,.5); }
+.sk-card.lvl-gold .sk-bar{ background:linear-gradient(90deg,#F6D98B,#C99A2E,#F6D98B); background-size:200% 100%; animation:goldflow 3s linear infinite; }
+/* 钻阶：青钻辉光 + 呼吸 */
+.sk-card.lvl-diamond{ box-shadow:0 0 0 2px #5EE7E0, 0 0 26px rgba(94,231,224,.5), 0 12px 34px rgba(8,145,178,.28);
+  animation:skBreathe 3.4s ease-in-out infinite; }
+.sk-card.lvl-diamond .sk-tier{ color:#0e7490; background:linear-gradient(135deg,#CFFafe,#5EE7E0); box-shadow:0 2px 12px rgba(94,231,224,.6); }
+.sk-card.lvl-diamond .sk-bar{ background:linear-gradient(90deg,#A5F3FC,#22D3EE,#A5F3FC); background-size:200% 100%; animation:goldflow 2.4s linear infinite; }
+/* 传说：旋转虹彩边框 + 脉冲光晕 + 闪粒 */
+.sk-card.lvl-legend{ animation:skBreathe 3s ease-in-out infinite, skAura 2.6s ease-in-out infinite; }
+.sk-card.lvl-legend::after{ content:""; position:absolute; inset:-2px; border-radius:20px; padding:2px; pointer-events:none; z-index:2;
+  background:conic-gradient(from 0deg,#ff5f6d,#ffc371,#5eead4,#3b82f6,#7d5fff,#ff5fa2,#ff5f6d);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); mask-composite:exclude;
+  animation:skSpin 4s linear infinite; }
+.sk-card.lvl-legend .sk-tier{ color:#fff; background:conic-gradient(from 0deg,#ff5f6d,#ffc371,#5eead4,#7d5fff,#ff5f6d);
+  background-size:200% 200%; animation:legendShift 3s linear infinite; box-shadow:0 2px 14px rgba(125,95,255,.5); }
+.sk-spark{ position:absolute; width:5px; height:5px; border-radius:50%; background:#fff; pointer-events:none; z-index:3;
+  box-shadow:0 0 8px 2px rgba(255,255,255,.9); animation:skTwinkle 1.8s ease-in-out infinite; }
+@keyframes sheen{ 0%,80%{transform:translateX(-130%)} 90%,100%{transform:translateX(130%)} }
+@keyframes skBreathe{ 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-2px) scale(1.012)} }
+@keyframes skSpin{ to{transform:rotate(360deg)} }
+@keyframes skAura{ 0%,100%{filter:drop-shadow(0 0 6px rgba(125,95,255,.35))} 50%{filter:drop-shadow(0 0 18px rgba(125,95,255,.65))} }
+@keyframes legendShift{ to{background-position:200% 0} }
+@keyframes skTwinkle{ 0%,100%{opacity:0;transform:scale(.4)} 50%{opacity:1;transform:scale(1)} }
+/* 等级宝石 + 进度环 */
+.sk-top{ display:flex; align-items:flex-start; gap:13px; margin:8px 0 12px; }
+.sk-gem-wrap{ position:relative; padding:3px; border-radius:17px; flex-shrink:0;
+  background:conic-gradient(var(--cat) calc(var(--p,0)*1%), rgba(0,0,0,.08) 0); }
+.sk-gem{ width:48px; height:48px; border-radius:14px; display:grid; place-items:center; font-size:23px;
+  background:linear-gradient(135deg,var(--cat),var(--cat2)); box-shadow:0 4px 14px color-mix(in srgb,var(--cat) 45%,transparent); }
+.sk-lv{ position:absolute; bottom:-7px; left:50%; transform:translateX(-50%); font-size:9px; font-weight:800;
+  background:#16181d; color:#fff; padding:1px 7px; border-radius:999px; white-space:nowrap; }
+.sk-id{ flex:1; min-width:0; padding-right:46px; }
+.sk-name{ font-size:15px; font-weight:800; color:var(--text); display:flex; align-items:center; gap:6px; line-height:1.2; }
+.sk-stars{ font-size:12px; letter-spacing:1.5px; margin-top:5px; color:var(--cat); }
+.sk-stars .off{ color:rgba(0,0,0,.14); }
+.sk-rank-tag{ font-size:10.5px; font-weight:700; color:var(--cat2); margin-top:3px; }
+.sk-up{ font-size:9.5px; font-weight:800; color:#fff; background:#16a34a; padding:1px 6px; border-radius:6px; }
+.sk-desc{ font-size:12.5px; color:var(--muted); line-height:1.55; margin:0 0 10px;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.sk-uses{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px; max-height:0; overflow:hidden;
+  opacity:0; transition:max-height .3s var(--ease-out,ease), opacity .3s; }
+.sk-card:hover .sk-uses{ max-height:80px; opacity:1; }
+.sk-use{ font-size:10.5px; padding:2px 8px; border-radius:var(--r-pill);
+  background:color-mix(in srgb,var(--cat) 12%, #fff); color:var(--cat2); border:1px solid color-mix(in srgb,var(--cat) 20%, transparent); }
+.sk-foot{ display:flex; align-items:center; gap:8px; font-size:11px; color:var(--muted);
+  border-top:1px solid rgba(0,0,0,.06); padding-top:10px; }
+.sk-foot .grow{ margin-left:auto; font-weight:800; color:var(--cat2); }
+.sk-card.locked{ opacity:.62; cursor:pointer; filter:saturate(.4); }
+.sk-card.locked:hover{ opacity:.85; filter:saturate(.7); }
+
+/* ── 总览 Bento：人格 hero tile ── */
+.agent-tile{ padding:16px 18px; cursor:pointer; position:relative; overflow:hidden; border-left:3px solid var(--ag);
+  transition:transform .22s var(--ease-out,ease), box-shadow .22s var(--ease-out,ease); }
+.agent-tile:hover{ transform:translateY(-3px); box-shadow:0 14px 34px color-mix(in srgb,var(--ag) 24%, transparent); }
+.agent-tile-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.agent-tile-av{ width:42px; height:42px; border-radius:13px; display:grid; place-items:center; font-size:22px; }
+.agent-tile-name{ font-size:17px; font-weight:800; color:var(--text); letter-spacing:.01em; }
+.agent-tile-title{ font-size:12px; color:var(--muted); margin-top:2px; }
+.agent-tile-meta{ font-size:10.5px; color:var(--muted); margin-top:10px; font-family:"Geist Mono",monospace; letter-spacing:.02em; }
+.pill.busy{ color:#D97706; background:rgba(217,119,6,.12); border-color:rgba(217,119,6,.3); }
+.api-bar{ height:7px; border-radius:999px; background:rgba(0,0,0,.08); overflow:hidden; }
+.api-fill{ height:100%; border-radius:999px; }
+
+/* ════════════════════════════════════════════════════════════════
+   双层架构：陪伴模式（默认极简）↔ 工作台（进阶）
+   ════════════════════════════════════════════════════════════════ */
+#companionDock, #companionMic{ display:none; }
+body.mode-companion .sidebar{ display:none; }
+/* 顶部人格坞 */
+body.mode-companion #companionDock{ position:fixed; top:18px; left:50%; transform:translateX(-50%); z-index:40;
+  display:flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px;
+  background:rgba(255,255,255,.6); -webkit-backdrop-filter:blur(22px); backdrop-filter:blur(22px);
+  border:1px solid rgba(255,255,255,.55); box-shadow:0 12px 40px rgba(0,0,0,.18); }
+.cd-personas{ display:flex; gap:3px; }
+.cd-av{ display:flex; align-items:center; border:none; background:none; cursor:pointer; padding:4px; border-radius:999px; transition:transform .2s var(--ease-out,ease); }
+.cd-ic{ width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-size:18px;
+  background:color-mix(in srgb,var(--c) 16%, #fff); border:2px solid transparent; transition:all .22s var(--ease-out,ease); }
+.cd-name{ max-width:0; overflow:hidden; white-space:nowrap; font-size:13px; font-weight:700; color:var(--c); opacity:0;
+  transition:max-width .26s var(--ease-out,ease), opacity .2s, margin .26s; }
+.cd-av:hover .cd-ic{ transform:translateY(-2px); }
+.cd-av.on .cd-ic{ border-color:var(--c); box-shadow:0 4px 14px color-mix(in srgb,var(--c) 45%, transparent); }
+.cd-av.on .cd-name{ max-width:64px; opacity:1; margin:0 6px 0 7px; }
+.cd-sep{ width:1px; height:22px; background:rgba(0,0,0,.12); margin:0 3px; }
+.cd-adv{ border:none; background:rgba(0,0,0,.06); cursor:pointer; padding:8px 14px; border-radius:999px;
+  font-size:12.5px; font-weight:600; color:var(--text); font-family:inherit; transition:background .15s; white-space:nowrap; }
+.cd-adv:hover{ background:rgba(0,0,0,.12); }
+/* 语音麦克风 FAB（人格色）*/
+body.mode-companion #companionMic{ position:fixed; right:34px; bottom:34px; z-index:40; width:60px; height:60px;
+  border-radius:50%; border:none; cursor:pointer; color:#fff; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg, var(--agent,#C99A2E), color-mix(in srgb,var(--agent,#C99A2E) 55%, #1a1a1a));
+  box-shadow:0 10px 30px color-mix(in srgb,var(--agent,#C99A2E) 50%, transparent); transition:transform .15s var(--ease-out,ease); }
+body.mode-companion #companionMic:hover{ transform:scale(1.07); }
+body.mode-companion #companionMic:active{ transform:scale(.93); }
+#companionMic.rec{ animation:micPulse 1s infinite; }
+@keyframes micPulse{ 0%,100%{ box-shadow:0 10px 30px rgba(220,40,40,.55) } 50%{ box-shadow:0 10px 46px rgba(220,40,40,.95) } }
+
+/* 中心灵体光球（companion-OS 的"活的存在"）*/
+#companionCenter{ display:none; }
+body.mode-companion #companionCenter{ display:flex; flex-direction:column; align-items:center;
+  position:fixed; top:48%; left:50%; transform:translate(-50%,-54%); z-index:20; pointer-events:none; }
+body.mode-companion .chat-welcome{ display:none; }      /* 旧 emoji 欢迎块隐藏 */
+/* 陪伴模式：去掉聊天区蒙版 + 隐藏冗余顶栏（身份由灵体+坞承担）*/
+body.mode-companion .chat-messages{ background-image:none !important; }
+body.mode-companion .chat-header{ display:none !important; }
+/* 灵体：WebGL 渲染（有机质感 + 声纹）；容器只负责尺寸/漂浮/辉光 */
+#companionOrb{ width:300px; height:300px; cursor:pointer; pointer-events:auto; position:relative; margin-bottom:18px;
+  animation:orbFloat 7s ease-in-out infinite;
+  filter:drop-shadow(0 6px 50px color-mix(in srgb,var(--agent,#C99A2E) 30%, transparent)); }
+#soulCanvas{ width:100%; height:100%; display:block; }
+#companionOrb:hover{ transform:scale(1.03); }
+@keyframes orbFloat{ 0%,100%{ margin-top:0 } 50%{ margin-top:-14px } }
+.co-name{ font-family:"STSong","STKaiti","SimSun",serif; font-size:34px; font-weight:700; color:#23252a;
+  letter-spacing:.05em; text-shadow:0 2px 24px rgba(255,255,255,.6); }
+.co-tag{ display:none; }   /* 下方小字去掉，只留名字 */
+/* 欢迎名字随世界明暗自适应：深色世界(晞/陶朱)用浅字 */
+body.mode-companion[data-agent="yiyi"] .co-name, body.mode-companion[data-agent="tianyuan"] .co-name{ color:#fff; text-shadow:0 2px 24px rgba(0,0,0,.5); }
+
+/* ══ 成就 · 灵犀 ══ */
+.ach-intro{ font-size:13px; line-height:1.7; color:var(--muted); margin:2px 0 18px; max-width:760px; }
+.ach-intro b{ color:var(--text); font-weight:600; }
+.lingxi-tile{ background:linear-gradient(150deg, color-mix(in srgb,#d4a24e 22%,#fff), #fff 70%) !important;
+  border:1px solid color-mix(in srgb,#d4a24e 36%, rgba(255,255,255,.6)) !important; }
+.lingxi-tile .nt-value{ color:#b07c2c; }
+.lingxi-spark{ font-size:18px; margin-left:4px; color:#d4a24e; filter:drop-shadow(0 0 6px rgba(212,162,78,.6)); }
+.num-tile.nt-glow{ animation:ntGlow 2.4s ease-in-out infinite; }
+@keyframes ntGlow{ 0%,100%{ box-shadow:0 8px 24px rgba(212,162,78,.12) } 50%{ box-shadow:0 10px 34px rgba(212,162,78,.4) } }
+/* 未点亮成就：去饱和、压暗 */
+.sk-card.ach-dim{ filter:grayscale(.85) opacity(.6); }
+.sk-card.ach-dim:hover{ filter:grayscale(.4) opacity(.9); transform:translateY(-3px); }
+.ach-foot{ justify-content:flex-end; }
+.ach-claim-btn{ border:none; cursor:pointer; font-size:12px; font-weight:700; padding:5px 14px; border-radius:999px;
+  color:#5a3c0a; background:linear-gradient(120deg,#f0c674,#d4a24e); box-shadow:0 3px 12px rgba(212,162,78,.4);
+  transition:transform .16s ease, box-shadow .16s ease; }
+.ach-claim-btn:hover{ transform:translateY(-1px); box-shadow:0 6px 18px rgba(212,162,78,.55); }
+.ach-claimed{ font-size:12px; font-weight:600; color:#3fb97f; }
+.ach-progress-txt{ font-size:11.5px; color:var(--muted); }

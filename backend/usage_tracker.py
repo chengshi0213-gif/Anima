@@ -60,6 +60,34 @@ class UsageTracker:
             for k, v in sorted(agent_stats.items())
         ]}
 
+    def get_signal_stats(self, days: int = 3650) -> dict:
+        """成就经济用：真实使用信号。messages=AI 回合数(含 token 的日志条)，
+        per_agent=各 agent 回合数，active_days=有活动的日子数。"""
+        today = datetime.now().date()
+        per_agent = defaultdict(int)
+        messages = 0
+        active_days = 0
+        for i in range(days):
+            date = today - timedelta(days=i)
+            day_has = False
+            for log_file in self.log_dir.glob(f"*-{date.strftime('%Y%m%d')}.jsonl"):
+                agent_name = log_file.stem.rsplit("-", 1)[0]
+                try:
+                    for line in log_file.read_text(encoding="utf-8").strip().split("\n"):
+                        if not line:
+                            continue
+                        entry = json.loads(line)
+                        tokens = (entry.get("input_tokens", 0) or 0) + (entry.get("output_tokens", 0) or 0)
+                        if tokens:
+                            messages += 1
+                            per_agent[agent_name] += 1
+                            day_has = True
+                except Exception:
+                    pass
+            if day_has:
+                active_days += 1
+        return {"messages": messages, "per_agent": dict(per_agent), "active_days": active_days}
+
     def get_monthly_projection(self) -> dict:
         now = datetime.now()
         days_elapsed = now.day

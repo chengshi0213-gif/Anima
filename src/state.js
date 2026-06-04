@@ -20,10 +20,7 @@ export const CONFIG = {
 };
 
 export const AGENTS = {
-  xi:       { id:'xi',   name:'Anima', icon:'👩‍💼', avatarImg:'assets/xi-avatar.png', title:'私人助理',  colorClass:'xi-bg'   },
-  yiyi:     { id:'yiyi',     name:'晞',   icon:'🌸',  title:'情感伙伴',  colorClass:'yiyi-bg'     },
-  tianyuan: { id:'tianyuan', name:'陶朱',   icon:'🏢',  title:'创业CEO',   colorClass:'tianyuan-bg' },
-  shoucang: { id:'shoucang', name:'守藏',   icon:'📜',  title:'知识研究员', colorClass:'shoucang-bg' },
+  xi:       { id:'xi',   name:'Anima', icon:'👩‍💼', avatarImg:'assets/xi-avatar.png', title:'可依靠的她',  colorClass:'xi-bg'   },
   executor: { id:'executor', name:'执行者', icon:'⚡',  title:'任务执行',   colorClass:'executor-bg' },
   writer:   { id:'writer',   name:'写手',   icon:'✍️',  title:'内容创作',   colorClass:'writer-bg'   },
   reader:   { id:'reader',   name:'阅读者', icon:'📖',  title:'文档阅读',   colorClass:'reader-bg'   },
@@ -45,10 +42,7 @@ export const wsStatus = {};
 export const chatState = {};
 export const pendingFiles = {};
 export const selectedModel = {
-  xi:       'DeepSeek-V4-Flash',
-  yiyi:     'Qwen3.7-Max',
-  tianyuan: 'DeepSeek-R1',
-  shoucang:  'Kimi-K2.6',
+  xi:       'DeepSeek-V4-Pro',
   executor: 'DeepSeek-V4-Flash',
   writer:   'Kimi-K2.6',
   reader:   'Kimi-128K',
@@ -70,15 +64,12 @@ for (const id of Object.keys(AGENTS)) {
 
 // Agent 配置（名称/音色）
 export const DEFAULT_AGENT_NAMES = {
-  xi:'Anima', yiyi:'晞', tianyuan:'陶朱', shoucang:'守藏',
+  xi:'Anima',
   executor:'执行者', writer:'写手', reader:'阅读者', critic:'评审',
 };
 
 export const DEFAULT_AGENT_META = {
   xi:       { icon:'👩‍💼', avatarImg:'assets/xi-avatar.png', cls:'xi-bg'   },
-  yiyi:     { icon:'🌸',  cls:'yiyi-bg'     },
-  tianyuan: { icon:'🏢',  cls:'tianyuan-bg' },
-  shoucang:  { icon:'📜',  cls:'shoucang-bg' },
   executor: { icon:'⚡',  cls:'executor-bg' },
   writer:   { icon:'✍️',  cls:'writer-bg'   },
   reader:   { icon:'📖',  cls:'reader-bg'   },

@@ -6,23 +6,22 @@
 // ── Module imports (side effects: each module registers its window.* functions) ──
 import { CONFIG, AGENTS, runtime } from './state.js';
 import { checkBackend, wsSend } from './ws.js';
+import './invite-gate.js';
 import './auth.js';
 import './chat.js';
 import './overview.js';
 import './workflow.js';
 import './settings.js';
+import './economy.js';
+import './anim.js';   // GSAP 编排层（必须最后 import：包装其它模块已注册的 window.* 函数）
 
 // ══════════════════════════════════════════════════
 //  命令面板 (Ctrl+K)
 // ══════════════════════════════════════════════════
 const CMD_LIST = [
-  { icon:'👩‍💼', label:'与 Anima 对话',   sub:'私人助理',     action:()=>window.switchTab('xi',   document.querySelector('[data-tab=xi]'))   },
-  { icon:'🌸',  label:'与晞聊聊',       sub:'情感伙伴',     action:()=>window.switchTab('yiyi',     document.querySelector('[data-tab=yiyi]'))     },
-  { icon:'🏢',  label:'向陶朱汇报',       sub:'创业CEO',      action:()=>window.switchTab('tianyuan', document.querySelector('[data-tab=tianyuan]')) },
-  { icon:'🎓',  label:'守藏研究',         sub:'文献分析',     action:()=>window.switchTab('shoucang',  document.querySelector('[data-tab=shoucang]'))  },
+  { icon:'🪔',  label:'与 Anima 对话',   sub:'可依靠的她',   action:()=>window.switchTab('xi',   document.querySelector('[data-tab=xi]'))   },
   { icon:'🏠',  label:'总览',            sub:'工作台',       action:()=>window.switchTab('overview', document.querySelector('[data-tab=overview]')) },
   { icon:'📊',  label:'仪表盘',          sub:'Dashboard',    action:()=>window.switchTab('dashboard',document.querySelector('[data-tab=dashboard]'))},
-  { icon:'🏗️', label:'陶朱团队',         sub:'子员工看板',   action:()=>{window.switchTab('tianyuan-team',document.querySelector('[data-tab=tianyuan-team]'));document.getElementById('subGroup-tianyuan')?.classList.remove('hidden');}},
   { icon:'✏️', label:'新对话',           sub:'打开新会话',   action:()=>window.newChat() },
   { icon:'↺',  label:'刷新总览',         sub:'',             action:()=>{window.switchTab('overview',document.querySelector('[data-tab=overview]'));window.loadOverview?.();} },
   { icon:'⚙️', label:'设置',            sub:'端口·快捷键',  action:()=>window.switchTab('settings', document.querySelector('[data-tab=settings]')) },
@@ -107,14 +106,17 @@ window.addEventListener('DOMContentLoaded', async () => {
   setInterval(checkBackend, 30_000);
   setInterval(() => { for (const id of Object.keys(AGENTS)) wsSend(id, { action:'status' }); }, 60_000);
 
-  // 2. 登录门控（首次设置密码 / 返回登录）。后端离线时自动跳过。
+  // 2. 结缘码门（未激活设备需输入邀请码）。后端离线/未配置时自动放行。
+  await window.runInviteGate?.();
+
+  // 3. 登录门控（首次设置密码 / 返回登录）。后端离线时自动跳过。
   await window.runAuthGate?.();
 
-  // 3. 加载 agent 配置（名称/音色）
+  // 4. 加载 agent 配置（名称/音色）
   if (ok) {
     await window.loadAgentConfig?.();
 
-    // 4. 检查是否需要显示 Onboarding 向导
+    // 5. 检查是否需要显示 Onboarding 向导
     try {
       const r = await fetch(`${CONFIG.api}/setup/status`);
       const { configured } = await r.json();
@@ -125,6 +127,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         setTimeout(() => window.apiCatalogLoad?.(), 2000);
       }
     } catch(_) {}
+
+    // 6. 邀请人对账：补发"邀请成功 +30"灵犀（静默，有新增才提示）
+    setTimeout(() => window.inviteReconcile?.(), 2500);
   }
 
   // GitHub 链接

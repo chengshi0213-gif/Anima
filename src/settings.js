@@ -81,6 +81,104 @@ window.memVerifyVault = async function() {
 };
 
 /** 应用存储设置 */
+// ── 数据目录（自定义存储位置）──
+window.dataHomeLoad = async function() {
+  const cur = document.getElementById('dataHomeCurrent');
+  try {
+    const d = await fetch(`${CONFIG.api}/config/data-home`).then(r => r.json());
+    if (cur) cur.textContent = d.anima_home + (d.is_default ? '（默认）' : '');
+  } catch (e) {
+    if (cur) cur.textContent = '读取失败';
+  }
+};
+
+window.dataHomeApply = async function() {
+  const path = document.getElementById('dataHomeInput')?.value.trim() || '';
+  const migrate = document.getElementById('dataHomeMigrate')?.checked ?? true;
+  const btn = document.getElementById('dataHomeApplyBtn');
+  const res = document.getElementById('dataHomeResult');
+  if (!path) { toast('请填写新目录路径', 'error'); return; }
+  if (!confirm(`确定把数据目录改到：\n${path}\n\n${migrate ? '现有数据会复制过去，' : ''}更改后需要重启 Anima 生效。`)) return;
+  if (btn) { btn.disabled = true; btn.textContent = migrate ? '⏳ 迁移中…' : '⏳ 保存中…'; }
+  if (res) res.textContent = '';
+  try {
+    const d = await fetch(`${CONFIG.api}/config/data-home`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, migrate }),
+    }).then(r => r.json());
+    if (d.ok) {
+      const m = d.moved?.length ? `（已迁移：${d.moved.join('、')}）` : '';
+      toast(`✅ ${d.message}`, 'success');
+      if (res) res.innerHTML = `✅ 新目录：<code>${d.path}</code> ${m}<br><b>请重启 Anima 生效。</b>`;
+      dataHomeLoad();
+    } else {
+      toast(d.error || '更改失败', 'error');
+      if (res) res.textContent = '✗ ' + (d.error || '更改失败');
+    }
+  } catch (e) {
+    toast(`更改失败: ${e.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✓ 更改目录'; }
+  }
+};
+
+window.dataHomeReset = async function() {
+  if (!confirm('恢复到默认目录（系统盘 ~/.anima）？\n不会删除你已迁移的数据，仅改回指向。重启后生效。')) return;
+  try {
+    const d = await fetch(`${CONFIG.api}/config/data-home/reset`, { method: 'POST' }).then(r => r.json());
+    if (d.ok) { toast(`✅ ${d.message}`, 'success'); dataHomeLoad(); }
+  } catch (e) { toast(`失败: ${e.message}`, 'error'); }
+};
+
+// ── Transfer Memory：从别的 AI 导入记忆 ──
+window.memTransferImport = async function() {
+  const text = document.getElementById('tmText')?.value.trim() || '';
+  const source = document.getElementById('tmSource')?.value.trim() || '';
+  const btn = document.getElementById('tmImportBtn');
+  const res = document.getElementById('tmResult');
+  if (text.length < 8) { toast('内容太短，粘点东西再导入', 'error'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 守藏提炼中…'; }
+  if (res) res.textContent = '';
+  try {
+    const d = await fetch(`${CONFIG.api}/memory/import`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, source }),
+    }).then(r => r.json());
+    if (d.ok) {
+      const tip = d.mode === 'raw'
+        ? `已存为 ${d.imported} 条（未接模型，整段归档；接入模型后可自动提炼）`
+        : `✅ 提炼并存入 ${d.imported} 条关于你的记忆`;
+      toast(tip, 'success');
+      if (res) res.textContent = tip;
+      const ta = document.getElementById('tmText'); if (ta) ta.value = '';
+      if (typeof window.memLoadEntries === 'function') window.memLoadEntries();
+    } else {
+      toast(d.error || '导入失败', 'error');
+    }
+  } catch (e) {
+    toast(`导入失败: ${e.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨ 提炼并导入'; }
+  }
+};
+
+window.memTransferFile = function(ev) {
+  const f = ev.target.files?.[0];
+  if (!f) return;
+  if (f.size > 2 * 1024 * 1024) { toast('文件过大（上限 2MB）', 'error'); ev.target.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const ta = document.getElementById('tmText');
+    if (ta) ta.value = String(reader.result || '').slice(0, 24000);
+    const src = document.getElementById('tmSource');
+    if (src && !src.value) src.value = f.name.replace(/\.(txt|md|json)$/i, '');
+    const hint = document.getElementById('tmHint');
+    if (hint) hint.textContent = `已载入 ${f.name}`;
+  };
+  reader.readAsText(f);
+  ev.target.value = '';
+};
+
 window.memApplyBackend = async function() {
   const backend     = _memSelectedBackend;
   const vaultPath   = document.getElementById('memObsidianPath')?.value.trim() || '';
@@ -352,10 +450,7 @@ window.kbSearch = async function() {
 // agentNames and agentVoices are imported from state.js
 
 const DEFAULT_AGENT_META = {
-  xi:       { icon:'👩‍💼', avatarImg:'assets/xi-avatar.png', cls:'xi-bg'   },
-  yiyi:     { icon:'🌸',  cls:'yiyi-bg'     },
-  tianyuan: { icon:'🏢',  cls:'tianyuan-bg' },
-  shoucang:  { icon:'📜',  cls:'shoucang-bg' },
+  xi:       { icon:'🪔', avatarImg:'assets/xi-avatar.png', cls:'xi-bg'   },
   executor: { icon:'⚡',  cls:'executor-bg' },
   writer:   { icon:'✍️',  cls:'writer-bg'   },
   reader:   { icon:'📖',  cls:'reader-bg'   },
@@ -363,7 +458,7 @@ const DEFAULT_AGENT_META = {
 };
 
 const DEFAULT_AGENT_NAMES = {
-  xi:'Anima', yiyi:'晞', tianyuan:'陶朱', shoucang:'守藏',
+  xi:'Anima',
   executor:'执行者', writer:'写手', reader:'阅读者', critic:'评审',
 };
 
@@ -382,9 +477,6 @@ function applyAgentNames() {
   // 更新侧边栏导航显示名称
   const navMap = {
     xi:       '[data-tab=xi]',
-    yiyi:     '[data-tab=yiyi]',
-    tianyuan: '[data-tab=tianyuan]',
-    shoucang: '[data-tab=shoucang]',
   };
   for (const [id, sel] of Object.entries(navMap)) {
     const el = document.querySelector(sel);
@@ -394,8 +486,8 @@ function applyAgentNames() {
       el.innerHTML = `${icon}${agentName(id)}${dot}`;
     }
   }
-  // 更新群聊成员面板
-  gcRenderMembers();
+  // 更新群聊成员面板（跨模块，安全调用）
+  window.gcRenderMembers?.();
 }
 
 
@@ -458,8 +550,7 @@ function renderAgentNameGrid() {
   const grid = document.getElementById('agentNameGrid');
   if (!grid) return;
   const roles = {
-    xi:'日常助手', yiyi:'情感助手',
-    tianyuan:'创业者', shoucang:'知识守护',
+    xi:'日常助手',
     executor:'执行者', writer:'写手',
     reader:'阅读者', critic:'评审',
   };
@@ -478,8 +569,7 @@ function renderAgentVoiceGrid() {
   const grid = document.getElementById('agentVoiceGrid');
   if (!grid) return;
   const defaultVoices = {
-    xi:'zh-CN-YunxiNeural', yiyi:'zh-CN-XiaoxiaoNeural',
-    tianyuan:'zh-CN-YunyangNeural', shoucang:'zh-CN-YunjianNeural',
+    xi:'zh-CN-XiaoxiaoNeural',
     executor:'zh-CN-YunxiNeural', writer:'zh-CN-XiaoyiNeural',
     reader:'zh-CN-YunjianNeural', critic:'zh-CN-YunyangNeural',
   };
@@ -524,12 +614,8 @@ window.saveAgentVoices = async function() {
 };
 
 window.saveUserAddress = async function() {
-  // Always send all 4 keys so clearing one actually removes the stored value
   const address = {
     xi:       document.getElementById('addrXi')?.value.trim()       || '',
-    yiyi:     document.getElementById('addrYiyi')?.value.trim()     || '',
-    tianyuan: document.getElementById('addrTianyuan')?.value.trim() || '',
-    shoucang: document.getElementById('addrShoucang')?.value.trim() || '',
   };
   try {
     const r = await fetch(`${CONFIG.api}/setup/save`, {
@@ -549,9 +635,6 @@ async function loadUserAddress() {
     const d = await r.json();
     const addr = d.user_address || {};
     if (addr.xi)       { const el = document.getElementById('addrXi');       if(el) el.value = addr.xi; }
-    if (addr.yiyi)     { const el = document.getElementById('addrYiyi');     if(el) el.value = addr.yiyi; }
-    if (addr.tianyuan) { const el = document.getElementById('addrTianyuan'); if(el) el.value = addr.tianyuan; }
-    if (addr.shoucang) { const el = document.getElementById('addrShoucang'); if(el) el.value = addr.shoucang; }
   } catch(_) {}
 }
 
@@ -595,10 +678,11 @@ window.obPrev = function() {
 
 function obGotoStep(n) {
   _obStep = n;
-  document.querySelectorAll('.ob-page').forEach((p,i) => {
+  // 限定 #obOverlay 内：authOverlay 也用了 .ob-page/.ob-step，全局查询会错位
+  document.querySelectorAll('#obOverlay .ob-page').forEach((p,i) => {
     p.classList.toggle('active', i === n);
   });
-  document.querySelectorAll('.ob-step').forEach((s,i) => {
+  document.querySelectorAll('#obOverlay .ob-steps .ob-step').forEach((s,i) => {
     s.classList.toggle('active', i === n);
   });
 }
@@ -609,10 +693,14 @@ window.obFinish = async function() {
   const dk = document.getElementById('obDeepseekKey')?.value.trim();
   const kk = document.getElementById('obKimiKey')?.value.trim();
   const qk = document.getElementById('obQwenKey')?.value.trim();
+  const gk = document.getElementById('obGlmKey')?.value.trim();
+  const mk = document.getElementById('obMimoKey')?.value.trim();
   const ok = document.getElementById('obOpenaiKey')?.value.trim();
   if (dk) api.deepseek_key  = dk;
   if (kk) api.kimi_key      = kk;
   if (qk) api.qwen_key      = qk;
+  if (gk) api.glm_key       = gk;
+  if (mk) api.mimo_key      = mk;
   if (ok) api.openai_key    = ok;
 
   // Agent 名称由系统固定，不由用户在 onboarding 设置
@@ -621,13 +709,7 @@ window.obFinish = async function() {
   // Collect per-agent user address (how each agent calls the user)
   const user_address = {};
   const addrXi       = document.getElementById('obAddrXi')?.value.trim();
-  const addrYiyi     = document.getElementById('obAddrYiyi')?.value.trim();
-  const addrTianyuan = document.getElementById('obAddrTianyuan')?.value.trim();
-  const addrShoucang = document.getElementById('obAddrShoucang')?.value.trim();
   if (addrXi)       user_address.xi       = addrXi;
-  if (addrYiyi)     user_address.yiyi     = addrYiyi;
-  if (addrTianyuan) user_address.tianyuan = addrTianyuan;
-  if (addrShoucang) user_address.shoucang = addrShoucang;
 
   try {
     const r = await fetch(`${CONFIG.api}/setup/save`, {
@@ -636,9 +718,17 @@ window.obFinish = async function() {
     });
     const d = await r.json();
     if (!d.ok) throw new Error('保存失败');
-    // Apply locally
-    setAgentNames({ ...DEFAULT_AGENT_NAMES, ...agent_names });
-    applyAgentNames();
+
+    // ⚡ 保存成功即放行：先进门，再做装饰。任何装饰报错都不该把用户挡在外面。
+    document.getElementById('obOverlay')?.classList.add('hidden');
+    const xiTabBtn = document.querySelector('[data-tab="xi"]');
+    try { switchTab('xi', xiTabBtn); } catch (_) {}
+
+    // Apply locally（容错）
+    try {
+      setAgentNames({ ...DEFAULT_AGENT_NAMES, ...agent_names });
+      applyAgentNames();
+    } catch (_) {}
 
     // ── 触发 FTUE 完成：守藏初始化 + 欢迎语 ──────────────────────
     let welcomeMsg = '';
@@ -650,13 +740,6 @@ window.obFinish = async function() {
       // 后端离线时降级：使用本地模板
       welcomeMsg = `嗨，很高兴认识你！我是 **Anima**，你的私人 AI 助理。\n\n我们这里有四位核心伙伴：\n\n- **Anima**（就是我）— 日常同行者，创作、探索、任务处理\n- **晞** — 情感陪伴，倾听你的心情，帮你理清思路\n- **陶朱** — 创业决策，带着一支 AI 小团队，专攻复杂任务\n- **守藏** — 知识管理者，帮你整理笔记，每天自动更新\n\n有什么想让我帮忙的吗？😊`;
     }
-
-    // 隐藏 Onboarding 遮罩
-    document.getElementById('obOverlay')?.classList.add('hidden');
-
-    // 切换到 Anima 主聊天标签
-    const xiTabBtn = document.querySelector('[data-tab="xi"]');
-    switchTab('xi', xiTabBtn);
 
     // 注入欢迎消息到 Anima 聊天面板（支持 Markdown 渲染）
     if (welcomeMsg) {
@@ -682,7 +765,7 @@ window.obFinish = async function() {
     toast('🎉 配置完成，欢迎使用 Anima！', 'success');
 
     // 重连 WebSocket / 检查后端
-    if (!backendOnline) await checkBackend(true);
+    if (!runtime.backendOnline) await window.checkBackend?.(true);
   } catch(e) {
     toast(`配置保存失败: ${e.message}`, 'error');
   }
@@ -989,12 +1072,13 @@ const _origSwitchTab = window.switchTab;
 window.switchTab = function(tabId, el) {
   _origSwitchTab(tabId, el);
   if (tabId === 'knowledge')   { kbLoadDocs(); vaultLoadTree(); }
-  if (tabId === 'workflow')    { _refreshMembershipCache().then(()=>wfRenderTemplates()); if(typeof wfRender==='function') wfRender(); wfLoadList(); }
+  if (tabId === 'workflow')    { (window._refreshMembershipCache?.() || Promise.resolve()).then(()=>window.wfRenderTemplates?.()); if(typeof window.wfRender==='function') window.wfRender(); window.wfLoadList?.(); }
   if (tabId === 'scheduler')   { schedLoadTasks(); schedLoadLogs(); }
   if (tabId === 'filewatcher') { fwLoadRules(); fwLoadEvents(); }
-  if (tabId === 'groupchat')   gcRenderMembers();
+  if (tabId === 'groupchat')   window.gcRenderMembers?.();
   if (tabId === 'reports')     { reportLoad('daily'); document.getElementById('reportDot')?.classList.add('hidden'); }
   if (tabId === 'skills')      skillsLoad();
+  if (tabId === 'achievements') window.achLoad?.();
   if (tabId === 'settings') {
     notifLoadChannels();
     feishuLoad();
@@ -1004,6 +1088,7 @@ window.switchTab = function(tabId, el) {
     renderAgentVoiceGrid();
     apiCatalogLoad();
     loadUserAddress();
+    window.dataHomeLoad?.();
   }
 };
 

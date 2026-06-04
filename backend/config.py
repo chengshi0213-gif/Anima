@@ -19,22 +19,51 @@ else:
 
 PROJECT_DIR = BACKEND_DIR.parent
 
-# ── 数据目录：~/.anima/data/
+# ── 引导目录：~/.anima/（固定，永远存 config.yaml，不随数据迁移）──
 #    兼容迁移：若 ~/.anima 不存在但旧版 ~/.hermes 存在，自动迁移
 # ──────────────────────────────────────────────────────────────────
-_anima_home  = Path.home() / ".anima"
+_BOOT_HOME   = Path.home() / ".anima"
 _legacy_home = Path.home() / ".hermes"
 
 def _migrate_legacy():
     """一次性把 ~/.hermes 迁移到 ~/.anima（静默执行）"""
-    if _anima_home.exists() or not _legacy_home.exists():
+    if _BOOT_HOME.exists() or not _legacy_home.exists():
         return
     try:
-        shutil.copytree(str(_legacy_home), str(_anima_home))
+        shutil.copytree(str(_legacy_home), str(_BOOT_HOME))
     except Exception:
-        _anima_home.mkdir(parents=True, exist_ok=True)
+        _BOOT_HOME.mkdir(parents=True, exist_ok=True)
 
 _migrate_legacy()
+_BOOT_HOME.mkdir(parents=True, exist_ok=True)
+
+# ── 读取 YAML 配置（config.yaml 始终在引导目录，不随数据目录迁移）──
+_user_cfg_path    = _BOOT_HOME / "config.yaml"
+_bundled_cfg_path = BACKEND_DIR / "config" / "config.yaml"
+_cfg_example      = BACKEND_DIR / "config" / "config.example.yaml"
+_cfg: dict = {}
+
+if _user_cfg_path.exists():
+    with open(_user_cfg_path, "r", encoding="utf-8") as f:
+        _cfg = yaml.safe_load(f) or {}
+elif _bundled_cfg_path.exists():
+    with open(_bundled_cfg_path, "r", encoding="utf-8") as f:
+        _cfg = yaml.safe_load(f) or {}
+elif _cfg_example.exists():
+    _user_cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(_cfg_example, _user_cfg_path)
+
+# ── 数据主目录：可自定义（别都堆在 C 盘）──
+#    优先级：环境变量 ANIMA_HOME > config.yaml 的 anima_home > 默认 ~/.anima
+#    数据 / 技能 / 工作区 / 身份 全部挂在此目录下；config.yaml 始终留在引导目录。
+_custom_home = os.environ.get("ANIMA_HOME") or (_cfg.get("anima_home") if isinstance(_cfg, dict) else "") or ""
+_custom_home = str(_custom_home).strip()
+try:
+    _anima_home = Path(_custom_home) if _custom_home else _BOOT_HOME
+    _anima_home.mkdir(parents=True, exist_ok=True)
+except Exception:
+    _anima_home = _BOOT_HOME
+    _anima_home.mkdir(parents=True, exist_ok=True)
 
 _default_data = _anima_home / "data"
 DATA_DIR = Path(os.environ.get("ANIMA_DATA_DIR", str(_default_data)))
@@ -53,23 +82,6 @@ WORKSPACE_DIR = Path(os.environ.get(
     str(_anima_home / "workspace")
 ))
 WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
-
-# ── 读取 YAML 配置 ──
-# 优先从 ~/.anima/config.yaml 读取，其次打包内置
-_user_cfg_path    = _anima_home / "config.yaml"
-_bundled_cfg_path = BACKEND_DIR / "config" / "config.yaml"
-_cfg_example      = BACKEND_DIR / "config" / "config.example.yaml"
-_cfg: dict = {}
-
-if _user_cfg_path.exists():
-    with open(_user_cfg_path, "r", encoding="utf-8") as f:
-        _cfg = yaml.safe_load(f) or {}
-elif _bundled_cfg_path.exists():
-    with open(_bundled_cfg_path, "r", encoding="utf-8") as f:
-        _cfg = yaml.safe_load(f) or {}
-elif _cfg_example.exists():
-    _user_cfg_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy(_cfg_example, _user_cfg_path)
 
 
 def _get(key: str, default=None):
@@ -125,8 +137,12 @@ OPENAI_KEY     = _get("api.openai_key",     os.environ.get("OPENAI_API_KEY",    
 QWEN_KEY       = _get("api.qwen_key",       os.environ.get("QWEN_API_KEY",       ""))
 KIMI_KEY       = _get("api.kimi_key",       os.environ.get("KIMI_API_KEY",       ""))
 GLM_KEY        = _get("api.glm_key",        os.environ.get("GLM_API_KEY",        ""))
+MIMO_KEY       = _get("api.mimo_key",        os.environ.get("MIMO_API_KEY",       ""))
 GEMINI_KEY     = _get("api.gemini_key",     os.environ.get("GEMINI_API_KEY",     ""))
 OPENROUTER_KEY = _get("api.openrouter_key", os.environ.get("OPENROUTER_API_KEY", ""))
+# 可自定义 base_url（MiMo 暂无统一官方端点，默认走小米开放平台兼容地址，用户可在 config.yaml 覆盖）
+GLM_URL        = _get("api.glm_url",         "https://open.bigmodel.cn/api/paas/v4")
+MIMO_URL       = _get("api.mimo_url",        "https://api.xiaomimimo.com/v1")
 
 # ── API Keys — 搜索 & 工具 ──
 TAVILY_KEY     = _get("api.tavily_key",     os.environ.get("TAVILY_API_KEY",     ""))
@@ -134,6 +150,10 @@ SERPER_KEY     = _get("api.serper_key",     os.environ.get("SERPER_API_KEY",    
 JINA_KEY       = _get("api.jina_key",       os.environ.get("JINA_API_KEY",       ""))
 FIRECRAWL_KEY  = _get("api.firecrawl_key",  os.environ.get("FIRECRAWL_API_KEY",  ""))
 GITHUB_TOKEN   = _get("api.github_token",   os.environ.get("GITHUB_TOKEN",       ""))
+
+# ── Supabase（邀请码系统）──
+SUPABASE_URL     = _get("supabase.url",      os.environ.get("SUPABASE_URL",      ""))
+SUPABASE_ANON_KEY = _get("supabase.anon_key", os.environ.get("SUPABASE_ANON_KEY", ""))
 
 # ── 身份文件 ──
 IDENTITY_DIR = Path(_get("identity_dir", str(_anima_home / "identity")))
@@ -164,7 +184,7 @@ def reload_user_config():
     """Onboarding/设置写入后调用，刷新内存中的用户称呼和 API Keys。"""
     global USER_NAME, _cfg
     global DEEPSEEK_KEY, ANTHROPIC_KEY, OPENAI_KEY, QWEN_KEY, KIMI_KEY
-    global GLM_KEY, GEMINI_KEY, OPENROUTER_KEY
+    global GLM_KEY, MIMO_KEY, GEMINI_KEY, OPENROUTER_KEY
     global TAVILY_KEY, SERPER_KEY, JINA_KEY, FIRECRAWL_KEY, GITHUB_TOKEN
     if _user_cfg_path.exists():
         import yaml as _yaml
@@ -177,6 +197,7 @@ def reload_user_config():
     QWEN_KEY       = _get("api.qwen_key",       os.environ.get("QWEN_API_KEY",       ""))
     KIMI_KEY       = _get("api.kimi_key",       os.environ.get("KIMI_API_KEY",       ""))
     GLM_KEY        = _get("api.glm_key",        os.environ.get("GLM_API_KEY",        ""))
+    MIMO_KEY       = _get("api.mimo_key",        os.environ.get("MIMO_API_KEY",       ""))
     GEMINI_KEY     = _get("api.gemini_key",     os.environ.get("GEMINI_API_KEY",     ""))
     OPENROUTER_KEY = _get("api.openrouter_key", os.environ.get("OPENROUTER_API_KEY", ""))
     TAVILY_KEY     = _get("api.tavily_key",     os.environ.get("TAVILY_API_KEY",     ""))
@@ -184,3 +205,62 @@ def reload_user_config():
     JINA_KEY       = _get("api.jina_key",       os.environ.get("JINA_API_KEY",       ""))
     FIRECRAWL_KEY  = _get("api.firecrawl_key",  os.environ.get("FIRECRAWL_API_KEY",  ""))
     GITHUB_TOKEN   = _get("api.github_token",   os.environ.get("GITHUB_TOKEN",       ""))
+    # 关键：agent_base 在 import 时拷贝了这些 key（值拷贝），reload 后必须同步推过去，
+    # 否则用户配完 key 不重启不生效（单 key 用全功能也依赖此）。
+    try:
+        import sys as _sys
+        _ab = _sys.modules.get("agent_base")
+        if _ab is not None:
+            for _k in ("DEEPSEEK_KEY", "ANTHROPIC_KEY", "OPENAI_KEY", "QWEN_KEY", "KIMI_KEY",
+                       "GLM_KEY", "MIMO_KEY", "GEMINI_KEY", "OPENROUTER_KEY"):
+                if hasattr(_ab, _k):
+                    setattr(_ab, _k, globals()[_k])
+    except Exception:
+        pass
+
+
+# ── 数据目录自定义 ─────────────────────────────────────────────────
+# 子目录清单（迁移时随数据主目录一起搬，config.yaml 不在其中）
+DATA_HOME_SUBDIRS = ["data", "skills", "workspace", "identity"]
+
+
+def get_data_home() -> dict:
+    """返回当前数据主目录信息，供设置页展示。"""
+    return {
+        "anima_home":   str(_anima_home),
+        "data_dir":     str(DATA_DIR),
+        "default_home": str(_BOOT_HOME),
+        "is_default":   str(_anima_home) == str(_BOOT_HOME),
+        "subdirs":      DATA_HOME_SUBDIRS,
+    }
+
+
+def validate_data_home(new_path: str) -> tuple[bool, str]:
+    """校验新数据目录是否可用。返回 (ok, 规范化路径或错误信息)。"""
+    p = (new_path or "").strip().strip('"')
+    if not p:
+        return False, "路径为空"
+    try:
+        target = Path(p).expanduser()
+        if not target.is_absolute():
+            return False, "请使用绝对路径（如 D:\\AnimaData）"
+        cur = _anima_home.resolve()
+        try:
+            tr = target.resolve()
+        except Exception:
+            tr = target
+        if str(tr) == str(cur):
+            return False, "与当前目录相同"
+        # 防止与当前目录互相嵌套（会导致递归复制）
+        if str(tr).startswith(str(cur) + os.sep) or str(cur).startswith(str(tr) + os.sep):
+            return False, "新目录不能与当前目录互相嵌套"
+        target.mkdir(parents=True, exist_ok=True)
+        # 可写性探测
+        probe = target / ".anima_write_test"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        return True, str(target)
+    except PermissionError:
+        return False, "该目录没有写入权限"
+    except Exception as e:
+        return False, f"路径无效：{e}"

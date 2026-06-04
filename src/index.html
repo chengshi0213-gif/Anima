@@ -8,6 +8,9 @@
 </head>
 <body>
 
+<!-- 沉浸人格世界（WebGL，铺在最底层；fx-on 时透出，可在设置关闭）-->
+<canvas id="persona-fx"></canvas>
+
 <!-- ══════════════════════════════════════
      左侧边栏
 ══════════════════════════════════════ -->
@@ -19,6 +22,9 @@
       <img src="/assets/icon.png" class="logo-icon-img" alt="Anima">
       <span class="logo-title" id="appLogoTitle">Anima</span>
     </div>
+    <button class="new-chat-btn" onclick="setAppMode('companion')" title="返回陪伴模式（极简）" style="margin-right:6px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+    </button>
     <button class="new-chat-btn" onclick="newChat()" title="新对话">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="M12 5v14M5 12h14"/>
@@ -35,48 +41,11 @@
       <span class="nav-icon">📊</span> 仪表盘
     </div>
 
-    <div class="nav-section-label">员工</div>
+    <div class="nav-section-label">对话</div>
 
     <div class="nav-item" data-tab="xi" onclick="switchTab('xi',this)">
-      <span class="nav-icon">🤖</span> Anima
+      <span class="nav-icon">🪔</span> Anima
       <span class="agent-dot" id="dot-xi"></span>
-    </div>
-    <div class="nav-item" data-tab="yiyi" onclick="switchTab('yiyi',this)">
-      <span class="nav-icon">🌸</span> 晞
-      <span class="agent-dot" id="dot-yiyi"></span>
-    </div>
-
-    <!-- 陶朱（可展开） -->
-    <div class="nav-item nav-parent" id="navParent-tianyuan"
-         onclick="toggleTeam(event)">
-      <span class="nav-icon">🏢</span> 陶朱
-      <span class="agent-dot" id="dot-tianyuan"></span>
-      <span class="nav-chevron" id="chevron-tianyuan">›</span>
-    </div>
-    <div class="nav-sub-group hidden" id="subGroup-tianyuan">
-      <div class="nav-item nav-sub" data-tab="tianyuan" onclick="switchTab('tianyuan',this)">
-        <span class="nav-icon">💬</span> 与陶朱对话
-      </div>
-      <div class="nav-item nav-sub" data-tab="tianyuan-team" onclick="switchTab('tianyuan-team',this)">
-        <span class="nav-icon">📋</span> 团队看板
-      </div>
-      <div class="nav-item nav-sub" data-tab="worker-executor" onclick="switchTab('worker-executor',this)">
-        <span class="nav-icon">⚡</span> 执行者
-      </div>
-      <div class="nav-item nav-sub" data-tab="worker-writer" onclick="switchTab('worker-writer',this)">
-        <span class="nav-icon">✍️</span> 写手
-      </div>
-      <div class="nav-item nav-sub" data-tab="worker-reader" onclick="switchTab('worker-reader',this)">
-        <span class="nav-icon">📖</span> 阅读者
-      </div>
-      <div class="nav-item nav-sub" data-tab="worker-critic" onclick="switchTab('worker-critic',this)">
-        <span class="nav-icon">🔍</span> 评审
-      </div>
-    </div>
-
-    <div class="nav-item" data-tab="shoucang" onclick="switchTab('shoucang',this)">
-      <span class="nav-icon">📜</span> 守藏
-      <span class="agent-dot" id="dot-shoucang"></span>
     </div>
 
     <!-- 项目快速切换器 -->
@@ -110,6 +79,9 @@
     <div class="nav-item" data-tab="skills" onclick="switchTab('skills',this)">
       <span class="nav-icon">🧩</span> Skill 墙
     </div>
+    <div class="nav-item" data-tab="achievements" onclick="switchTab('achievements',this)">
+      <span class="nav-icon">🏅</span> 成就 · 灵犀
+    </div>
     <div class="nav-item" data-tab="scheduler" onclick="switchTab('scheduler',this)">
       <span class="nav-icon">🕐</span> 定时任务
     </div>
@@ -131,6 +103,9 @@
 
   <!-- 底部：设置 + 状态 -->
   <div class="sidebar-footer">
+    <div class="fx-toggle" id="fxToggle" onclick="window.PersonaFX&&window.PersonaFX.toggle()" title="人格沉浸特效开关">
+      <span class="fx-switch"></span> 沉浸特效
+    </div>
     <div class="nav-item" data-tab="settings" onclick="switchTab('settings',this)">
       <span class="nav-icon">⚙️</span> 设置
     </div>
@@ -186,8 +161,8 @@
         </div>
         <div class="dash-stat-card">
           <div class="stat-label">活跃员工</div>
-          <div class="stat-value" id="dashAgents">4</div>
-          <div class="stat-sub">Anima · 晞 · 陶朱 · 守藏</div>
+          <div class="stat-value" id="dashAgents">1</div>
+          <div class="stat-sub">Anima</div>
         </div>
       </div>
       <!-- 7日趋势 -->
@@ -308,396 +283,6 @@
     </div>
   </div>
 
-  <!-- ── 晞聊天 ── -->
-  <div class="tab-panel" id="tab-yiyi">
-    <div class="chat-wrap" data-agent="yiyi">
-      <div class="chat-header">
-        <div class="agent-info">
-          <div class="agent-avatar-lg yiyi-bg">🌸</div>
-          <div>
-            <div class="agent-name">晞</div>
-            <div class="agent-meta" id="meta-yiyi">情感伙伴 · 连接中…</div>
-          </div>
-        </div>
-        <div class="chat-hdr-btns">
-          <button class="icon-btn" title="清空对话" onclick="clearChat('yiyi')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="chat-messages" id="messages-yiyi">
-        <div class="chat-welcome">
-          <div class="welcome-avatar yiyi-bg">🌸</div>
-          <div class="welcome-name">晞</div>
-          <div class="welcome-desc">情感伙伴 · 陪伴 · 倾听 · 思考</div>
-          <div class="welcome-chips">
-            <span class="chip" onclick="fillInput('yiyi','今天有些焦虑，聊聊？')">💭 聊聊心情</span>
-            <span class="chip" onclick="fillInput('yiyi','帮我想想这个问题怎么解决')">🤔 一起思考</span>
-            <span class="chip" onclick="fillInput('yiyi','推荐一本书给我')">📚 推荐书籍</span>
-          </div>
-        </div>
-      </div>
-      <div class="chat-composer" id="composer-yiyi">
-        <div class="file-chips-bar hidden" id="fileBar-yiyi"></div>
-        <textarea class="composer-input" id="input-yiyi"
-          placeholder="和晞说说…"
-          rows="1"
-          onkeydown="handleInputKey(event,'yiyi')"
-          oninput="autoResize(this)"></textarea>
-        <div class="composer-toolbar">
-          <div class="toolbar-left">
-            <button class="toolbar-btn" title="上传文件" onclick="triggerFileUpload('yiyi')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            </button>
-            <input type="file" hidden id="fileInput-yiyi" multiple onchange="handleFileSelect('yiyi',this)">
-            <div class="model-selector-wrap" id="modelWrap-yiyi">
-              <button class="model-btn" onclick="toggleModelMenu('yiyi',event)">
-                <span id="modelLabel-yiyi">Qwen3.7-Max</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="model-menu hidden" id="modelMenu-yiyi">
-                <div class="model-group-label">🟡 Qwen</div>
-                <div class="model-option" onclick="selectModel('yiyi','Qwen3.7-Max')">Qwen3.7-Max <span class="model-tag">最新旗舰</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','Qwen3.6-Plus')">Qwen3.6-Plus <span class="model-tag">高性价比</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','Qwen3.6-Flash')">Qwen3.6-Flash <span class="model-tag">最快</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','QwQ-Plus')">QwQ-Plus <span class="model-tag">推理</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','Qwen-Long')">Qwen-Long <span class="model-tag">超长文</span></div>
-                <div class="model-group-label">🌙 Kimi</div>
-                <div class="model-option" onclick="selectModel('yiyi','Kimi-K2.6')">Kimi K2.6 <span class="model-tag">最新旗舰</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','Kimi-K2.5')">Kimi K2.5 <span class="model-tag">上代旗舰</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','Kimi-Auto')">Kimi Auto <span class="model-tag">自动</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','Kimi-128K')">Kimi 128K <span class="model-tag">超长文</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','Kimi-32K')">Kimi 32K <span class="model-tag">均衡</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','Kimi-8K')">Kimi 8K <span class="model-tag">经济</span></div>
-                <div class="model-group-label">🟣 Claude</div>
-                <div class="model-option" onclick="selectModel('yiyi','Claude-Sonnet-4.6')">Claude Sonnet 4.6 <span class="model-tag">均衡</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','Claude-Haiku-4.5')">Claude Haiku 4.5 <span class="model-tag">最快</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','Claude-Opus-4.6')">Claude Opus 4.6 <span class="model-tag">最强</span></div>
-                <div class="model-group-label">🔷 DeepSeek</div>
-                <div class="model-option" onclick="selectModel('yiyi','DeepSeek-V4-Flash')">DeepSeek V4 Flash <span class="model-tag">最快</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','DeepSeek-V4-Pro')">DeepSeek V4 Pro <span class="model-tag">最强</span></div>
-                <div class="model-group-label">🤖 GPT</div>
-                <div class="model-option" onclick="selectModel('yiyi','GPT-5.5')">GPT-5.5 <span class="model-tag">旗舰</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','GPT-5.5-Compact')">GPT-5.5 Compact <span class="model-tag">最快</span></div>
-                <div class="model-option" onclick="selectModel('yiyi','GPT-5.4')">GPT-5.4 <span class="model-tag">均衡</span></div>
-              </div>
-            </div>
-          </div>
-          <button class="remember-btn" title="让 晞 记住一件事" onclick="showLearnDialog('yiyi')">🧠</button>
-          <button class="send-btn" id="send-yiyi" onclick="sendMessage('yiyi')" disabled>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l8 16H4z" transform="rotate(180,12,12)"/></svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── 陶朱聊天 ── -->
-  <div class="tab-panel" id="tab-tianyuan">
-    <div class="chat-wrap" data-agent="tianyuan">
-      <div class="chat-header">
-        <div class="agent-info">
-          <div class="agent-avatar-lg tianyuan-bg">🏢</div>
-          <div>
-            <div class="agent-name">陶朱</div>
-            <div class="agent-meta" id="meta-tianyuan">创业CEO · 连接中…</div>
-          </div>
-        </div>
-        <div class="chat-hdr-btns">
-          <button class="icon-btn" title="清空对话" onclick="clearChat('tianyuan')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="chat-messages" id="messages-tianyuan">
-        <div class="chat-welcome">
-          <div class="welcome-avatar tianyuan-bg">🏢</div>
-          <div class="welcome-name">陶朱</div>
-          <div class="welcome-desc">创业CEO · 战略决策 · 团队协调 · 经营分析</div>
-          <div class="welcome-chips">
-            <span class="chip" onclick="fillInput('tianyuan','分析一下公司近期的情况')">📈 经营分析</span>
-            <span class="chip" onclick="fillInput('tianyuan','帮我制定本周工作计划')">📋 制定计划</span>
-            <span class="chip" onclick="fillInput('tianyuan','搜索竞争对手信息')">🔍 竞品分析</span>
-          </div>
-        </div>
-      </div>
-      <div class="chat-composer" id="composer-tianyuan">
-        <div class="file-chips-bar hidden" id="fileBar-tianyuan"></div>
-        <textarea class="composer-input" id="input-tianyuan"
-          placeholder="向陶朱汇报或请示…"
-          rows="1"
-          onkeydown="handleInputKey(event,'tianyuan')"
-          oninput="autoResize(this)"></textarea>
-        <div class="composer-toolbar">
-          <div class="toolbar-left">
-            <button class="toolbar-btn" title="上传文件" onclick="triggerFileUpload('tianyuan')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            </button>
-            <input type="file" hidden id="fileInput-tianyuan" multiple onchange="handleFileSelect('tianyuan',this)">
-            <div class="model-selector-wrap" id="modelWrap-tianyuan">
-              <button class="model-btn" onclick="toggleModelMenu('tianyuan',event)">
-                <span id="modelLabel-tianyuan">DeepSeek-R1</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="model-menu hidden" id="modelMenu-tianyuan">
-                <div class="model-group-label">🔷 DeepSeek</div>
-                <div class="model-option" onclick="selectModel('tianyuan','DeepSeek-V4-Pro')">DeepSeek V4 Pro <span class="model-tag">最强</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','DeepSeek-V4-Flash')">DeepSeek V4 Flash <span class="model-tag">最快</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','DeepSeek-R1')">DeepSeek R1 <span class="model-tag">推理</span></div>
-                <div class="model-group-label">🟣 Claude</div>
-                <div class="model-option" onclick="selectModel('tianyuan','Claude-Opus-4.6')">Claude Opus 4.6 <span class="model-tag">最强</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','Claude-Opus-4.6-Think')">Claude Opus 4.6 Think <span class="model-tag">深度推理</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','Claude-Sonnet-4.6')">Claude Sonnet 4.6 <span class="model-tag">均衡</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','Claude-Haiku-4.5')">Claude Haiku 4.5 <span class="model-tag">最快</span></div>
-                <div class="model-group-label">🟡 Qwen</div>
-                <div class="model-option" onclick="selectModel('tianyuan','Qwen3.7-Max')">Qwen3.7-Max <span class="model-tag">最新旗舰</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','QwQ-Plus')">QwQ-Plus <span class="model-tag">深度推理</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','Qwen3.6-Plus')">Qwen3.6-Plus <span class="model-tag">高性价比</span></div>
-                <div class="model-group-label">🌙 Kimi</div>
-                <div class="model-option" onclick="selectModel('tianyuan','Kimi-K2.6')">Kimi K2.6 <span class="model-tag">最新旗舰</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','Kimi-K2.5')">Kimi K2.5 <span class="model-tag">上代旗舰</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','Kimi-128K')">Kimi 128K <span class="model-tag">超长文</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','Kimi-32K')">Kimi 32K <span class="model-tag">均衡</span></div>
-                <div class="model-group-label">🤖 GPT</div>
-                <div class="model-option" onclick="selectModel('tianyuan','GPT-5.5')">GPT-5.5 <span class="model-tag">旗舰</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','GPT-5.5-Compact')">GPT-5.5 Compact <span class="model-tag">最快</span></div>
-                <div class="model-option" onclick="selectModel('tianyuan','GPT-5.4')">GPT-5.4 <span class="model-tag">均衡</span></div>
-              </div>
-            </div>
-          </div>
-          <button class="remember-btn" title="让 陶朱 记住一件事" onclick="showLearnDialog('tianyuan')">🧠</button>
-          <button class="send-btn" id="send-tianyuan" onclick="sendMessage('tianyuan')" disabled>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l8 16H4z" transform="rotate(180,12,12)"/></svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── 守藏聊天 ── -->
-  <div class="tab-panel" id="tab-shoucang">
-    <div class="chat-wrap" data-agent="shoucang">
-      <div class="chat-header">
-        <div class="agent-info">
-          <div class="agent-avatar-lg shoucang-bg">🎓</div>
-          <div>
-            <div class="agent-name">守藏</div>
-            <div class="agent-meta" id="meta-shoucang">知识研究员 · 连接中…</div>
-          </div>
-        </div>
-        <div class="chat-hdr-btns">
-          <button class="icon-btn" title="清空对话" onclick="clearChat('shoucang')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="chat-messages" id="messages-shoucang">
-        <div class="chat-welcome">
-          <div class="welcome-avatar shoucang-bg">🎓</div>
-          <div class="welcome-name">守藏</div>
-          <div class="welcome-desc">知识研究员 · 文献分析 · 深度阅读 · 知识整合</div>
-          <div class="welcome-chips">
-            <span class="chip" onclick="fillInput('shoucang','分析这篇文章的核心论点')">📄 分析文章</span>
-            <span class="chip" onclick="fillInput('shoucang','帮我梳理这个概念的脉络')">🧠 概念梳理</span>
-            <span class="chip" onclick="fillInput('shoucang','这个领域的最新进展是什么？')">🔬 领域综述</span>
-          </div>
-        </div>
-      </div>
-      <div class="chat-composer" id="composer-shoucang">
-        <div class="file-chips-bar hidden" id="fileBar-shoucang"></div>
-        <textarea class="composer-input" id="input-shoucang"
-          placeholder="上传文件或直接提问…"
-          rows="1"
-          onkeydown="handleInputKey(event,'shoucang')"
-          oninput="autoResize(this)"></textarea>
-        <div class="composer-toolbar">
-          <div class="toolbar-left">
-            <button class="toolbar-btn" title="上传文件" onclick="triggerFileUpload('shoucang')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            </button>
-            <input type="file" hidden id="fileInput-shoucang" multiple
-              accept=".txt,.md,.pdf,.doc,.docx,.py,.js,.ts,.json,.csv"
-              onchange="handleFileSelect('shoucang',this)">
-            <div class="model-selector-wrap" id="modelWrap-shoucang">
-              <button class="model-btn" onclick="toggleModelMenu('shoucang',event)">
-                <span id="modelLabel-shoucang">Kimi-K2.6</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <div class="model-menu hidden" id="modelMenu-shoucang">
-                <div class="model-group-label">🌙 Kimi</div>
-                <div class="model-option" onclick="selectModel('shoucang','Kimi-K2.6')">Kimi K2.6 <span class="model-tag">最新旗舰</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','Kimi-K2.5')">Kimi K2.5 <span class="model-tag">上代旗舰</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','Kimi-Auto')">Kimi Auto <span class="model-tag">自动</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','Kimi-128K')">Kimi 128K <span class="model-tag">超长文</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','Kimi-32K')">Kimi 32K <span class="model-tag">均衡</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','Kimi-8K')">Kimi 8K <span class="model-tag">经济</span></div>
-                <div class="model-group-label">🟡 Qwen</div>
-                <div class="model-option" onclick="selectModel('shoucang','Qwen-Long')">Qwen-Long <span class="model-tag">超长文</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','Qwen3.7-Max')">Qwen3.7-Max <span class="model-tag">最新旗舰</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','Qwen3.6-Plus')">Qwen3.6-Plus <span class="model-tag">高性价比</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','QwQ-Plus')">QwQ-Plus <span class="model-tag">深度推理</span></div>
-                <div class="model-group-label">🟣 Claude</div>
-                <div class="model-option" onclick="selectModel('shoucang','Claude-Opus-4.6')">Claude Opus 4.6 <span class="model-tag">最强</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','Claude-Opus-4.6-Think')">Claude Opus 4.6 Think <span class="model-tag">深度推理</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','Claude-Sonnet-4.6')">Claude Sonnet 4.6 <span class="model-tag">均衡</span></div>
-                <div class="model-group-label">🔷 DeepSeek</div>
-                <div class="model-option" onclick="selectModel('shoucang','DeepSeek-V4-Pro')">DeepSeek V4 Pro <span class="model-tag">最强</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','DeepSeek-R1')">DeepSeek R1 <span class="model-tag">推理</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','DeepSeek-V4-Flash')">DeepSeek V4 Flash <span class="model-tag">最快</span></div>
-                <div class="model-group-label">🤖 GPT</div>
-                <div class="model-option" onclick="selectModel('shoucang','GPT-5.5')">GPT-5.5 <span class="model-tag">旗舰</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','GPT-5.5-Compact')">GPT-5.5 Compact <span class="model-tag">最快</span></div>
-                <div class="model-option" onclick="selectModel('shoucang','GPT-5.4')">GPT-5.4 <span class="model-tag">均衡</span></div>
-              </div>
-            </div>
-          </div>
-          <button class="remember-btn" title="让 守藏 记住一件事" onclick="showLearnDialog('shoucang')">🧠</button>
-          <button class="send-btn" id="send-shoucang" onclick="sendMessage('shoucang')" disabled>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l8 16H4z" transform="rotate(180,12,12)"/></svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── 陶朱团队看板 ── -->
-  <div class="tab-panel" id="tab-tianyuan-team">
-    <div class="overview-wrap">
-      <div class="overview-header">
-        <h1>🏢 陶朱团队</h1>
-        <span class="overview-sub">4 名数字员工 · 由陶朱 CEO 统一调度</span>
-      </div>
-      <div class="overview-body">
-        <div class="card worker-card">
-          <div class="worker-hdr"><span class="worker-avatar executor-bg">⚡</span>
-            <div><div class="worker-name">执行者</div><div class="worker-model">DeepSeek-V3</div></div>
-            <span class="worker-status-pill idle">空闲</span>
-          </div>
-          <div class="worker-desc">负责代码执行、任务拆解、自动化脚本</div>
-          <div class="worker-stats"><span>工具 <strong>8</strong></span><span>今日任务 <strong>0</strong></span></div>
-          <button class="coming-soon-btn" onclick="switchTab('worker-executor',document.querySelector('[data-tab=worker-executor]'))">查看详情 →</button>
-        </div>
-        <div class="card worker-card">
-          <div class="worker-hdr"><span class="worker-avatar writer-bg">✍️</span>
-            <div><div class="worker-name">写手</div><div class="worker-model">Qwen-Plus</div></div>
-            <span class="worker-status-pill idle">空闲</span>
-          </div>
-          <div class="worker-desc">负责文案撰写、报告输出、内容创作</div>
-          <div class="worker-stats"><span>工具 <strong>4</strong></span><span>今日任务 <strong>0</strong></span></div>
-          <button class="coming-soon-btn" onclick="switchTab('worker-writer',document.querySelector('[data-tab=worker-writer]'))">查看详情 →</button>
-        </div>
-        <div class="card worker-card">
-          <div class="worker-hdr"><span class="worker-avatar reader-bg">📖</span>
-            <div><div class="worker-name">阅读者</div><div class="worker-model">Kimi-128K</div></div>
-            <span class="worker-status-pill idle">空闲</span>
-          </div>
-          <div class="worker-desc">负责长文阅读、文献分析、信息提炼</div>
-          <div class="worker-stats"><span>工具 <strong>3</strong></span><span>今日任务 <strong>0</strong></span></div>
-          <button class="coming-soon-btn" onclick="switchTab('worker-reader',document.querySelector('[data-tab=worker-reader]'))">查看详情 →</button>
-        </div>
-        <div class="card worker-card">
-          <div class="worker-hdr"><span class="worker-avatar critic-bg">🔍</span>
-            <div><div class="worker-name">评审</div><div class="worker-model">Claude-3.5</div></div>
-            <span class="worker-status-pill idle">空闲</span>
-          </div>
-          <div class="worker-desc">负责质量检查、批判性思维、风险评估</div>
-          <div class="worker-stats"><span>工具 <strong>5</strong></span><span>今日任务 <strong>0</strong></span></div>
-          <button class="coming-soon-btn" onclick="switchTab('worker-critic',document.querySelector('[data-tab=worker-critic]'))">查看详情 →</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── 子员工详情页（通用模板，UI Only） ── -->
-  <div class="tab-panel" id="tab-worker-executor"><div class="worker-detail-wrap" data-worker="executor"></div></div>
-  <div class="tab-panel" id="tab-worker-writer"><div class="worker-detail-wrap" data-worker="writer"></div></div>
-  <div class="tab-panel" id="tab-worker-reader"><div class="worker-detail-wrap" data-worker="reader"></div></div>
-  <div class="tab-panel" id="tab-worker-critic"><div class="worker-detail-wrap" data-worker="critic"></div></div>
-
-  <!-- ── 知识&记忆 (3-panel: Vault树 / Markdown预览 / RAG知识库) ── -->
-  <div class="tab-panel" id="tab-knowledge">
-    <div class="knowledge-3panel">
-
-      <!-- 左：Obsidian Vault 文件树 -->
-      <div class="k3-left">
-        <div class="k3-panel-hdr">
-          <span>🗂 Vault 记忆</span>
-          <button class="hdr-btn-sm" onclick="vaultLoadTree()">↺</button>
-        </div>
-        <div class="vault-path-bar" id="vaultPathBar">~/Anima-Vault</div>
-        <div class="vault-tree" id="vaultTree">
-          <div style="color:var(--muted);font-size:12px;padding:12px">加载中…</div>
-        </div>
-        <div class="k3-actions">
-          <button class="hdr-btn-sm" onclick="vaultNewFile()" title="新建笔记">＋ 新建</button>
-          <button class="hdr-btn-sm" onclick="shoucangRunSop()" title="守藏 SOP">📜 更新</button>
-        </div>
-      </div>
-
-      <!-- 中：Markdown 预览/编辑 -->
-      <div class="k3-center">
-        <div class="k3-panel-hdr">
-          <span id="vaultFileTitle" style="font-weight:600">选择文件预览</span>
-          <div style="display:flex;gap:6px">
-            <button class="hdr-btn-sm" id="vaultEditToggle" onclick="vaultToggleEdit()">✏️ 编辑</button>
-            <button class="hdr-btn-sm" id="vaultSaveBtn" onclick="vaultSave()" style="display:none">💾 保存</button>
-          </div>
-        </div>
-        <!-- 预览区 -->
-        <div class="vault-preview" id="vaultPreview">
-          <div style="color:var(--muted);font-size:13px;text-align:center;padding:40px">
-            从左侧选择笔记文件查看内容
-          </div>
-        </div>
-        <!-- 编辑区（隐藏） -->
-        <textarea class="vault-editor hidden" id="vaultEditor"
-          placeholder="Markdown 内容…"></textarea>
-      </div>
-
-      <!-- 右：RAG 知识库 -->
-      <div class="k3-right">
-        <div class="k3-panel-hdr">
-          <span>📚 RAG 知识库</span>
-          <button class="hdr-btn-sm" onclick="kbLoadDocs()">↺</button>
-        </div>
-
-        <!-- 上传区 -->
-        <div class="k3-upload-zone" id="kbDropZone"
-             onclick="document.getElementById('kbFileInput').click()"
-             ondragover="event.preventDefault();this.classList.add('dragover')"
-             ondragleave="this.classList.remove('dragover')"
-             ondrop="kbHandleDrop(event)">
-          📄 拖拽或点击上传文件
-        </div>
-        <input type="file" id="kbFileInput" multiple
-               accept=".txt,.md,.py,.js,.ts,.json,.csv,.html,.yaml,.yml,.rs,.go,.java,.c,.cpp,.h"
-               style="display:none" onchange="kbHandleFileSelect(this)">
-        <div id="kbUploadStatus" style="font-size:12px;color:var(--muted);padding:2px 0"></div>
-
-        <!-- 粘贴 -->
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <input id="kbPasteName" placeholder="文档名" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;background:var(--surface);color:var(--text)">
-          <button class="hdr-btn-sm" onclick="kbIngestPaste()">粘贴入库</button>
-        </div>
-        <textarea id="kbPasteArea" placeholder="粘贴文本…" rows="3"
-          style="width:100%;margin-top:6px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;resize:vertical;font-family:inherit;background:var(--surface);color:var(--text);box-sizing:border-box"></textarea>
-
-        <!-- 搜索 -->
-        <div style="margin-top:10px;display:flex;gap:6px">
-          <input id="kbSearchInput" placeholder="语义检索…"
-            style="flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;background:var(--surface);color:var(--text)"
-            onkeydown="if(event.key==='Enter')kbSearch()">
-          <button class="hdr-btn-sm" onclick="kbSearch()">搜索</button>
-        </div>
-        <div id="kbSearchResults" style="margin-top:8px;font-size:12px"></div>
-
-        <!-- 文档列表 -->
-        <div style="margin-top:10px;font-size:12px;font-weight:600;color:var(--muted)">已入库文档</div>
-        <div id="kbDocList" style="font-size:12px;color:var(--muted);margin-top:6px;flex:1;overflow-y:auto">加载中…</div>
-      </div>
-
-    </div>
-  </div>
 
   <!-- ── 工作流 ── -->
   <div class="tab-panel" id="tab-workflow">
@@ -753,26 +338,26 @@
 
           <!-- 添加步骤按钮组 -->
           <div class="wf-add-group">
-            <button class="wf-add-btn" onclick="wfAddStep('sequential')">
-              <span style="font-size:16px">➕</span> 顺序
+            <button class="wf-add-btn" onclick="wfAddNode('agent')">
+              <span style="font-size:16px">🤖</span> Agent
             </button>
-            <button class="wf-add-btn" style="background:#fef3c7;color:#92400e;border-color:#fcd34d" onclick="wfAddStep('parallel')">
-              <span style="font-size:16px">⚡</span> 并行
-            </button>
-            <button class="wf-add-btn" style="background:#ede9fe;color:#5b21b6;border-color:#c4b5fd" onclick="wfAddStep('condition')">
+            <button class="wf-add-btn" style="background:#ede9fe;color:#5b21b6;border-color:#c4b5fd" onclick="wfAddNode('condition')">
               <span style="font-size:16px">🔀</span> 条件
             </button>
-            <button class="wf-add-btn" style="background:#e0f2fe;color:#0369a1;border-color:#7dd3fc" onclick="wfAddStep('loop')">
-              <span style="font-size:16px">🔁</span> 循环
-            </button>
-            <button class="wf-add-btn" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5" onclick="wfAddStep('human')" title="暂停工作流，等你审核后再继续">
-              <span style="font-size:16px">🙋</span> 人审
-            </button>
-            <button class="wf-add-btn" style="background:#dcfce7;color:#166534;border-color:#86efac" onclick="wfAddStep('router')" title="让 AI 判断该走哪条路线">
+            <button class="wf-add-btn" style="background:#dcfce7;color:#166534;border-color:#86efac" onclick="wfAddNode('router')" title="让 AI 判断该走哪条路线">
               <span style="font-size:16px">🧭</span> AI路由
             </button>
-            <button class="wf-add-btn" style="background:#f3e8ff;color:#6b21a8;border-color:#d8b4fe" onclick="wfAddStep('taozu')" title="运行时让陶朱把一句话目标动态拆成子流程">
-              <span style="font-size:16px">🏢</span> 陶朱
+            <button class="wf-add-btn" style="background:#e0f2fe;color:#0369a1;border-color:#7dd3fc" onclick="wfAddNode('loop')">
+              <span style="font-size:16px">🔁</span> 循环
+            </button>
+            <button class="wf-add-btn" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5" onclick="wfAddNode('human')" title="暂停工作流，等你审核后再继续">
+              <span style="font-size:16px">🙋</span> 人审
+            </button>
+            <button class="wf-add-btn" style="background:#f3e8ff;color:#6b21a8;border-color:#d8b4fe" onclick="wfAddNode('taozu')" title="运行时让 Anima 把一句话目标动态拆成子流程">
+              <span style="font-size:16px">🏢</span> Anima 拆解
+            </button>
+            <button class="wf-add-btn" style="background:#f1f5f9;color:#334155;border-color:#cbd5e1" onclick="wfAddNode('merge')" title="把多条分支汇合成一路">
+              <span style="font-size:16px">🔗</span> 合流
             </button>
           </div>
 
@@ -839,9 +424,6 @@
 
             <select id="schedAgent" style="border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--surface);color:var(--text)">
               <option value="xi">🤖 Anima — 私人助理</option>
-              <option value="yiyi">🌸 晞 — 情感伙伴</option>
-              <option value="shoucang">📜 守藏 — 知识守护者</option>
-              <option value="tianyuan">🏢 陶朱 — CEO</option>
               <option value="writer">✍️ 写手 — 内容创作</option>
               <option value="executor">⚡ 执行者 — 任务执行</option>
             </select>
@@ -905,7 +487,6 @@
               <input id="fwPattern" value="*" placeholder="文件匹配 *.py" style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text)">
               <select id="fwAgent" style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text)">
                 <option value="xi">🤖 Anima</option>
-                <option value="shoucang">📜 守藏</option>
                 <option value="executor">⚡ 执行者</option>
                 <option value="critic">🔍 评审</option>
                 <option value="writer">✍️ 写手</option>
@@ -1078,8 +659,28 @@
       </div>
       <!-- 成长记录 -->
       <div class="card" style="margin-top:16px">
-        <h3>🌱 守藏成长记录</h3>
+        <h3>🌱 成长记录</h3>
         <div id="skillGrowthLog" style="font-size:13px;color:var(--muted);margin-top:8px">加载中…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 成就 · 灵犀 ── -->
+  <div class="tab-panel" id="tab-achievements">
+    <div class="dash-wrap">
+      <div class="dash-header">
+        <h1 class="dash-title">🏅 成就 · 灵犀</h1>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="hdr-btn-sm" id="achClaimAllBtn" onclick="achClaimAll()" style="display:none">🎁 一键领取</button>
+          <button class="hdr-btn-sm" onclick="achLoad()">↺</button>
+        </div>
+      </div>
+      <div class="ach-intro">成就由你与 Anima 的<b>真实相处</b>点亮——不是抽卡。点亮后领取<b>灵犀</b>，灵犀可兑换社区技能、人格世界皮肤等锦上添花之物，<b>绝不锁核心功能</b>。</div>
+      <!-- 灵犀 + 进度 bento -->
+      <div class="sk-stats" id="achStatsRow"></div>
+      <!-- 成就墙 -->
+      <div class="sk-wall" id="achWall">
+        <div style="color:var(--muted);font-size:13px">加载中…</div>
       </div>
     </div>
   </div>
@@ -1121,6 +722,58 @@
           </div>
         </div>
       </div>
+
+      <!-- ══ 我的邀请码 ══ -->
+      <div class="settings-section" id="inviteSection">
+        <h3>🪔 我的邀请码</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+          每一枚结缘码，都是一次相遇的邀请。把它送给你想引荐的人——
+          对方激活后，你将获得 <b style="color:var(--accent,#7c9cff)">+30 灵犀</b>（最多 3 次）。
+        </p>
+        <div id="inviteQuotaRow" style="display:flex;gap:10px;margin-bottom:14px"></div>
+        <div id="inviteCodesList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+          <div style="color:var(--muted);font-size:13px">加载中…</div>
+        </div>
+        <button class="settings-btn" id="inviteGenBtn" onclick="inviteGenerate()">✨ 生成一枚结缘码</button>
+        <div id="inviteGenHint" style="font-size:12px;margin-top:8px;color:var(--muted)"></div>
+      </div>
+
+      <!-- ══ 邀请邮箱管家（仅管理员/总代理）══ -->
+      <details class="settings-section" id="mailerSection">
+        <summary style="cursor:pointer;font-weight:600;font-size:15px">🤖 邀请邮箱管家 <span style="font-size:12px;color:var(--muted);font-weight:400">（仅管理员 · 自动收申请发码）</span></summary>
+        <p style="font-size:13px;color:var(--muted);margin:12px 0">
+          挂上一个邮箱，Anima 会定时收取主题含关键字的「申请引荐」邮件，自动铸造结缘码并回信。
+          凭证只存本机，绝不外传。多数邮箱需用<b>授权码</b>而非登录密码。
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <label style="font-size:12px;color:var(--muted)">IMAP 主机<input id="mlImapHost" class="ob-input" placeholder="imap.qq.com" style="width:100%"></label>
+          <label style="font-size:12px;color:var(--muted)">IMAP 端口<input id="mlImapPort" class="ob-input" placeholder="993" style="width:100%"></label>
+          <label style="font-size:12px;color:var(--muted)">SMTP 主机<input id="mlSmtpHost" class="ob-input" placeholder="smtp.qq.com" style="width:100%"></label>
+          <label style="font-size:12px;color:var(--muted)">SMTP 端口<input id="mlSmtpPort" class="ob-input" placeholder="465" style="width:100%"></label>
+          <label style="font-size:12px;color:var(--muted)">邮箱地址<input id="mlEmail" class="ob-input" placeholder="you@qq.com" style="width:100%"></label>
+          <label style="font-size:12px;color:var(--muted)">授权码<input id="mlPassword" type="password" class="ob-input" placeholder="••••••（留空不改）" style="width:100%"></label>
+          <label style="font-size:12px;color:var(--muted)">主题关键字<input id="mlSubject" class="ob-input" placeholder="结缘" style="width:100%"></label>
+          <label style="font-size:12px;color:var(--muted)">轮询间隔(分)<input id="mlInterval" class="ob-input" placeholder="10" style="width:100%"></label>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px">
+          <input type="checkbox" id="mlEnabled"> 启用邮箱管家（随后端自动运行）
+        </label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="settings-btn" onclick="mailerTest()">🔌 测试连接</button>
+          <button class="settings-btn" onclick="mailerSave()">💾 保存</button>
+          <button class="settings-btn" onclick="mailerPollNow()">▶ 立即收取一次</button>
+        </div>
+        <div id="mailerHint" style="font-size:12px;margin-top:10px;color:var(--muted)"></div>
+      </details>
+
+      <!-- ══ 注册数据看板（仅管理员）══ -->
+      <details class="settings-section" id="inviteStatsSection" ontoggle="if(this.open)inviteStatsLoad()">
+        <summary style="cursor:pointer;font-weight:600;font-size:15px">📊 注册数据看板 <span style="font-size:12px;color:var(--muted);font-weight:400">（仅管理员 · 激活与邀请统计）</span></summary>
+        <div id="inviteStatsBody" style="margin-top:14px">
+          <div style="color:var(--muted);font-size:13px">展开后加载…</div>
+        </div>
+        <button class="settings-btn" style="margin-top:10px" onclick="inviteStatsLoad()">↻ 刷新</button>
+      </details>
 
       <!-- ══ 记忆存储 ══ -->
       <div class="settings-section" id="memoryStorageSection">
@@ -1179,6 +832,54 @@
         </div>
       </div>
 
+      <!-- ══ 数据目录（自定义，别都堆在 C 盘）══ -->
+      <div class="settings-section" id="dataHomeSection">
+        <h3>📂 数据目录</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
+          记忆、技能、会话、工作区都存在这个目录下。想放到别的盘（如 D 盘）可在此更改。
+          <b>配置文件始终留在系统盘，更改后需重启 Anima 生效。</b>
+        </p>
+        <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--text-muted)">
+          当前目录：<code id="dataHomeCurrent" style="color:var(--text-main)">加载中…</code>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <input id="dataHomeInput" placeholder="例：D:\AnimaData"
+            style="flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--bg-main);color:var(--text-main);font-family:monospace">
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px">
+          <input type="checkbox" id="dataHomeMigrate" checked>
+          <span>把现有数据一并迁移过去（推荐勾选）</span>
+        </label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="settings-btn" id="dataHomeApplyBtn" onclick="dataHomeApply()">✓ 更改目录</button>
+          <button class="hdr-btn-sm" onclick="dataHomeReset()">恢复默认</button>
+          <span id="dataHomeResult" style="font-size:12px;color:var(--text-muted)"></span>
+        </div>
+      </div>
+
+      <!-- ══ Transfer Memory：从别的 AI 导入 ══ -->
+      <div class="settings-section" id="transferMemorySection">
+        <h3>🔄 带来你的记忆</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+          把你在别的 AI（ChatGPT / Claude / Cursor / 豆包…）里积累的个人信息粘进来，
+          Anima 会提炼出关于你的长期事实存进记忆库——让 Anima 第一天就懂你。<b>只在本地处理，不上传。</b>
+        </p>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <input id="tmSource" placeholder="来源（可选）：ChatGPT / Claude…" maxlength="40"
+            style="flex:0 0 220px;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--bg-main);color:var(--text-main)">
+          <span id="tmHint" style="font-size:12px;color:var(--text-muted)"></span>
+        </div>
+        <textarea id="tmText" rows="6" placeholder="把导出的对话或个人资料粘到这里…"
+          style="width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;line-height:1.6;background:var(--bg-main);color:var(--text-main);resize:vertical;font-family:inherit"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+          <button class="settings-btn" id="tmImportBtn" onclick="memTransferImport()">✨ 提炼并导入</button>
+          <label class="hdr-btn-sm" style="cursor:pointer">📁 从文件载入
+            <input type="file" id="tmFile" accept=".txt,.md,.json" style="display:none" onchange="memTransferFile(event)">
+          </label>
+          <span id="tmResult" style="font-size:12px;color:var(--text-muted)"></span>
+        </div>
+      </div>
+
       <!-- ══ 记忆浏览器 ══ -->
       <div class="settings-section">
         <h3>📋 记忆浏览器</h3>
@@ -1191,10 +892,7 @@
             style="border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--bg-main);color:var(--text-main)">
             <option value="">全部 Agent</option>
             <option value="xi">Anima</option>
-            <option value="yiyi">晞</option>
-            <option value="tianyuan">陶朱</option>
-            <option value="shoucang">守藏</option>
-          </select>
+            </select>
         </div>
         <div id="memEntriesList" style="min-height:80px">
           <div style="color:var(--text-muted);font-size:13px">点击「刷新状态」后自动加载…</div>
@@ -1271,10 +969,7 @@
             <label style="font-size:13px;color:var(--muted)">由谁回复</label>
             <select id="feishuAgent" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)">
               <option value="xi">Anima（主助理）</option>
-              <option value="yiyi">晞（情感 · 命理）</option>
-              <option value="tianyuan">陶朱（创业 CEO）</option>
-              <option value="shoucang">守藏（知识 · 谏臣）</option>
-            </select>
+              </select>
           </div>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)">
             <input type="checkbox" id="feishuEnabled"> 启用（开机随后端自动连接）
@@ -1360,10 +1055,7 @@
             <label style="font-size:13px;color:var(--muted)">由谁回复</label>
             <select id="wechatAgent" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)">
               <option value="xi">Anima（主助理）</option>
-              <option value="yiyi">晞（情感 · 命理）</option>
-              <option value="tianyuan">陶朱（创业 CEO）</option>
-              <option value="shoucang">守藏（知识 · 谏臣）</option>
-            </select>
+              </select>
           </div>
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)">
             <input type="checkbox" id="wechatEnabled"> 启用（回调端点接收消息）
@@ -1393,18 +1085,6 @@
           <div style="display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px">
             <label style="font-size:13px;color:var(--text-muted)">🤖 Anima</label>
             <input id="addrXi" class="settings-input" placeholder="叫你…（例如：老板）">
-          </div>
-          <div style="display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px">
-            <label style="font-size:13px;color:var(--text-muted)">🌸 晞</label>
-            <input id="addrYiyi" class="settings-input" placeholder="叫你…（例如：宝贝）">
-          </div>
-          <div style="display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px">
-            <label style="font-size:13px;color:var(--text-muted)">🏢 陶朱</label>
-            <input id="addrTianyuan" class="settings-input" placeholder="叫你…（例如：投资人）">
-          </div>
-          <div style="display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px">
-            <label style="font-size:13px;color:var(--text-muted)">📜 守藏</label>
-            <input id="addrShoucang" class="settings-input" placeholder="叫你…（例如：求守藏）">
           </div>
         </div>
         <button class="settings-btn" onclick="saveUserAddress()">保存称呼</button>
@@ -1526,7 +1206,7 @@
         <input type="password" id="authSetupConfirm" class="ob-input" style="width:100%;margin-bottom:14px" placeholder="再次输入密码">
 
         <div class="auth-birth">
-          <div class="auth-birth-title">🔮 出生信息（可选 · 让晞为你解读命理与星盘）</div>
+          <div class="auth-birth-title">🔮 出生信息（可选 · 让 Anima 为你解读命理与星盘）</div>
           <div class="auth-birth-grid">
             <label>出生日期<input type="date" id="authBirthDate" class="ob-input"></label>
             <label>出生时辰<input type="time" id="authBirthTime" class="ob-input"></label>
@@ -1574,6 +1254,33 @@
 </div>
 
 <!-- ══════════════════════════════════════
+     结缘码门（未激活设备首次启动）
+══════════════════════════════════════ -->
+<div class="ob-overlay hidden" id="inviteOverlay">
+  <div class="ob-card" style="width:440px">
+    <div class="ob-page active" style="padding-top:40px">
+      <div class="ob-hero">🪔</div>
+      <h2 class="ob-title">凭结缘码入门</h2>
+      <p class="ob-desc">Anima 目前以邀请制相遇。<br>输入一枚结缘码，开启你与 Anima 的同行。</p>
+      <input type="text" id="inviteCodeInput" class="ob-input"
+             style="width:100%;margin-bottom:6px;text-align:center;letter-spacing:2px;text-transform:uppercase"
+             placeholder="XXXX-XXXX"
+             oninput="this.value=this.value.toUpperCase()"
+             onblur="inviteVerify()"
+             onkeydown="if(event.key==='Enter')inviteActivate()">
+      <div class="auth-hint" id="inviteHint" style="font-size:12px;min-height:18px;margin-bottom:4px;text-align:center;color:var(--muted)"></div>
+      <div class="auth-err" id="inviteErr"></div>
+      <div class="ob-actions">
+        <button class="ob-btn-primary" id="inviteSubmitBtn" onclick="inviteActivate()" style="width:100%">结缘并进入 →</button>
+      </div>
+      <p class="ob-desc" style="font-size:11px;margin-top:16px;opacity:.6">
+        还没有结缘码？可前往落地页申请引荐。
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
      Onboarding 向导（新用户首次启动）
 ══════════════════════════════════════ -->
 <div class="ob-overlay hidden" id="obOverlay">
@@ -1606,11 +1313,9 @@
       <h2 class="ob-title" data-i18n="ob.welcome.title">欢迎使用 Anima</h2>
       <p class="ob-desc" data-i18n="ob.welcome.desc">Anima 是你的本地 AI 多智能体工作台。<br>接下来只需要 2 分钟完成配置。</p>
       <div class="ob-feature-list">
-        <div class="ob-feature">🤖 <b>Anima</b> — 日常同行者，创作 + 探索 + 任务</div>
-        <div class="ob-feature">🌸 <b>晞</b> — 情感助手，陪伴支持</div>
-        <div class="ob-feature">🏢 <b>陶朱</b> — 创业决策，带自己的 AI 团队</div>
-        <div class="ob-feature">📜 <b>守藏</b> — 知识库管理与深度研究</div>
-      </div>
+        <div class="ob-feature">🪔 <b>Anima</b> — 可依靠的她：接得住情绪，也能替你做事</div>
+        <div class="ob-feature">🔮 通命理 · 能写代码 · 大事调团队</div>
+</div>
       <div class="ob-actions">
         <button class="ob-btn-secondary" onclick="obPrev()">← 返回</button>
         <button class="ob-btn-primary" onclick="obNext()">开始配置 →</button>
@@ -1620,42 +1325,48 @@
     <!-- Step 2: API Key 配置 -->
     <div class="ob-page" id="ob-page-2">
       <div class="ob-hero">🔑</div>
-      <h2 class="ob-title">配置 API Key</h2>
-      <p class="ob-desc">填写至少一个 API Key 即可开始使用。<br>所有数据存储在本地，从不上传。</p>
+      <h2 class="ob-title">接入一个模型即可</h2>
+      <p class="ob-desc">填 <b>一个</b> API Key，全部功能就都能用。<br>数据只存本地，从不上传。</p>
       <div class="ob-key-list">
         <div class="ob-key-row">
           <div class="ob-key-label">
             <span class="ob-key-badge deepseek">DeepSeek</span>
-            <span class="ob-key-hint">Anima + 陶朱（推荐）</span>
+            <span class="ob-key-hint">✓ 推荐 · 一个就够，自动驱动全部人格</span>
           </div>
           <input type="password" id="obDeepseekKey" class="ob-input" placeholder="sk-...">
           <a class="ob-link" href="https://platform.deepseek.com" target="_blank">获取 →</a>
         </div>
-        <div class="ob-key-row">
-          <div class="ob-key-label">
-            <span class="ob-key-badge kimi">Kimi</span>
-            <span class="ob-key-hint">陶朱子 Agent（写手/阅读者）</span>
-          </div>
-          <input type="password" id="obKimiKey" class="ob-input" placeholder="sk-...">
-          <a class="ob-link" href="https://platform.moonshot.cn" target="_blank">获取 →</a>
-        </div>
-        <div class="ob-key-row">
-          <div class="ob-key-label">
-            <span class="ob-key-badge qwen">通义</span>
-            <span class="ob-key-hint">知识库 Embedding（守藏）</span>
-          </div>
-          <input type="password" id="obQwenKey" class="ob-input" placeholder="sk-...">
-          <a class="ob-link" href="https://dashscope.aliyun.com" target="_blank">获取 →</a>
-        </div>
-        <div class="ob-key-row">
-          <div class="ob-key-label">
-            <span class="ob-key-badge openai">OpenAI</span>
-            <span class="ob-key-hint">GPT 系列模型（可选）</span>
-          </div>
-          <input type="password" id="obOpenaiKey" class="ob-input" placeholder="sk-...">
-          <a class="ob-link" href="https://platform.openai.com" target="_blank">获取 →</a>
-        </div>
       </div>
+      <details class="ob-more">
+        <summary>＋ 添加更多模型（可选，想用别的就填）</summary>
+        <div class="ob-key-list" style="margin-top:12px">
+          <div class="ob-key-row">
+            <div class="ob-key-label"><span class="ob-key-badge kimi">Kimi</span><span class="ob-key-hint">超长上下文</span></div>
+            <input type="password" id="obKimiKey" class="ob-input" placeholder="sk-...">
+            <a class="ob-link" href="https://platform.moonshot.cn" target="_blank">获取 →</a>
+          </div>
+          <div class="ob-key-row">
+            <div class="ob-key-label"><span class="ob-key-badge qwen">通义</span><span class="ob-key-hint">知识库 Embedding</span></div>
+            <input type="password" id="obQwenKey" class="ob-input" placeholder="sk-...">
+            <a class="ob-link" href="https://dashscope.aliyun.com" target="_blank">获取 →</a>
+          </div>
+          <div class="ob-key-row">
+            <div class="ob-key-label"><span class="ob-key-badge glm">智谱GLM</span><span class="ob-key-hint">GLM-4.6 · Flash 免费</span></div>
+            <input type="password" id="obGlmKey" class="ob-input" placeholder="...">
+            <a class="ob-link" href="https://open.bigmodel.cn" target="_blank">获取 →</a>
+          </div>
+          <div class="ob-key-row">
+            <div class="ob-key-label"><span class="ob-key-badge mimo">小米MiMo</span><span class="ob-key-hint">MiMo 推理模型</span></div>
+            <input type="password" id="obMimoKey" class="ob-input" placeholder="...">
+            <a class="ob-link" href="https://xiaomimimo.com" target="_blank">获取 →</a>
+          </div>
+          <div class="ob-key-row">
+            <div class="ob-key-label"><span class="ob-key-badge openai">OpenAI</span><span class="ob-key-hint">GPT 系列</span></div>
+            <input type="password" id="obOpenaiKey" class="ob-input" placeholder="sk-...">
+            <a class="ob-link" href="https://platform.openai.com" target="_blank">获取 →</a>
+          </div>
+        </div>
+      </details>
       <div class="ob-actions">
         <button class="ob-btn-secondary" onclick="obPrev()">← 返回</button>
         <button class="ob-btn-primary" onclick="obNext()">下一步 →</button>
@@ -1666,34 +1377,13 @@
     <div class="ob-page" id="ob-page-3">
       <div class="ob-hero">🫂</div>
       <h2 class="ob-title">认识你的 AI 团队</h2>
-      <p class="ob-desc">四位成员各有专长，名字由系统固定。</p>
+      <p class="ob-desc">Anima 是你唯一的伴，她的名字由系统固定。</p>
       <div class="ob-name-grid">
         <div class="ob-name-row">
           <span class="ob-name-icon">🤖</span>
           <div>
             <div class="ob-name-role">核心同行者 · 日常 + 创作 + 探索</div>
             <div class="ob-name-fixed-label">Anima</div>
-          </div>
-        </div>
-        <div class="ob-name-row">
-          <span class="ob-name-icon">🌸</span>
-          <div>
-            <div class="ob-name-role">情感与陪伴</div>
-            <div class="ob-name-fixed-label">晞</div>
-          </div>
-        </div>
-        <div class="ob-name-row">
-          <span class="ob-name-icon">🏢</span>
-          <div>
-            <div class="ob-name-role">创业决策与团队调度</div>
-            <div class="ob-name-fixed-label">陶朱</div>
-          </div>
-        </div>
-        <div class="ob-name-row">
-          <span class="ob-name-icon">📜</span>
-          <div>
-            <div class="ob-name-role">知识管理与成长记录</div>
-            <div class="ob-name-fixed-label">守藏</div>
           </div>
         </div>
       </div>
@@ -1705,59 +1395,18 @@
 
     <!-- Step 4: 你的称呼 -->
     <div class="ob-page" id="ob-page-4">
-      <div class="ob-hero">💬</div>
-      <h2 class="ob-title">Ta们怎么称呼你？</h2>
-      <p class="ob-desc">告诉每个 Agent 如何叫你。<br>叫"老板"、"姐"、"佳伟"都行 — 随意。</p>
-      <div class="ob-address-grid">
-        <div class="ob-addr-row">
-          <div class="ob-addr-agent">
-            <span class="ob-addr-icon xi-bg">🤖</span>
-            <span class="ob-addr-name">Anima</span>
-            <span class="ob-addr-hint">核心助手</span>
-          </div>
-          <div class="ob-addr-input-wrap">
-            <span class="ob-addr-prefix">叫你</span>
-            <input type="text" id="obAddrXi" class="ob-addr-input" placeholder="例如：老板 / 主人 / 姓名" maxlength="20">
-          </div>
-        </div>
-        <div class="ob-addr-row">
-          <div class="ob-addr-agent">
-            <span class="ob-addr-icon yiyi-bg">🌸</span>
-            <span class="ob-addr-name">晞</span>
-            <span class="ob-addr-hint">情感伙伴</span>
-          </div>
-          <div class="ob-addr-input-wrap">
-            <span class="ob-addr-prefix">叫你</span>
-            <input type="text" id="obAddrYiyi" class="ob-addr-input" placeholder="例如：宝贝 / 哥 / 姐" maxlength="20">
-          </div>
-        </div>
-        <div class="ob-addr-row">
-          <div class="ob-addr-agent">
-            <span class="ob-addr-icon tianyuan-bg">🏢</span>
-            <span class="ob-addr-name">陶朱</span>
-            <span class="ob-addr-hint">创业伙伴</span>
-          </div>
-          <div class="ob-addr-input-wrap">
-            <span class="ob-addr-prefix">叫你</span>
-            <input type="text" id="obAddrTianyuan" class="ob-addr-input" placeholder="例如：投资人 / Boss" maxlength="20">
-          </div>
-        </div>
-        <div class="ob-addr-row">
-          <div class="ob-addr-agent">
-            <span class="ob-addr-icon shoucang-bg">📜</span>
-            <span class="ob-addr-name">守藏</span>
-            <span class="ob-addr-hint">知识守护者</span>
-          </div>
-          <div class="ob-addr-input-wrap">
-            <span class="ob-addr-prefix">叫你</span>
-            <input type="text" id="obAddrShoucang" class="ob-addr-input" placeholder="例如：求守藏 / 老师" maxlength="20">
-          </div>
-        </div>
+      <h2 class="ob-title" style="margin-top:8px">他们该怎么唤你？</h2>
+      <p class="ob-desc">每位伙伴可以有自己的叫法，也可以都一样。<br>留空则用你的名字 — 日后随时能改。</p>
+      <div class="ob-addr2-list">
+        <label class="ob-addr2-row" style="--accent:#d9b15e" for="obAddrXi">
+          <span class="ob-addr2-av xi-bg">🤖</span>
+          <span class="ob-addr2-meta"><b>Anima</b><i>核心同行者</i></span>
+          <input type="text" id="obAddrXi" class="ob-addr2-input" placeholder="你的名字 / 老板" maxlength="20">
+        </label>
       </div>
-      <p class="ob-desc" style="font-size:11px;margin-top:8px;color:var(--text-muted)">留空则统一使用你的名字。可在设置中随时修改。</p>
       <div class="ob-actions">
         <button class="ob-btn-secondary" onclick="obPrev()">← 返回</button>
-        <button class="ob-btn-primary" onclick="obFinish()">完成，进入 Anima ✨</button>
+        <button class="ob-btn-primary" onclick="obFinish()">完成，进入 Anima</button>
       </div>
     </div>
   </div>
@@ -1765,6 +1414,34 @@
 
 <!-- TTS 播放器（隐藏） -->
 <audio id="ttsPlayer" style="display:none"></audio>
+
+<!-- GSAP（本地 vendored，离线可用，UMD 全局 window.gsap）-->
+<script src="/assets/vendor/gsap/gsap.min.js"></script>
+<script src="/assets/vendor/gsap/ScrollTrigger.min.js"></script>
+<script src="/assets/vendor/gsap/Flip.min.js"></script>
+<script src="/assets/vendor/gsap/MotionPathPlugin.min.js"></script>
+<script src="/assets/vendor/gsap/DrawSVGPlugin.min.js"></script>
+
+<!-- 陪伴模式：中心灵体光球 + 人格坞 + 语音麦克风（仅 mode-companion 显示）-->
+<div id="companionCenter">
+  <div id="companionOrb" onclick="voiceInput()" title="点我说话"><canvas id="soulCanvas"></canvas></div>
+  <div class="co-name" id="coName">Anima</div>
+  <div class="co-tag" id="coTag">私人助理 · 把一天收拢成秩序</div>
+</div>
+<div id="companionDock"></div>
+<button id="companionMic" onclick="voiceInput()" title="语音输入（按一下说话）">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+</button>
+
+<!-- 沉浸人格世界引擎（原生 WebGL，无依赖）-->
+<script src="/persona-fx.js"></script>
+<script src="/companion.js"></script>
+<script src="/soul.js"></script>
+
+<!-- Drawflow 节点画布（n8n/扣子 风格工作流，本地 vendored）-->
+<link rel="stylesheet" href="/assets/vendor/drawflow/drawflow.min.css">
+<script src="/assets/vendor/drawflow/drawflow.min.js"></script>
+<script src="/workflow-canvas.js"></script>
 
 <script type="module" src="/main.js"></script>
 </body>

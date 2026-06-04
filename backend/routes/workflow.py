@@ -12,7 +12,7 @@ from knowledge_base import kb as _kb
 from scheduler import scheduler as _scheduler
 from file_watcher import watcher as _watcher
 from workflow_ai import ai_build_workflow
-from workflow_engine import run_workflow, WorkflowRunner
+from workflow_engine import run_workflow, run_workflow_graph, WorkflowRunner
 
 
 # ══════════════════════════════════════════════════════
@@ -169,17 +169,21 @@ async def workflow_ws_handler(request):
                 if run_task["t"] and not run_task["t"].done():
                     await _safe_ws_send(ws, {"event": "error", "message": "已有工作流在运行"})
                     continue
+                graph  = data.get("graph")
                 steps  = data.get("steps", [])
                 use_kb = data.get("use_kb", False)
-                if not steps:
-                    await _safe_ws_send(ws, {"event": "error", "message": "steps 为空"})
+                if not graph and not steps:
+                    await _safe_ws_send(ws, {"event": "error", "message": "graph / steps 均为空"})
                     continue
 
-                async def _go(steps=steps, use_kb=use_kb):
+                async def _go(graph=graph, steps=steps, use_kb=use_kb):
+                    kw = dict(use_kb=use_kb, kb=_kb, generator=_planner_for(servers),
+                              emit=emit, gate=gate)
                     try:
-                        await run_workflow(steps, servers, use_kb=use_kb, kb=_kb,
-                                           generator=_planner_for(servers),
-                                           emit=emit, gate=gate)
+                        if graph:
+                            await run_workflow_graph(graph, servers, **kw)   # n8n/扣子 DAG
+                        else:
+                            await run_workflow(steps, servers, **kw)         # 线性步骤
                     except asyncio.CancelledError:
                         await _safe_ws_send(ws, {"event": "error", "message": "已取消"})
                     except Exception as e:  # noqa: BLE001
