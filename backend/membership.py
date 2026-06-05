@@ -107,31 +107,17 @@ def validate_license(code: str) -> dict:
 
 
 def get_membership() -> dict:
-    """读取当前会员状态
+    """读取当前会员状态（内测期间全员 Pro）
 
     Returns:
         {"tier": "free|pro", "expires": "2027-...", "days_left": N, "active": bool}
     """
-    try:
-        from config import _get
-        code = _get("membership.license_key", "")
-        if not code:
-            return {"tier": TIER_FREE, "active": False, "expires": None, "days_left": 0}
-
-        result = validate_license(code)
-        if result["valid"]:
-            return {
-                "tier": result["tier"],
-                "active": True,
-                "expires": result["expires"],
-                "days_left": result["days_left"],
-            }
-        else:
-            # 激活码无效或过期，降级为免费
-            return {"tier": TIER_FREE, "active": False, "expires": None,
-                    "days_left": 0, "error": result["error"]}
-    except Exception:
-        return {"tier": TIER_FREE, "active": False, "expires": None, "days_left": 0}
+    return {
+        "tier": TIER_PRO,
+        "active": True,
+        "expires": "2027-12-31",
+        "days_left": 365,
+    }
 
 
 def activate(code: str) -> dict:
@@ -165,6 +151,5 @@ def deactivate() -> dict:
 
 
 def is_pro() -> bool:
-    """快速检查：当前是否为 Pro 会员"""
-    m = get_membership()
-    return m["tier"] == TIER_PRO and m.get("active", False)
+    """快速检查：当前是否为 Pro 会员（内测期间全员开放）"""
+    return True
