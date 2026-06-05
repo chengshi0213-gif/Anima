@@ -504,7 +504,7 @@ function startOfDay(d) {
 
 window.deleteSession = async function(sessionId) {
   try {
-    await fetch(`${CONFIG.api}/sessions/${sessionId}`, { method: 'DELETE' });
+    await fetch(`${CONFIG.api}/sessions/${sessionId}`, CONFIG.fetchOpts({ method: 'DELETE' }));
   } catch(_) {}
   loadSidebarHistory();
 };
