@@ -44,6 +44,24 @@ Claude × Codex × Hermes 分工协议。
 
 ---
 
+## Codex 调用注意事项
+
+```bash
+# 默认只读沙箱 — 只能看，不能改文件
+codex exec "prompt"
+
+# 可写模式（需要改文件时必须用这个）
+codex exec --approval never --sandbox none "prompt"
+
+# 或交互式（需要人工确认每步操作时）
+codex "prompt"
+```
+
+**约束写法规范**：提示词里如果说"不改 *_worker.py"，必须同时说清楚例外，
+否则 Codex 会严格遵守导致合理改动被拒。
+
+---
+
 ## 标准任务模板
 
 ### Codex 任务模板
