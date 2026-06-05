@@ -122,6 +122,83 @@ jobs:
             - **macOS (Apple Silicon)**: `Anima_*_aarch64.dmg`
             - **macOS (Intel)**: `Anima_*_x64.dmg`
             - **Linux**: `anima_*_amd64.AppImage`
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
+
+  # ── 构建完成后更新 anima-site 的 update.json（updater manifest）──
+  publish-update-manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout anima-site
+        uses: actions/checkout@v4
+        with:
+          repository: chengshi0213-gif/anima-site
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: anima-site
+
+      - name: Get release info
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${{ github.ref_name }}
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          # 获取 .sig 签名（Windows）
+          WIN_SIG=$(gh release view ${TAG} --repo chengshi0213-gif/Anima --json assets -q '.assets[] | select(.name | endswith("x64-setup.exe.sig")) | .url' | head -1)
+          MAC_ARM_SIG=$(gh release view ${TAG} --repo chengshi0213-gif/Anima --json assets -q '.assets[] | select(.name | endswith("aarch64.app.tar.gz.sig")) | .url' | head -1)
+          MAC_X64_SIG=$(gh release view ${TAG} --repo chengshi0213-gif/Anima --json assets -q '.assets[] | select(.name | endswith("x64.app.tar.gz.sig")) | .url' | head -1)
+          echo "win_sig=${WIN_SIG}" >> $GITHUB_OUTPUT
+          echo "mac_arm_sig=${MAC_ARM_SIG}" >> $GITHUB_OUTPUT
+          echo "mac_x64_sig=${MAC_X64_SIG}" >> $GITHUB_OUTPUT
+
+      - name: Download signatures
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=${{ github.ref_name }}
+          gh release download ${TAG} --repo chengshi0213-gif/Anima --pattern "*.sig" --dir ./sigs/ 2>/dev/null || true
+          ls ./sigs/ || echo "no sigs"
+
+      - name: Generate update.json
+        run: |
+          TAG=${{ github.ref_name }}
+          # 读取签名内容
+          WIN_SIG=$(cat ./sigs/*x64-setup.exe.sig 2>/dev/null || echo "")
+          MAC_ARM_SIG=$(cat ./sigs/*aarch64.app.tar.gz.sig 2>/dev/null || echo "")
+          MAC_X64_SIG=$(cat ./sigs/*x64.app.tar.gz.sig 2>/dev/null || echo "")
+          # 版本号去掉 v 前缀
+          VERSION=${TAG#v}
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cat > anima-site/update.json << EOF
+          {
+            "version": "${VERSION}",
+            "notes": "Anima ${TAG} — 本地优先 AI 伙伴",
+            "pub_date": "${DATE}",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "${WIN_SIG}",
+                "url": "https://github.com/chengshi0213-gif/anima-site/releases/download/v1.1.0/Anima_1.1.0_x64-setup.exe"
+              },
+              "darwin-aarch64": {
+                "signature": "${MAC_ARM_SIG}",
+                "url": "https://github.com/chengshi0213-gif/anima-site/releases/download/v1.1.0/Anima_1.1.0_aarch64.dmg"
+              },
+              "darwin-x86_64": {
+                "signature": "${MAC_X64_SIG}",
+                "url": "https://github.com/chengshi0213-gif/anima-site/releases/download/v1.1.0/Anima_1.1.0_x64.dmg"
+              }
+            }
+          }
+          EOF
+
+      - name: Push update.json to anima-site
+        run: |
+          cd anima-site
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          git diff --staged --quiet || git commit -m "chore: update manifest ${GITHUB_REF_NAME}"
+          git push

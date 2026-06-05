@@ -169,4 +169,45 @@ window.addEventListener('DOMContentLoaded', async () => {
       });
     } catch(_) {}
   }
+
+  // 监听 Tauri 后端推送的 update-available 事件，显示更新通知条
+  if (window.__TAURI__) {
+    try {
+      const { listen } = await import('@tauri-apps/api/event');
+      await listen('update-available', (event) => {
+        const { version, body } = event.payload || {};
+        showUpdateBanner(version, body);
+      });
+    } catch(_) {}
+  }
 });
+
+function showUpdateBanner(version, notes) {
+  if (document.getElementById('update-banner')) return; // 已显示
+  const bar = document.createElement('div');
+  bar.id = 'update-banner';
+  bar.innerHTML = `
+    <span>✦ 新版本 <b>v${version || ''}</b> 已就绪</span>
+    <button id="update-install-btn" onclick="installUpdate()">立即更新</button>
+    <button id="update-dismiss-btn" onclick="this.closest('#update-banner').remove()">稍后</button>
+  `;
+  document.body.appendChild(bar);
+}
+
+window.installUpdate = async function() {
+  const btn = document.getElementById('update-install-btn');
+  if (btn) { btn.textContent = '下载中…'; btn.disabled = true; }
+  try {
+    const { check } = await import('@tauri-apps/plugin-updater');
+    const { relaunch } = await import('@tauri-apps/plugin-process');
+    const update = await check();
+    if (update) {
+      await update.downloadAndInstall();
+      await relaunch();
+    }
+  } catch(e) {
+    toast('更新失败：' + e, 'error');
+    const btn = document.getElementById('update-install-btn');
+    if (btn) { btn.textContent = '立即更新'; btn.disabled = false; }
+  }
+};

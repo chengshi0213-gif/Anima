@@ -64,6 +64,16 @@
   "plugins": {
     "shell": {
       "open": true
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM2OUQ3QjcwNDU3NENBRDgKUldUWXluUkZjSHVkTmwzY3NxeUpxRTJ1bUliZ2JpdVcrY0NZUDJZUDZucjRoNE5MZmIrNVlvcmkK",
+      "endpoints": [
+        "https://chengshi0213-gif.github.io/anima-site/update.json"
+      ],
+      "dialog": false,
+      "windows": {
+        "installMode": "basicUi"
+      }
     }
   }
 }

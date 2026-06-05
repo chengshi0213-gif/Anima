@@ -40,7 +40,23 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            // 0. 后台静默检查更新（启动 5 秒后）
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                if let Ok(updater) = tauri_plugin_updater::UpdaterExt::updater(&handle) {
+                    if let Ok(Some(update)) = updater.check().await {
+                        // 通知前端有新版本
+                        let _ = handle.emit("update-available", serde_json::json!({
+                            "version": update.version,
+                            "body": update.body.clone().unwrap_or_default(),
+                        }));
+                    }
+                }
+            });
             // 1. 启动 Python 后端 sidecar
             //    dev 模式: 请手动运行 python backend/websocket_server.py
             //    release 模式: 自动从 resources 目录启动 anima-server.exe
