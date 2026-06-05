@@ -220,7 +220,8 @@ class AgentBase:
 
     # ── API ──
     async def _call_api(self, messages: list[dict], tools: list[dict] | None = None,
-                        stream: bool = True, override_model: str | None = None) -> dict:
+                        stream: bool = True, override_model: str | None = None,
+                        on_delta=None) -> dict:
         api_key, base_url, model_id = self._resolve_model(override_model)
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -240,9 +241,9 @@ class AgentBase:
             ) as resp:
                 if resp.status != 200:
                     return {"error": f"API {resp.status}: {(await resp.text())[:500]}"}
-                return await self._handle_stream(resp) if stream else self._extract_response(await resp.json())
+                return await self._handle_stream(resp, on_delta=on_delta) if stream else self._extract_response(await resp.json())
 
-    async def _handle_stream(self, resp) -> dict:
+    async def _handle_stream(self, resp, on_delta=None) -> dict:
         content = reasoning = ""
         tool_calls: list[dict] = []
         async for line in resp.content:
@@ -266,6 +267,8 @@ class AgentBase:
                 reasoning += delta["reasoning_content"]
             if delta.get("content"):
                 content += delta["content"]
+                if on_delta:
+                    await on_delta(delta["content"])
             if "tool_calls" in delta:
                 for tc in delta["tool_calls"]:
                     idx = tc.get("index", 0)
@@ -335,6 +338,12 @@ class AgentBase:
             except Exception:
                 pass
 
+        on_delta = None
+        if ws is not None:
+            async def _on_delta(chunk: str):
+                await _ws_send({"type": "assistant_delta", "data": {"content": chunk}})
+            on_delta = _on_delta
+
         for turn in range(1, self.max_turns + 1):
             if turn > 1 and turn % self.compress_every == 0:
                 old = len(messages)
@@ -352,7 +361,7 @@ class AgentBase:
                 return {"status": "budget_exceeded", "summary": summary,
                         "files_changed": files_changed, "turn_count": turn}
 
-            resp = await self._call_api(messages, tools=self.tool_defs, override_model=model)
+            resp = await self._call_api(messages, tools=self.tool_defs, override_model=model, on_delta=on_delta)
             if "error" in resp:
                 self._log(session_id, "api_error", {"turn": turn, "error": resp["error"]})
                 return {"status": "error", "error": resp["error"], "turn_count": turn}

@@ -112,8 +112,13 @@ function handleAgentMessage(agentId, msg) {
     window.showThinking?.(agentId);
     return;
   }
+  if (msg.type === 'assistant_delta') {
+    window.appendAssistantDelta?.(agentId, msg.data?.content || '');
+    return;
+  }
   if (msg.type === 'response' && msg.data?.status) {
     window.removeThinking?.(agentId);
+    window.removeStreamingMsg?.(agentId);
     chatState[agentId].pending = false;
     wsStatus[agentId].busy     = false;
     window.setInputState?.(agentId, false);
@@ -133,6 +138,7 @@ function handleAgentMessage(agentId, msg) {
   }
   if (msg.type === 'permission_request') {
     window.removeThinking?.(agentId);
+    window.removeStreamingMsg?.(agentId);
     chatState[agentId].pending = false;
     wsStatus[agentId].busy     = false;
     window.setInputState?.(agentId, false);
@@ -142,6 +148,7 @@ function handleAgentMessage(agentId, msg) {
   }
   if (msg.type === 'error') {
     window.removeThinking?.(agentId);
+    window.removeStreamingMsg?.(agentId);
     chatState[agentId].pending = false;
     wsStatus[agentId].busy     = false;
     window.setInputState?.(agentId, false);
