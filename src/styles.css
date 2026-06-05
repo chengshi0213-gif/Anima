@@ -511,7 +511,13 @@ svg.nav-icon { display: inline-block; vertical-align: middle; color: var(--muted
   display: flex;
   flex-direction: column;
   gap: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.chat-messages::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
 /* 欢迎屏 */
 .chat-welcome {
@@ -723,9 +729,11 @@ svg.nav-icon { display: inline-block; vertical-align: middle; color: var(--muted
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px 8px;
+  padding: 4px 10px 8px;
+  gap: 8px;
 }
-.toolbar-left { display: flex; align-items: center; gap: 4px; }
+.toolbar-left { display: flex; align-items: center; gap: 4px; flex: 1; }
+.toolbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
 .toolbar-btn {
   width: 30px; height: 30px;
@@ -793,12 +801,13 @@ svg.nav-icon { display: inline-block; vertical-align: middle; color: var(--muted
   color: #FFF;
   border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: opacity .15s, transform .1s;
+  transition: opacity .15s, transform .1s, background .15s;
   flex-shrink: 0;
 }
 .send-btn:hover:not(:disabled)  { opacity: .82; }
 .send-btn:active:not(:disabled) { transform: scale(.94); }
 .send-btn:disabled { background: #D1D5DB; cursor: not-allowed; }
+#stop-xi { background: var(--error, #DC2626); }
 
 /* ══ CSS 包装让 composer 区域显示成卡片 ══ */
 /* 注意: textarea + toolbar 需要被 .composer-card 包裹
@@ -2552,15 +2561,16 @@ kbd {
 ══════════════════════════════════════════════════ */
 .remember-btn {
   flex-shrink: 0;
-  width: 32px; height: 32px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  width: 28px; height: 28px;
+  border: none;
+  border-radius: 6px;
   background: none;
   cursor: pointer;
   font-size: 15px;
+  color: var(--muted);
   display: flex; align-items: center; justify-content: center;
-  transition: background .15s, transform .1s;
-  margin-right: 4px;
+  transition: background .15s, color .15s;
+  margin-right: 0;
 }
 .remember-btn:hover {
   background: #ede9fe;
