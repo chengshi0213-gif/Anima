@@ -486,7 +486,12 @@ function renderSidebarHistory(sessions) {
     for (const s of groups[key]) {
       const agent = AGENTS[s.agent] || { icon:'💬' };
       const sum   = (s.summary || s.session_id.slice(-10)).slice(0, 28);
-      html += `<div class="history-item" onclick="openSession('${s.session_id}','${s.agent}')">${agent.icon} ${escHtml(sum)}</div>`;
+      html += `<div class="history-item" onclick="openSession('${s.session_id}','${s.agent}')">
+        <span class="history-item-text">${escHtml(sum)}</span>
+        <button class="history-delete-btn" title="删除" onclick="event.stopPropagation();deleteSession('${s.session_id}')">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/></svg>
+        </button>
+      </div>`;
     }
     html += '</div>';
   }
@@ -496,6 +501,13 @@ function renderSidebarHistory(sessions) {
 function startOfDay(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
+
+window.deleteSession = async function(sessionId) {
+  try {
+    await fetch(`${CONFIG.api}/sessions/${sessionId}`, { method: 'DELETE' });
+  } catch(_) {}
+  loadSidebarHistory();
+};
 
 window.openSession = async function(sessionId, agentId) {
   if (!AGENTS[agentId]) return;

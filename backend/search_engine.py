@@ -86,6 +86,12 @@ class SearchEngine:
             ).fetchall()
         return [{"role":r[0],"content":r[1]} for r in rows]
 
+    def delete_session(self, session_id: str) -> None:
+        """删除某条历史会话"""
+        with self._lock:
+            self.conn.execute("DELETE FROM messages_fts WHERE session_id=?", (session_id,))
+            self.conn.commit()
+
     def close(self):
         with self._lock:
             self.conn.close()

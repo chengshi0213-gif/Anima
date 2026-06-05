@@ -65,6 +65,17 @@ async def session_messages_handler(request):
     return web.json_response({"messages": messages}, headers=CORS_HEADERS)
 
 
+async def session_delete_handler(request):
+    """DELETE /sessions/{session_id} — 删除某条历史会话"""
+    session_id = request.match_info["session_id"]
+    search = request.app["search_engine"]
+    try:
+        search.delete_session(session_id)
+        return web.json_response({"ok": True}, headers=CORS_HEADERS)
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers=CORS_HEADERS)
+
+
 def register(app):
     app.router.add_get("/health",                         health_handler)
     app.router.add_get("/usage",                          usage_handler)
@@ -72,3 +83,4 @@ def register(app):
     app.router.add_get("/status",                         status_handler)
     app.router.add_get("/sessions",                       sessions_handler)
     app.router.add_get("/sessions/{session_id}/messages",  session_messages_handler)
+    app.router.add_delete("/sessions/{session_id}",        session_delete_handler)

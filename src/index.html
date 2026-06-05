@@ -40,30 +40,34 @@
   <!-- 主导航 -->
   <div class="sidebar-nav">
     <div class="nav-item active" data-tab="overview" onclick="switchTab('overview',this)">
-      <span class="nav-icon">🏠</span> 总览
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>
+      总览
     </div>
     <div class="nav-item" data-tab="dashboard" onclick="switchTab('dashboard',this)">
-      <span class="nav-icon">📊</span> 仪表盘
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="2,14 7,9 11,13 18,5"/><line x1="2" y1="18" x2="18" y2="18"/></svg>
+      仪表盘
     </div>
 
     <div class="nav-section-label">对话</div>
 
     <div class="nav-item" data-tab="xi" onclick="switchTab('xi',this)">
-      <span class="nav-icon">🪔</span> Anima
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="7" r="3.5"/><path d="M3 18c0-4 3-6 7-6s7 2 7 6"/></svg>
+      Anima
       <span class="agent-dot" id="dot-xi"></span>
     </div>
 
     <!-- 项目快速切换器 -->
     <div class="project-switcher" id="projectSwitcher">
-      <div class="project-switcher-hdr" onclick="projectSwitcherToggle()">
-        <span class="nav-icon">📁</span>
-        <span id="activeProjectLabel">无项目</span>
-        <span style="margin-left:auto;font-size:10px;opacity:.6">▾</span>
+      <div class="project-switcher-hdr" onclick="projectSwitcherToggle()" title="指定一个工作目录，让 Anima 在编程时自动感知该项目的代码结构">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h4l2 2h7A1.5 1.5 0 0 1 18 7.5v8A1.5 1.5 0 0 1 16.5 17h-13A1.5 1.5 0 0 1 2 15.5z"/></svg>
+        <span id="activeProjectLabel">项目</span>
+        <span style="margin-left:auto;font-size:10px;opacity:.5">▾</span>
       </div>
       <div class="project-switcher-menu hidden" id="projectSwitcherMenu">
+        <div style="font-size:11px;color:var(--muted);padding:6px 10px 2px;line-height:1.5;border-bottom:1px solid var(--border);margin-bottom:4px">指定工作目录后，Anima 写代码时会自动感知该目录的文件结构。</div>
         <div id="projectList" style="max-height:160px;overflow-y:auto"></div>
         <div class="project-switcher-footer">
-          <button class="ps-btn" onclick="projectCreate()">＋ 新建项目</button>
+          <button class="ps-btn" onclick="projectCreate()">＋ 新建</button>
           <button class="ps-btn" onclick="projectDeactivate()">✕ 清除</button>
         </div>
       </div>
@@ -72,16 +76,20 @@
     <div class="nav-section-label">工具</div>
 
     <div class="nav-item" data-tab="workflow" onclick="switchTab('workflow',this)">
-      <span class="nav-icon">⚡</span> 工作流
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="4" cy="10" r="2"/><circle cx="16" cy="4" r="2"/><circle cx="16" cy="16" r="2"/><line x1="6" y1="9" x2="14" y2="5"/><line x1="6" y1="11" x2="14" y2="15"/></svg>
+      工作流
     </div>
     <div class="nav-item" data-tab="skills" onclick="switchTab('skills',this)">
-      <span class="nav-icon">🧩</span> Skill 墙
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2l2 5.5h5.5l-4.5 3.3 1.7 5.5L10 13.5l-4.7 2.8 1.7-5.5L2.5 7.5H8z"/></svg>
+      Skill 墙
     </div>
     <div class="nav-item" data-tab="achievements" onclick="switchTab('achievements',this)">
-      <span class="nav-icon">🏅</span> 成就 · 灵犀
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="8" r="5"/><path d="M6.8 12.5l-2.3 5 5.5-1.8 5.5 1.8-2.3-5"/></svg>
+      成就 · 灵犀
     </div>
     <div class="nav-item" data-tab="automation" onclick="switchTab('automation',this)">
-      <span class="nav-icon">⚡</span> 自动化
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v2.5M10 15.5V18M2 10h2.5M15.5 10H18M4.6 4.6l1.8 1.8M13.6 13.6l1.8 1.8M15.4 4.6l-1.8 1.8M6.4 13.6l-1.8 1.8"/></svg>
+      自动化
     </div>
   </div>
 
@@ -96,7 +104,8 @@
   <!-- 底部：设置 + 状态 -->
   <div class="sidebar-footer">
     <div class="nav-item" data-tab="settings" onclick="switchTab('settings',this)">
-      <span class="nav-icon">⚙️</span> 设置
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v1.5M10 16.5V18M2 10h1.5M16.5 10H18M4.1 4.1l1.1 1.1M14.8 14.8l1.1 1.1M15.9 4.1l-1.1 1.1M5.2 14.8l-1.1 1.1"/></svg>
+      设置
     </div>
     <div class="status-bar">
       <div class="status-dot" id="statusDot"></div>
