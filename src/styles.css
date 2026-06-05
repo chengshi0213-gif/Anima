@@ -5,13 +5,13 @@
 
 :root {
   /* ── 颜色 ── */
-  --bg:       #FFFFFF;
-  --sidebar:  #F5F4EF;   /* Claude 招牌米白 */
-  --border:   #E5E4DF;
+  --bg:       #F7F3EA;
+  --sidebar:  #F1EDE4;
+  --border:   #E2DED5;
   --text:     #1A1A1A;
   --muted:    #6B6B6B;
-  --surface:  #FAFAF8;
-  --surface2: #F3F2EE;
+  --surface:  #FBF8F0;
+  --surface2: #EFEAE0;
   --hover:    rgba(0,0,0,.05);
   --active:   rgba(0,0,0,.08);
   --success:  #16A34A;
@@ -38,6 +38,19 @@
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   color: var(--text);
+}
+
+body.dark {
+  --bg:       #1F1F23;
+  --sidebar:  #242428;
+  --border:   #343438;
+  --text:     #F5F5F7;
+  --muted:    #8E8E93;
+  --surface:  #29292D;
+  --surface2: #303035;
+  --hover:    rgba(255,255,255,.06);
+  --active:   rgba(255,255,255,.10);
+  --accent:   #F5A623;
 }
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -817,7 +830,7 @@ body { display: flex; background: var(--bg); }
 }
 
 /* ═══════════════════════════════════════
-   陶朱子员工
+   子员工
 ═══════════════════════════════════════ */
 .worker-card {
   display: flex; flex-direction: column; gap: 8px; cursor: default;
@@ -1901,6 +1914,47 @@ kbd {
   background: var(--text); color: var(--bg);
   border-color: var(--text);
 }
+
+.automation-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+#tab-automation .dash-title {
+  color: var(--text);
+}
+.automation-tab-btn {
+  padding: 8px 20px;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all .15s;
+}
+.automation-tab-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.automation-tab-btn.active {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+.automation-pane {
+  display: none;
+}
+.automation-pane.active {
+  display: block;
+}
+.automation-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
 .report-card {
   background: var(--surface); border-radius: 14px;
   padding: 24px; margin-bottom: 16px;
@@ -2721,7 +2775,7 @@ kbd {
 
 /* —— 每个人格一套主题（body[data-agent] 由 switchTab 注入）——
    配色按用户方向：层次渐变，不用单一平色。
-   Anima=米黄神女光明 / 晞=桃花层次粉 / 陶朱=很蓝的蓝调 / 守藏=水墨 */
+   Anima=米黄神女光明 / 情感模式=桃花层次粉 / 任务模式=蓝调 / 研究模式=水墨 */
 
 /* Anima｜私人助理｜米黄·光明神女：暖金从高光到沉金，顶部一抹神性光晕 */
 body[data-agent="xi"] {
@@ -2732,7 +2786,7 @@ body[data-agent="xi"] {
   --agent-glow: rgba(214,168,23,.24);
   --t-scale:1;
 }
-/* 晞｜情感伙伴｜桃花·层次粉：花瓣由浅到深三层，温柔舒缓 */
+/* 情感模式｜桃花·层次粉：花瓣由浅到深三层，温柔舒缓 */
 body[data-agent="yiyi"] {
   --agent:#E0518A; --agent-2:#F49AC1;
   --agent-grad: linear-gradient(135deg, #FBD3E0 0%, #F49AC1 48%, #E0518A 100%);
@@ -2741,7 +2795,7 @@ body[data-agent="yiyi"] {
   --agent-glow: rgba(224,81,138,.22);
   --t-scale:1.15;
 }
-/* 陶朱｜创业CEO｜蓝调·很蓝：天青→靛蓝纵深，利落决断 */
+/* 任务模式｜蓝调：天青→靛蓝纵深，利落决断 */
 body[data-agent="tianyuan"],
 body[data-agent="tianyuan-team"] {
   --agent:#1D4ED8; --agent-2:#3B82F6;
@@ -2751,7 +2805,7 @@ body[data-agent="tianyuan-team"] {
   --agent-glow: rgba(29,78,216,.22);
   --t-scale:.82;
 }
-/* 守藏｜研究员｜水墨：宣纸暖灰底 + 焦墨渐淡，沉静典雅 */
+/* 研究模式｜水墨：宣纸暖灰底 + 焦墨渐淡，沉静典雅 */
 body[data-agent="shoucang"] {
   --agent:#3A3F47; --agent-2:#6B7280;
   --agent-grad: linear-gradient(135deg, #6B7280 0%, #374151 55%, #161A20 100%);
@@ -2881,97 +2935,111 @@ body[data-agent] .thinking-dot { background: var(--agent) !important; }
 
 
 /* ════════════════════════════════════════════════════════════════
-   沉浸人格世界（WebGL）+ 艺术字体  ·  全程沉浸（可开关）
+   本地字体 + 艺术字体
    ════════════════════════════════════════════════════════════════ */
 /* Geist 本地字体 */
 @font-face{ font-family:Geist; font-weight:400; font-display:swap; src:url("/assets/vendor/fonts/geist-sans-latin-400-normal.woff2") format("woff2");}
 @font-face{ font-family:Geist; font-weight:600; font-display:swap; src:url("/assets/vendor/fonts/geist-sans-latin-600-normal.woff2") format("woff2");}
 @font-face{ font-family:Geist; font-weight:700; font-display:swap; src:url("/assets/vendor/fonts/geist-sans-latin-700-normal.woff2") format("woff2");}
 
-/* 每人格书法字体（系统自带，回退到全 Windows 都有的楷/宋）：神女宋·晞行楷·陶朱新魏·守藏隶 */
+/* 每模式书法字体（系统自带，回退到全 Windows 都有的楷/宋） */
 body[data-agent="xi"]       .agent-name, body[data-agent="xi"]       .welcome-name{ font-family:"STSong","SimSun","宋体",serif; letter-spacing:.04em; }
 body[data-agent="yiyi"]     .agent-name, body[data-agent="yiyi"]     .welcome-name{ font-family:"STXingkai","华文行楷","STKaiti","KaiTi",cursive; letter-spacing:.04em; }
 body[data-agent="tianyuan"] .agent-name, body[data-agent="tianyuan"] .welcome-name{ font-family:"STXinwei","华文新魏","STZhongsong","SimSun",serif; letter-spacing:.04em; }
 body[data-agent="shoucang"] .agent-name, body[data-agent="shoucang"] .welcome-name{ font-family:"STLiti","隶书","STKaiti","KaiTi",serif; letter-spacing:.08em; }
 .agent-name, .welcome-name{ font-weight:600; }
 
-/* —— 画布层 + 堆叠：sidebar/content 必须在画布之上 —— */
-#persona-fx{ position:fixed; inset:0; z-index:0; display:block; pointer-events:none; opacity:0; transition:opacity .8s ease; }
 .sidebar{ position:relative; z-index:2; }
 .content{ position:relative; z-index:1; }
-body.fx-on.fx-show #persona-fx{ opacity:1; }
 
-/* —— FX 开 + 在人格页：内容区透出世界 —— */
-body.fx-on.fx-show .content{ background:transparent; }
-body.fx-on.fx-show .tab-panel.active{ background:transparent !important; background-image:none !important; }
-body.fx-on.fx-show .tab-panel.active .chat-wrap{ background:transparent !important; }
-body.fx-on.fx-show .tab-panel.active .chat-welcome{ background:transparent !important; }
-body.fx-on.fx-show .chat-header{ background:rgba(0,0,0,.06); backdrop-filter:blur(8px);
-  border-bottom-color:rgba(255,255,255,.14); }
-/* 可读性蒙版：聊天列居中加柔暗/柔亮罩，让文字浮起、边缘透世界 */
-body.fx-on.fx-show .chat-messages{
-  background:radial-gradient(135% 64% at 50% 38%, var(--fx-scrim, rgba(8,6,14,.36)) 0%, transparent 80%); }
-body[data-agent="xi"]       { --fx-scrim:rgba(28,18,2,.30); }
-body[data-agent="yiyi"]     { --fx-scrim:rgba(8,4,18,.42); }
-body[data-agent="tianyuan"] { --fx-scrim:rgba(2,12,22,.42); }
-body[data-agent="shoucang"] { --fx-scrim:rgba(236,232,222,.50); }
-/* 气泡玻璃化 + 阴影增强可读 */
-body.fx-on.fx-show .msg.assistant .msg-bubble{ box-shadow:0 6px 22px rgba(0,0,0,.18); }
-body.fx-on.fx-show:not([data-agent="shoucang"]) .msg.assistant .msg-bubble{
-  background:rgba(255,255,255,.93); backdrop-filter:blur(6px); color:#1a1a1a; border-color:rgba(255,255,255,.5); }
-body.fx-on.fx-show[data-agent="shoucang"] .msg.assistant .msg-bubble{
-  background:rgba(251,250,245,.95); backdrop-filter:blur(6px); }
-body.fx-on.fx-show .composer-card{ background:rgba(255,255,255,.88); backdrop-filter:blur(12px); }
-body.fx-on.fx-show[data-agent="shoucang"] .composer-card{ background:rgba(251,250,245,.9); }
-
-/* —— 特效开关按钮（侧栏底）—— */
-.fx-toggle{ display:flex; align-items:center; gap:8px; padding:7px 10px; margin:0 8px 6px;
+/* —— 夜间模式开关（侧栏底）—— */
+.theme-toggle{ display:flex; align-items:center; gap:8px; padding:7px 10px; margin:0 8px 6px;
   border-radius:8px; cursor:pointer; color:var(--muted); font-size:12px; user-select:none;
   transition:background .15s, color .15s; }
-.fx-toggle:hover{ background:var(--hover); color:var(--text); }
-.fx-switch{ width:30px; height:17px; border-radius:999px; background:#CBC9C2; position:relative; flex-shrink:0; transition:background .2s; }
-.fx-switch::after{ content:""; position:absolute; top:2px; left:2px; width:13px; height:13px; border-radius:50%;
+.theme-toggle:hover{ background:var(--hover); color:var(--text); }
+.theme-switch{ width:30px; height:17px; border-radius:999px; background:#CBC9C2; position:relative; flex-shrink:0; transition:background .2s; }
+.theme-switch::after{ content:""; position:absolute; top:2px; left:2px; width:13px; height:13px; border-radius:50%;
   background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.25); transition:transform .2s var(--ease-out, ease); }
-.fx-toggle.on .fx-switch{ background:#16A34A; }
-.fx-toggle.on .fx-switch::after{ transform:translateX(13px); }
-
-/* ── 治割裂：所有页内容区透出世界 + 工具页面板毛玻璃浮起 ── */
-body.fx-on.fx-show .tab-panel.active{ background:transparent !important; background-image:none !important; }
-body.fx-on.fx-show .tab-panel.active > .overview-wrap,
-body.fx-on.fx-show .tab-panel.active > .dash-wrap,
-body.fx-on.fx-show .tab-panel.active > .settings-wrap,
-body.fx-on.fx-show .tab-panel.active > .kb-wrap,
-body.fx-on.fx-show .tab-panel.active > .wf-outer{ background:transparent !important; }
-/* 工具页主面板/卡片 → 毛玻璃（深色环境底上，白玻璃浮起、暗字可读）*/
-body.fx-on.fx-show .card,
-body.fx-on.fx-show .dash-stat-card,
-body.fx-on.fx-show .stat-card,
-body.fx-on.fx-show .rstat-card,
-body.fx-on.fx-show .kanban-col,
-body.fx-on.fx-show .report-card,
-body.fx-on.fx-show .mem-card,
-body.fx-on.fx-show .mem-backend-card,
-body.fx-on.fx-show .membership-card,
-body.fx-on.fx-show .offline-card,
-body.fx-on.fx-show .skill-mini-card,
-body.fx-on.fx-show .skill-overview-card,
-body.fx-on.fx-show .wf-left,
-body.fx-on.fx-show .wf-right,
-body.fx-on.fx-show .wf-ai-panel,
-body.fx-on.fx-show .set-card,
-body.fx-on.fx-show .set-section,
-body.fx-on.fx-show .setting-section,
-body.fx-on.fx-show .worker-detail-wrap{
-  background:rgba(255,255,255,.82) !important;
-  backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
-  border:1px solid rgba(255,255,255,.55) !important;
-  box-shadow:0 8px 30px rgba(0,0,0,.12) !important;
+.theme-toggle.on .theme-switch{ background:var(--accent); }
+.theme-toggle.on .theme-switch::after{ transform:translateX(13px); }
+.settings-theme-toggle {
+  margin: 0;
+  padding: 4px 0;
+  min-width: 30px;
 }
-/* 工具页标题/正文在玻璃上保持暗字（环境底深，避免继承浅色）*/
-body.fx-on.fx-show .content{ color:var(--text); }
+.settings-theme-toggle:hover {
+  background: transparent;
+}
 
-@media (prefers-reduced-motion: reduce){ #persona-fx{ display:none; } }
-
+@media (max-width: 700px) {
+  .sidebar {
+    width: 132px;
+    min-width: 132px;
+  }
+  .sidebar-top {
+    padding: 12px 8px 8px;
+  }
+  .logo {
+    min-width: 0;
+  }
+  .logo-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .new-chat-btn {
+    width: 26px;
+    height: 26px;
+  }
+  .project-switcher,
+  .sidebar-history,
+  .cmd-trigger {
+    display: none;
+  }
+  .sidebar-nav {
+    padding: 2px 6px 6px;
+  }
+  .nav-section-label {
+    padding: 10px 6px 4px;
+  }
+  .nav-item {
+    gap: 6px;
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+  .sidebar-footer {
+    padding-bottom: 8px;
+  }
+  .theme-toggle {
+    margin: 0 6px 6px;
+    padding: 7px 8px;
+    font-size: 11px;
+  }
+  .status-bar {
+    padding: 6px 8px;
+  }
+  .content {
+    min-width: 0;
+  }
+  #tab-automation .dash-wrap {
+    padding: 16px 12px;
+  }
+  #tab-automation .dash-header {
+    align-items: flex-start;
+  }
+  #tab-automation .dash-title {
+    font-size: 26px;
+  }
+  .automation-tabs {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .automation-tab-btn {
+    padding: 7px 12px;
+  }
+  .automation-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* ════════════════════════════════════════════════════════════════
    工作流 Drawflow 画布（n8n / 扣子 风格）+ 玻璃节点
@@ -3003,16 +3071,8 @@ body.fx-on.fx-show .content{ color:var(--text); }
   width:13px; height:13px; border-radius:50%; }
 .drawflow-node .output{ border-color:#2563EB; }
 .drawflow-node .input{ border-color:#16a34a; }
-/* 沉浸下：画布玻璃化 */
-body.fx-on.fx-show #wfCanvas{ background-color:rgba(255,255,255,.05); border-color:rgba(255,255,255,.28);
-  background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px); background-size:22px 22px; }
-body.fx-on.fx-show .wfx{ background:rgba(255,255,255,.88) !important; backdrop-filter:blur(12px); }
-body.fx-on.fx-show[data-agent="shoucang"] .wfx{ background:rgba(251,250,245,.9) !important; }
-
-
 /* ════════════════════════════════════════════════════════════════
-   设计语言「Anima 沉浸玻璃」组件库  ·  令牌 + 玻璃 + Bento + 段位 + 成长卡
+   设计语言「Anima 玻璃」组件库  ·  令牌 + 玻璃 + Bento + 段位 + 成长卡
    ════════════════════════════════════════════════════════════════ */
 :root{
   --glass-1:rgba(255,255,255,.55); --glass-2:rgba(255,255,255,.74); --glass-3:rgba(255,255,255,.88);
@@ -3070,9 +3130,6 @@ body.fx-on.fx-show[data-agent="shoucang"] .wfx{ background:rgba(251,250,245,.9) 
   background:linear-gradient(120deg, transparent 42%, rgba(255,255,255,.6) 50%, transparent 58%);
   transform:translateX(-130%); transition:transform .75s var(--ease-out,ease); }
 .sk-card:hover::before{ transform:translateX(130%); }
-body.fx-on.fx-show .sk-card{ -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
-  background:linear-gradient(155deg, color-mix(in srgb,var(--cat) 34%, rgba(255,255,255,.82)) 0%, rgba(255,255,255,.85) 60%); }
-body.fx-on.fx-show[data-agent="shoucang"] .sk-card{ background:linear-gradient(155deg, color-mix(in srgb,var(--cat) 28%, rgba(251,250,245,.85)) 0%, rgba(251,250,245,.88) 60%); }
 .sk-bar{ position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--cat),var(--cat2)); z-index:1; }
 /* 段位角标（等级指标，逐阶变色变料）*/
 .sk-tier{ position:absolute; top:11px; right:11px; font-size:10px; font-weight:800; padding:3px 10px;
@@ -3208,7 +3265,7 @@ body.mode-companion .chat-header{ display:none !important; }
 .co-name{ font-family:"STSong","STKaiti","SimSun",serif; font-size:34px; font-weight:700; color:#23252a;
   letter-spacing:.05em; text-shadow:0 2px 24px rgba(255,255,255,.6); }
 .co-tag{ display:none; }   /* 下方小字去掉，只留名字 */
-/* 欢迎名字随世界明暗自适应：深色世界(晞/陶朱)用浅字 */
+/* 欢迎名字随世界明暗自适应：深色世界用浅字 */
 body.mode-companion[data-agent="yiyi"] .co-name, body.mode-companion[data-agent="tianyuan"] .co-name{ color:#fff; text-shadow:0 2px 24px rgba(0,0,0,.5); }
 
 /* ══ 成就 · 灵犀 ══ */
@@ -3230,3 +3287,491 @@ body.mode-companion[data-agent="yiyi"] .co-name, body.mode-companion[data-agent=
 .ach-claim-btn:hover{ transform:translateY(-1px); box-shadow:0 6px 18px rgba(212,162,78,.55); }
 .ach-claimed{ font-size:12px; font-weight:600; color:#3fb97f; }
 .ach-progress-txt{ font-size:11.5px; color:var(--muted); }
+
+/* ════════════════════════════════════════════════════════════════
+   Anima UI Redesign — taste/front design pass
+   米白纸感 · 深灰夜间 · 真实头像 · 紧凑工作台
+   ════════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #F7F3EA;
+  --sidebar: #EEE8DC;
+  --surface: #FFFCF5;
+  --surface2: #F1EADF;
+  --border: #DDD4C5;
+  --text: #201D19;
+  --muted: #706A61;
+  --accent: #C87621;
+  --accent-strong: #A85C13;
+  --shadow-soft: 0 12px 34px rgba(72, 55, 31, .08);
+  --shadow-tight: 0 2px 10px rgba(72, 55, 31, .06);
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 8px;
+  --r-pill: 999px;
+}
+
+body.dark {
+  --bg: #1F1F23;
+  --sidebar: #242428;
+  --surface: #29292D;
+  --surface2: #303035;
+  --border: #3A3A3F;
+  --text: #F2F1ED;
+  --muted: #A9A49B;
+  --accent: #D99A42;
+  --accent-strong: #F0B65D;
+  --shadow-soft: 0 16px 36px rgba(0,0,0,.22);
+  --shadow-tight: 0 3px 12px rgba(0,0,0,.18);
+}
+
+body {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.18) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255,255,255,.16) 1px, transparent 1px),
+    var(--bg);
+  background-size: 28px 28px;
+}
+body.dark {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255,255,255,.02) 1px, transparent 1px),
+    var(--bg);
+}
+
+.sidebar {
+  width: 248px;
+  min-width: 248px;
+  padding: 0 10px;
+  background: var(--sidebar);
+  box-shadow: inset -1px 0 0 rgba(255,255,255,.34);
+}
+body.dark .sidebar { box-shadow: inset -1px 0 0 rgba(255,255,255,.04); }
+
+.sidebar-top {
+  padding: 14px 4px 10px;
+  gap: 8px;
+}
+.logo { min-width: 0; flex: 1; }
+.logo-icon-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: var(--shadow-tight);
+}
+.logo-title {
+  font-size: 15px;
+  letter-spacing: 0;
+}
+.new-chat-btn {
+  width: 30px;
+  height: 30px;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  border-color: color-mix(in srgb, var(--border) 82%, transparent);
+}
+
+.sidebar-identity {
+  display: grid;
+  grid-template-columns: 52px minmax(0,1fr);
+  gap: 12px;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  box-shadow: var(--shadow-tight);
+}
+.sidebar-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,.62);
+}
+.sidebar-identity-copy { min-width: 0; }
+.sidebar-identity-name {
+  font-size: 16px;
+  font-weight: 750;
+  color: var(--text);
+  line-height: 1.2;
+}
+.sidebar-identity-meta {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 7px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  white-space: normal;
+}
+.sidebar-identity-meta span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 5px;
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 16%, transparent);
+  flex: 0 0 auto;
+}
+
+.sidebar-nav {
+  padding: 0 0 8px;
+}
+.nav-section-label {
+  padding: 13px 9px 5px;
+  letter-spacing: .08em;
+}
+.nav-item {
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--text) 62%, var(--muted));
+}
+.nav-item:hover {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.nav-item.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 3px 0 0 var(--accent), var(--shadow-tight);
+}
+.nav-icon {
+  width: 18px;
+  text-align: center;
+  font-size: 15px;
+}
+.project-switcher {
+  border-radius: 8px;
+}
+.sidebar-history {
+  margin-top: 2px;
+  padding: 2px 0 6px;
+  border-top-color: color-mix(in srgb, var(--border) 72%, transparent);
+}
+.history-section-label {
+  background: var(--sidebar);
+}
+.history-item {
+  min-height: 28px;
+  padding: 6px 9px;
+  border-radius: 7px;
+}
+.sidebar-footer {
+  margin: 0 -10px;
+  padding: 7px 10px 10px;
+  background: color-mix(in srgb, var(--sidebar) 82%, var(--surface));
+}
+.status-bar {
+  padding: 8px 10px 4px;
+}
+
+.content {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 34%, transparent), transparent 260px),
+    var(--bg);
+}
+
+.overview-header,
+.dashboard-header,
+.chat-header,
+.gc-topbar {
+  background: color-mix(in srgb, var(--bg) 90%, var(--surface));
+}
+.overview-header,
+.dashboard-wrap,
+.settings-wrap,
+.dashboard-header,
+.chat-header,
+.gc-topbar {
+  padding-left: 32px;
+  padding-right: 32px;
+}
+.overview-header h1,
+.dashboard-header h1 {
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.card,
+.dash-stat-card,
+.dash-chart,
+.kanban-col,
+.agent-card,
+.stat-card,
+.rstat-card,
+.sk-card,
+.settings-card,
+.api-card,
+.kb-hit-card,
+.kb-doc-row,
+.automation-card,
+.automation-panel {
+  border-radius: 8px !important;
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--border) 88%, transparent);
+  box-shadow: var(--shadow-tight);
+}
+.card,
+.dash-stat-card,
+.dash-chart {
+  box-shadow: var(--shadow-soft);
+}
+
+.chat-wrap {
+  background: transparent;
+}
+.chat-header {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+.agent-info {
+  gap: 13px;
+}
+.agent-avatar-lg,
+.welcome-avatar,
+.gc-group-avatar,
+.gc-member-avatar,
+.gc-typing-avatar,
+.msg-avatar {
+  overflow: hidden;
+  border-radius: 8px;
+  background: color-mix(in srgb, #E7D5B5 46%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+}
+.agent-avatar-lg {
+  width: 46px;
+  height: 46px;
+  font-size: 22px;
+}
+.agent-avatar-img-lg img,
+.welcome-avatar-img img,
+.msg-avatar-img img,
+.gc-group-avatar img,
+.gc-member-avatar img,
+.gc-typing-avatar img,
+.ob-name-avatar img,
+.ob-addr2-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.agent-name,
+.welcome-name {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif !important;
+  letter-spacing: 0 !important;
+}
+.agent-name {
+  font-size: 16px;
+  font-weight: 750;
+}
+.agent-meta {
+  font-size: 12.5px;
+}
+.chat-messages {
+  padding: 28px 32px;
+  gap: 18px;
+}
+.chat-welcome {
+  padding: 54px 24px;
+}
+.welcome-avatar {
+  width: 86px;
+  height: 86px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-soft);
+}
+.welcome-name {
+  font-size: 24px;
+}
+.welcome-desc {
+  max-width: 520px;
+  line-height: 1.7;
+}
+.chip {
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-tight);
+}
+
+.msg {
+  max-width: min(760px, 88%);
+}
+.msg-bubble,
+.thinking-indicator {
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-tight);
+}
+.msg.user .msg-bubble {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border));
+}
+.msg.assistant .msg-bubble {
+  background: var(--surface);
+}
+.msg-avatar {
+  width: 30px;
+  height: 30px;
+}
+
+.chat-composer {
+  padding: 12px 32px 22px;
+}
+.composer-card {
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+.composer-card:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent), var(--shadow-soft);
+}
+.model-btn,
+.toolbar-btn,
+.remember-btn,
+.icon-btn,
+.hdr-btn,
+.hdr-btn-sm,
+.gc-icon-btn {
+  border-radius: 8px;
+}
+.send-btn:not(:disabled),
+.ob-btn-primary,
+.perm-go-btn,
+.ach-claim-btn {
+  background: var(--accent);
+  color: #fff;
+}
+.send-btn:not(:disabled):hover,
+.ob-btn-primary:hover,
+.perm-go-btn:hover {
+  background: var(--accent-strong);
+}
+
+.gc-group-avatar {
+  width: 44px;
+  height: 44px;
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+}
+.gc-member-avatar,
+.gc-typing-avatar,
+.gc-msg-avatar {
+  width: 36px;
+  height: 36px;
+}
+.gc-welcome-icon {
+  width: 68px;
+  height: 68px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.ob-name-avatar,
+.ob-addr2-avatar {
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+body.mode-companion #companionDock {
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
+.cd-ic {
+  overflow: hidden;
+}
+.cd-ic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.co-name {
+  color: var(--text);
+  text-shadow: none;
+}
+body.dark .co-name {
+  color: #F2F1ED;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 208px;
+    min-width: 208px;
+    padding: 0 8px;
+  }
+  .sidebar-identity {
+    grid-template-columns: 42px minmax(0,1fr);
+    padding: 10px;
+  }
+  .sidebar-avatar {
+    width: 42px;
+    height: 42px;
+  }
+  .overview-header,
+  .dashboard-wrap,
+  .settings-wrap,
+  .dashboard-header,
+  .chat-header,
+  .gc-topbar {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .chat-messages {
+    padding: 22px 20px;
+  }
+  .chat-composer {
+    padding: 10px 20px 18px;
+  }
+}
+
+@media (max-width: 700px) {
+  .sidebar {
+    width: 148px;
+    min-width: 148px;
+  }
+  .sidebar-identity {
+    display: none;
+  }
+  .logo-icon-img {
+    width: 24px;
+    height: 24px;
+  }
+  .logo-title {
+    display: none;
+  }
+  .nav-item {
+    font-size: 12px;
+    gap: 6px;
+  }
+  .agent-avatar-lg {
+    width: 40px;
+    height: 40px;
+  }
+  .welcome-avatar {
+    width: 72px;
+    height: 72px;
+  }
+  .msg {
+    max-width: 94%;
+  }
+}
+
+.settings-page {
+  color: var(--text);
+  max-width: 760px;
+}
+.settings-page h2,
+.settings-section h3,
+.settings-section label,
+.settings-section summary {
+  color: var(--text);
+}
+.settings-section h3 {
+  color: var(--muted);
+}
+body.dark .settings-page h2 {
+  color: #F2F1ED;
+}

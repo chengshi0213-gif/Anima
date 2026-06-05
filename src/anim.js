@@ -20,7 +20,7 @@ if (g) {
   } catch (_) {}
 }
 
-// 读当前人格的节奏倍率（--t-scale），陶朱<1 利落、守藏>1 沉静
+// 读当前模式的节奏倍率（--t-scale），不同模式可有不同动效速度
 function pace() {
   const v = parseFloat(getComputedStyle(document.body).getPropertyValue('--t-scale'));
   return Number.isFinite(v) && v > 0 ? v : 1;

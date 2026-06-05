@@ -226,7 +226,7 @@ const _WF_TYPE_BADGE = {
   router:    ['AI路由', '#dcfce7', '#166534'],
   loop:      ['循环', '#e0f2fe', '#0369a1'],
   human:     ['人审', '#fee2e2', '#991b1b'],
-  taozu:     ['陶朱', '#f3e8ff', '#6b21a8'],
+  taozu:     ['动态拆解', '#f3e8ff', '#6b21a8'],
 };
 
 function _wfBadge(r) {
@@ -375,7 +375,7 @@ window.wfRun = async function() {
         break;
       case 'taozu_expanded':
         _wfUpsertRow(ev.step, { note: { ...(_wfRows[_wfRowIdx[ev.step]]?.note||{}), sub_count: ev.sub_count } });
-        if (status) status.textContent = `陶朱展开「${ev.name||''}」为 ${ev.sub_count} 步…`;
+        if (status) status.textContent = `Anima 展开「${ev.name||''}」为 ${ev.sub_count} 步…`;
         _wfRenderRows();
         break;
       case 'step_done':
@@ -1021,7 +1021,7 @@ window.fwLoadEvents = async function() {
 //  多 Agent 群聊 UI
 // ══════════════════════════════════════════════════
 const GC_AGENT_META = {
-  xi:       { icon:'👩‍💼', avatarImg:'assets/xi-avatar.png', cls:'xi-bg'   },
+  xi:       { icon:'👩‍💼', avatarImg:'assets/anima-avatar.png', cls:'xi-bg'   },
   executor: { icon:'⚡',  cls:'executor-bg' },
   writer:   { icon:'✍️',  cls:'writer-bg'   },
   reader:   { icon:'📖',  cls:'reader-bg'   },
@@ -1035,7 +1035,7 @@ let agentNames  = {};   // {xi:'Anima', ...}
 let agentVoices = {};   // {xi:'zh-CN-YunxiNeural', ...}
 
 const DEFAULT_AGENT_META = {
-  xi:       { icon:'👩‍💼', avatarImg:'assets/xi-avatar.png', cls:'xi-bg'   },
+  xi:       { icon:'👩‍💼', avatarImg:'assets/anima-avatar.png', cls:'xi-bg'   },
   executor: { icon:'⚡',  cls:'executor-bg' },
   writer:   { icon:'✍️',  cls:'writer-bg'   },
   reader:   { icon:'📖',  cls:'reader-bg'   },
@@ -1139,7 +1139,7 @@ function gcRenderMembers() {
     const checked = GC_STATE.selectedAgents.has(id);
     return `
       <div class="gc-member ${checked?'':'inactive'}" onclick="gcToggleMember('${id}',this)">
-        <div class="gc-member-avatar ${meta.cls}">${meta.icon}</div>
+        ${meta.avatarImg ? '<div class="gc-member-avatar ' + meta.cls + ' msg-avatar-img"><img src="' + meta.avatarImg + '" alt="' + name + '"></div>' : '<div class="gc-member-avatar ' + meta.cls + '">' + meta.icon + '</div>'}
         <div class="gc-member-name">${name}</div>
         <div class="gc-member-check">✓</div>
       </div>`;
@@ -1147,7 +1147,7 @@ function gcRenderMembers() {
 
   // Update group meta
   const metaEl = document.getElementById('gcGroupMeta');
-  if (metaEl) metaEl.textContent = `${GC_STATE.selectedAgents.size} 位成员`;
+  if (metaEl) metaEl.textContent = '多 Agent 协作';
 }
 
 window.gcToggleMember = function(id, el) {
@@ -1160,7 +1160,7 @@ window.gcToggleMember = function(id, el) {
     el.classList.remove('inactive');
   }
   const metaEl = document.getElementById('gcGroupMeta');
-  if (metaEl) metaEl.textContent = `${GC_STATE.selectedAgents.size} 位成员`;
+  if (metaEl) metaEl.textContent = '多 Agent 协作';
 };
 
 function gcAddMessage(msgData) {
@@ -1182,7 +1182,7 @@ function gcAddMessage(msgData) {
     div.className = 'gc-typing';
     div.dataset.agent = agent;
     div.innerHTML = `
-      <div class="gc-typing-avatar ${meta.cls}">${meta.icon}</div>
+      ${meta.avatarImg ? '<div class="gc-typing-avatar ' + meta.cls + ' msg-avatar-img"><img src="' + meta.avatarImg + '" alt="' + displayName + '"></div>' : '<div class="gc-typing-avatar ' + meta.cls + '">' + meta.icon + '</div>'}
       <div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${displayName}</div>
         <div class="gc-typing-dots">
@@ -1379,7 +1379,7 @@ window.wfAiGenerate = async function() {
   // 编辑模式：把当前画布的步骤交给后端，让 AI 在其上修改而非从零重搭
   const current = (edit && wfStepList.length) ? wfStepList.slice() : null;
 
-  if (status) status.innerHTML = '⏳ 陶朱正在编排工作流…';
+  if (status) status.innerHTML = '⏳ Anima 正在编排工作流…';
   if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
 
   try {
@@ -1526,12 +1526,12 @@ function renderWfCanvas(steps) {
         inner = `
         <div class="wf-node-hdr">
           <span class="wf-node-step">步骤 ${i+1}</span>
-          <span class="wf-node-badge" style="color:#6b21a8;background:rgba(107,33,168,.12)">🏢 陶朱动态节点</span>
+          <span class="wf-node-badge" style="color:#6b21a8;background:rgba(107,33,168,.12)">🏢 动态拆解节点</span>
           <button class="wf-node-del" onclick="wfRemoveStep(${i})">✕</button>
         </div>
-        <textarea class="wf-node-prompt" rows="2" placeholder="一句话目标，运行时陶朱会现拆成子流程，例如：调研竞品并产出对比报告"
+        <textarea class="wf-node-prompt" rows="2" placeholder="一句话目标，运行时 Anima 会现拆成子流程，例如：调研竞品并产出对比报告"
           onchange="wfUpdateStep(${i},'goal',this.value)">${escapeHtml(s.goal||'')}</textarea>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px">运行时陶朱把这个目标编译成子工作流并就地执行——适合"具体步骤跑前才知道"的情况。</div>`;
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">运行时 Anima 把这个目标编译成子工作流并就地执行——适合"具体步骤跑前才知道"的情况。</div>`;
       } else {
         const a = agentInfo[s.agent] || { icon:'🤖', name: s.agent };
         inner = `

@@ -4,7 +4,7 @@
  */
 (function () {
   const PERSONAS = [
-    { id: 'xi', name: 'Anima', icon: '👩‍💼', col: '#C99A2E', tag: '私人助理 · 把一天收拢成秩序' },
+    { id: 'xi', name: 'Anima', icon: '👩‍💼', avatarImg: '/assets/anima-avatar.png', col: '#C99A2E', tag: '私人助理 · 把一天收拢成秩序' },
   ];
   const PMAP = {}; PERSONAS.forEach(p => PMAP[p.id] = p);
   const PSET = new Set(PERSONAS.map(p => p.id));
@@ -20,7 +20,7 @@
     dock.innerHTML =
       `<div class="cd-personas">${PERSONAS.map(p =>
         `<button class="cd-av" data-p="${p.id}" style="--c:${p.col}" title="${p.name}" onclick="dockSwitch('${p.id}')">
-           <span class="cd-ic">${p.icon}</span><span class="cd-name">${p.name}</span>
+           <span class="cd-ic">${p.avatarImg ? `<img src="${p.avatarImg}" alt="${p.name}">` : p.icon}</span><span class="cd-name">${p.name}</span>
          </button>`).join('')}</div>
        <div class="cd-sep"></div>
        <button class="cd-adv" onclick="setAppMode('workspace')" title="进入工作台（进阶全功能）">⊞ 进阶</button>`;

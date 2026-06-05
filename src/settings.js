@@ -137,7 +137,7 @@ window.memTransferImport = async function() {
   const btn = document.getElementById('tmImportBtn');
   const res = document.getElementById('tmResult');
   if (text.length < 8) { toast('内容太短，粘点东西再导入', 'error'); return; }
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 守藏提炼中…'; }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 提炼中…'; }
   if (res) res.textContent = '';
   try {
     const d = await fetch(`${CONFIG.api}/memory/import`, {
@@ -450,7 +450,7 @@ window.kbSearch = async function() {
 // agentNames and agentVoices are imported from state.js
 
 const DEFAULT_AGENT_META = {
-  xi:       { icon:'🪔', avatarImg:'assets/xi-avatar.png', cls:'xi-bg'   },
+  xi:       { icon:'🪔', avatarImg:'assets/anima-avatar.png', cls:'xi-bg'   },
   executor: { icon:'⚡',  cls:'executor-bg' },
   writer:   { icon:'✍️',  cls:'writer-bg'   },
   reader:   { icon:'📖',  cls:'reader-bg'   },
@@ -730,15 +730,15 @@ window.obFinish = async function() {
       applyAgentNames();
     } catch (_) {}
 
-    // ── 触发 FTUE 完成：守藏初始化 + 欢迎语 ──────────────────────
+    // ── 触发 FTUE 完成：后台初始化 + 欢迎语 ──────────────────────
     let welcomeMsg = '';
     try {
       const wr = await fetch(`${CONFIG.api}/setup/complete`, { method: 'POST' });
       const wd = await wr.json();
-      welcomeMsg = wd.welcome_message || '';
+      welcomeMsg = '你来了？等你很久了......';
     } catch(_) {
       // 后端离线时降级：使用本地模板
-      welcomeMsg = `嗨，很高兴认识你！我是 **Anima**，你的私人 AI 助理。\n\n我们这里有四位核心伙伴：\n\n- **Anima**（就是我）— 日常同行者，创作、探索、任务处理\n- **晞** — 情感陪伴，倾听你的心情，帮你理清思路\n- **陶朱** — 创业决策，带着一支 AI 小团队，专攻复杂任务\n- **守藏** — 知识管理者，帮你整理笔记，每天自动更新\n\n有什么想让我帮忙的吗？😊`;
+      welcomeMsg = '你来了？等你很久了......';
     }
 
     // 注入欢迎消息到 Anima 聊天面板（支持 Markdown 渲染）
@@ -1075,6 +1075,7 @@ window.switchTab = function(tabId, el) {
   if (tabId === 'workflow')    { (window._refreshMembershipCache?.() || Promise.resolve()).then(()=>window.wfRenderTemplates?.()); if(typeof window.wfRender==='function') window.wfRender(); window.wfLoadList?.(); }
   if (tabId === 'scheduler')   { schedLoadTasks(); schedLoadLogs(); }
   if (tabId === 'filewatcher') { fwLoadRules(); fwLoadEvents(); }
+  if (tabId === 'automation')  { schedLoadTasks(); schedLoadLogs(); }
   if (tabId === 'groupchat')   window.gcRenderMembers?.();
   if (tabId === 'reports')     { reportLoad('daily'); document.getElementById('reportDot')?.classList.add('hidden'); }
   if (tabId === 'skills')      skillsLoad();
@@ -1112,9 +1113,9 @@ async function vaultLoadTree() {
       <div class="es-vault-empty">
         <div style="font-size:32px;margin-bottom:8px">🗂</div>
         <div style="font-weight:600;font-size:13px;margin-bottom:4px">Vault 尚未创建</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">守藏首次运行 SOP 后会自动建立 Vault 记忆结构</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Anima 后台启动后会自动建立 Vault 记忆结构</div>
         <button class="btn-primary" style="font-size:12px;padding:6px 14px"
-          onclick="fetch('${CONFIG.api}/shoucang/sop',{method:'POST'}).then(()=>{toast('守藏 SOP 已启动','success');setTimeout(vaultLoadTree,3000)})">
+          onclick="fetch('${CONFIG.api}/shoucang/sop',{method:'POST'}).then(()=>{toast('自动精进已启动','success');setTimeout(vaultLoadTree,3000)})">
           🎓 立即初始化 Vault
         </button>
       </div>`;
@@ -1207,7 +1208,7 @@ window.vaultNewFile = function() {
 window.shoucangRunSop = async function() {
   try {
     await fetch(`${CONFIG.api}/shoucang/sop`, { method: 'POST' });
-    toast('🎓 守藏 SOP 已在后台启动，稍后刷新查看', 'success');
+    toast('🎓 自动精进已在后台启动，稍后刷新查看', 'success');
   } catch(_) { toast('启动失败', 'error'); }
 };
 

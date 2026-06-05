@@ -80,6 +80,30 @@ window.handleCmdKey = function(e) {
   if (e.key === 'Enter') { if (cmdFocusIdx>=0) window.execCmd(cmdFocusIdx); else if (cmdItems.length) window.execCmd(0); }
 };
 
+function applyThemeSwitchState(dark) {
+  document.getElementById('themeToggle')?.classList.toggle('on', dark);
+}
+
+window.toggleTheme = function() {
+  const dark = document.body.classList.toggle('dark');
+  localStorage.setItem('anima-theme', dark ? 'dark' : 'light');
+  applyThemeSwitchState(dark);
+};
+
+window.switchAutomationPane = function(pane, btn) {
+  document.querySelectorAll('.automation-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.automation-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`automation-${pane}`)?.classList.add('active');
+  btn?.classList.add('active');
+
+  if (pane === 'scheduler') { window.schedLoadTasks?.(); window.schedLoadLogs?.(); }
+  if (pane === 'filewatcher') { window.fwLoadRules?.(); window.fwLoadEvents?.(); }
+};
+
+if (localStorage.getItem('anima-theme') === 'dark') {
+  document.body.classList.add('dark');
+}
+
 // ══════════════════════════════════════════════════
 //  全局快捷键
 // ══════════════════════════════════════════════════
@@ -96,6 +120,8 @@ document.addEventListener('keydown', e => {
 //  初始化
 // ══════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
+  applyThemeSwitchState(document.body.classList.contains('dark'));
+
   // 1. 等待后端就绪
   let ok = false;
   for (let i = 0; i < 20 && !ok; i++) {

@@ -20,7 +20,7 @@ export const CONFIG = {
 };
 
 export const AGENTS = {
-  xi:       { id:'xi',   name:'Anima', icon:'👩‍💼', avatarImg:'assets/xi-avatar.png', title:'可依靠的她',  colorClass:'xi-bg'   },
+  xi:       { id:'xi',   name:'Anima', icon:'👩‍💼', avatarImg:'assets/anima-avatar.png', title:'可依靠的她',  colorClass:'xi-bg'   },
   executor: { id:'executor', name:'执行者', icon:'⚡',  title:'任务执行',   colorClass:'executor-bg' },
   writer:   { id:'writer',   name:'写手',   icon:'✍️',  title:'内容创作',   colorClass:'writer-bg'   },
   reader:   { id:'reader',   name:'阅读者', icon:'📖',  title:'文档阅读',   colorClass:'reader-bg'   },
@@ -69,7 +69,7 @@ export const DEFAULT_AGENT_NAMES = {
 };
 
 export const DEFAULT_AGENT_META = {
-  xi:       { icon:'👩‍💼', avatarImg:'assets/xi-avatar.png', cls:'xi-bg'   },
+  xi:       { icon:'👩‍💼', avatarImg:'assets/anima-avatar.png', cls:'xi-bg'   },
   executor: { icon:'⚡',  cls:'executor-bg' },
   writer:   { icon:'✍️',  cls:'writer-bg'   },
   reader:   { icon:'📖',  cls:'reader-bg'   },

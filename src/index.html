@@ -8,9 +8,6 @@
 </head>
 <body>
 
-<!-- 沉浸人格世界（WebGL，铺在最底层；fx-on 时透出，可在设置关闭）-->
-<canvas id="persona-fx"></canvas>
-
 <!-- ══════════════════════════════════════
      左侧边栏
 ══════════════════════════════════════ -->
@@ -19,7 +16,7 @@
   <!-- 顶部：Logo + 新对话 -->
   <div class="sidebar-top">
     <div class="logo">
-      <img src="/assets/icon.png" class="logo-icon-img" alt="Anima">
+      <img src="/assets/anima-avatar.png" class="logo-icon-img" alt="Anima">
       <span class="logo-title" id="appLogoTitle">Anima</span>
     </div>
     <button class="new-chat-btn" onclick="setAppMode('companion')" title="返回陪伴模式（极简）" style="margin-right:6px">
@@ -30,6 +27,14 @@
         <path d="M12 5v14M5 12h14"/>
       </svg>
     </button>
+  </div>
+
+  <div class="sidebar-identity">
+    <img src="/assets/anima-avatar.png" class="sidebar-avatar" alt="Anima">
+    <div class="sidebar-identity-copy">
+      <div class="sidebar-identity-name">Anima</div>
+      <div class="sidebar-identity-meta"><span></span> 身无彩凤双飞翼，心有灵犀一点通</div>
+    </div>
   </div>
 
   <!-- 主导航 -->
@@ -66,15 +71,8 @@
 
     <div class="nav-section-label">工具</div>
 
-    <div class="nav-item" data-tab="knowledge" onclick="switchTab('knowledge',this)">
-      <span class="nav-icon">📚</span> 知识&记忆
-    </div>
     <div class="nav-item" data-tab="workflow" onclick="switchTab('workflow',this)">
       <span class="nav-icon">⚡</span> 工作流
-    </div>
-    <div class="nav-item" data-tab="reports" onclick="switchTab('reports',this)">
-      <span class="nav-icon">📈</span> 日报/周报
-      <span class="agent-dot report-dot hidden" id="reportDot"></span>
     </div>
     <div class="nav-item" data-tab="skills" onclick="switchTab('skills',this)">
       <span class="nav-icon">🧩</span> Skill 墙
@@ -82,14 +80,8 @@
     <div class="nav-item" data-tab="achievements" onclick="switchTab('achievements',this)">
       <span class="nav-icon">🏅</span> 成就 · 灵犀
     </div>
-    <div class="nav-item" data-tab="scheduler" onclick="switchTab('scheduler',this)">
-      <span class="nav-icon">🕐</span> 定时任务
-    </div>
-    <div class="nav-item" data-tab="filewatcher" onclick="switchTab('filewatcher',this)">
-      <span class="nav-icon">👁</span> 文件监视
-    </div>
-    <div class="nav-item" data-tab="groupchat" onclick="switchTab('groupchat',this)">
-      <span class="nav-icon">💬</span> 群聊
+    <div class="nav-item" data-tab="automation" onclick="switchTab('automation',this)">
+      <span class="nav-icon">⚡</span> 自动化
     </div>
   </div>
 
@@ -103,9 +95,6 @@
 
   <!-- 底部：设置 + 状态 -->
   <div class="sidebar-footer">
-    <div class="fx-toggle" id="fxToggle" onclick="window.PersonaFX&&window.PersonaFX.toggle()" title="人格沉浸特效开关">
-      <span class="fx-switch"></span> 沉浸特效
-    </div>
     <div class="nav-item" data-tab="settings" onclick="switchTab('settings',this)">
       <span class="nav-icon">⚙️</span> 设置
     </div>
@@ -201,7 +190,7 @@
     <div class="chat-wrap" data-agent="xi">
       <div class="chat-header">
         <div class="agent-info">
-          <div class="agent-avatar-lg xi-bg">🤖</div>
+          <div class="agent-avatar-lg xi-bg agent-avatar-img-lg"><img src="/assets/anima-avatar.png" alt="Anima"></div>
           <div>
             <div class="agent-name">Anima</div>
             <div class="agent-meta" id="meta-xi">私人助理 · 连接中…</div>
@@ -215,7 +204,7 @@
       </div>
       <div class="chat-messages" id="messages-xi">
         <div class="chat-welcome">
-          <div class="welcome-avatar xi-bg">🤖</div>
+          <div class="welcome-avatar xi-bg welcome-avatar-img"><img src="/assets/anima-avatar.png" alt="Anima"></div>
           <div class="welcome-name">Anima</div>
           <div class="welcome-desc">私人助理 · 文件操作 · 代码搜索 · 脚本执行</div>
           <div class="welcome-chips">
@@ -407,15 +396,21 @@
     </div>
   </div>
 
-  <!-- ── 定时任务 ── -->
-  <div class="tab-panel" id="tab-scheduler">
+  <!-- ── 自动化 ── -->
+  <div class="tab-panel" id="tab-automation">
     <div class="dash-wrap">
       <div class="dash-header">
-        <h1 class="dash-title">🕐 定时任务</h1>
-        <span style="font-size:13px;color:var(--muted)">让 Agent 定时自动工作</span>
+        <h1 class="dash-title">⚡ 自动化</h1>
+        <span style="font-size:13px;color:var(--muted)">定时或文件变动触发 Agent 自动工作</span>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+      <div class="automation-tabs">
+        <button class="automation-tab-btn active" id="autoTabScheduler" onclick="switchAutomationPane('scheduler',this)">⏰ 定时触发</button>
+        <button class="automation-tab-btn" id="autoTabFilewatcher" onclick="switchAutomationPane('filewatcher',this)">👁 文件触发</button>
+      </div>
+
+      <div class="automation-pane active" id="automation-scheduler">
+        <div class="automation-grid">
         <!-- 左：新建任务 -->
         <div class="card">
           <h3 style="margin-bottom:14px">新建定时任务</h3>
@@ -467,16 +462,9 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ── 文件监视 ── -->
-  <div class="tab-panel" id="tab-filewatcher">
-    <div class="dash-wrap">
-      <div class="dash-header">
-        <h1 class="dash-title">👁 文件监视</h1>
-        <span style="font-size:13px;color:var(--muted)">目录变动 → 自动触发 Agent</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+      <div class="automation-pane" id="automation-filewatcher">
+        <div class="automation-grid">
         <!-- 新建规则 -->
         <div class="card">
           <h3 style="margin-bottom:14px">新建监视规则</h3>
@@ -525,6 +513,7 @@
       </div>
     </div>
   </div>
+  </div>
 
   <!-- ── 群聊 ── -->
   <div class="tab-panel" id="tab-groupchat">
@@ -534,10 +523,10 @@
         <!-- 群聊顶栏 -->
         <div class="gc-topbar">
           <div class="gc-topbar-left">
-            <div class="gc-group-avatar">🤝</div>
+            <div class="gc-group-avatar"><img src="/assets/anima-avatar.png" alt="Anima 团队"></div>
             <div>
               <div class="gc-group-name" id="gcGroupName">Anima 团队</div>
-              <div class="gc-group-meta" id="gcGroupMeta">4 位成员</div>
+              <div class="gc-group-meta" id="gcGroupMeta">多 Agent 协作</div>
             </div>
           </div>
           <div class="gc-topbar-right">
@@ -692,6 +681,17 @@
 
       <!-- 权限请求卡片区（动态注入） -->
       <div id="permRequestArea"></div>
+
+      <!-- ══ 外观 ══ -->
+      <div class="settings-section">
+        <h3>🎨 外观</h3>
+        <div class="setting-row">
+          <label>夜间模式</label>
+          <div class="theme-toggle settings-theme-toggle" id="themeToggle" onclick="toggleTheme()" title="切换夜间模式">
+            <span class="theme-switch" id="themeSwitch"></span>
+          </div>
+        </div>
+      </div>
 
       <!-- ══ 会员状态 ══ -->
       <div class="settings-section" id="membershipSection">
@@ -1309,9 +1309,9 @@
 
     <!-- Step 1: 欢迎 -->
     <div class="ob-page" id="ob-page-1">
-      <div class="ob-hero"><img src="/assets/icon.png" style="width:72px;height:72px;border-radius:16px"></div>
+      <div class="ob-hero"><img src="/assets/anima-avatar.png" style="width:72px;height:72px;border-radius:16px;object-fit:cover" alt="Anima"></div>
       <h2 class="ob-title" data-i18n="ob.welcome.title">欢迎使用 Anima</h2>
-      <p class="ob-desc" data-i18n="ob.welcome.desc">Anima 是你的本地 AI 多智能体工作台。<br>接下来只需要 2 分钟完成配置。</p>
+      <p class="ob-desc" data-i18n="ob.welcome.desc">身无彩凤双飞翼，心有灵犀一点通。<br>接下来只需要 2 分钟完成配置。</p>
       <div class="ob-feature-list">
         <div class="ob-feature">🪔 <b>Anima</b> — 可依靠的她：接得住情绪，也能替你做事</div>
         <div class="ob-feature">🔮 通命理 · 能写代码 · 大事调团队</div>
@@ -1380,7 +1380,7 @@
       <p class="ob-desc">Anima 是你唯一的伴，她的名字由系统固定。</p>
       <div class="ob-name-grid">
         <div class="ob-name-row">
-          <span class="ob-name-icon">🤖</span>
+          <span class="ob-name-icon ob-name-avatar"><img src="/assets/anima-avatar.png" alt="Anima"></span>
           <div>
             <div class="ob-name-role">核心同行者 · 日常 + 创作 + 探索</div>
             <div class="ob-name-fixed-label">Anima</div>
@@ -1399,7 +1399,7 @@
       <p class="ob-desc">每位伙伴可以有自己的叫法，也可以都一样。<br>留空则用你的名字 — 日后随时能改。</p>
       <div class="ob-addr2-list">
         <label class="ob-addr2-row" style="--accent:#d9b15e" for="obAddrXi">
-          <span class="ob-addr2-av xi-bg">🤖</span>
+          <span class="ob-addr2-av xi-bg ob-addr2-avatar"><img src="/assets/anima-avatar.png" alt="Anima"></span>
           <span class="ob-addr2-meta"><b>Anima</b><i>核心同行者</i></span>
           <input type="text" id="obAddrXi" class="ob-addr2-input" placeholder="你的名字 / 老板" maxlength="20">
         </label>
@@ -1433,8 +1433,6 @@
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
 </button>
 
-<!-- 沉浸人格世界引擎（原生 WebGL，无依赖）-->
-<script src="/persona-fx.js"></script>
 <script src="/companion.js"></script>
 <script src="/soul.js"></script>
 

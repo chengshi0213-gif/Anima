@@ -37,8 +37,8 @@
     human: { t: '人审', c: '#dc2626', i: 1, o: 1, html: (d) =>
       `<div class="wfx-hd"><i class="wfx-dot" style="background:#dc2626"></i>人审闸门</div>
        <textarea df-message class="wfx-ta" placeholder="请用户审核什么…">${d.message || ''}</textarea>` },
-    taozu: { t: '陶朱', c: '#6b21a8', i: 1, o: 1, html: (d) =>
-      `<div class="wfx-hd"><i class="wfx-dot" style="background:#6b21a8"></i>陶朱·动态拆解</div>
+    taozu: { t: '动态拆解', c: '#6b21a8', i: 1, o: 1, html: (d) =>
+      `<div class="wfx-hd"><i class="wfx-dot" style="background:#6b21a8"></i>Anima·动态拆解</div>
        <textarea df-goal class="wfx-ta" placeholder="一句话目标，运行时拆成子流程…">${d.goal || ''}</textarea>` },
     merge: { t: '合流', c: '#64748b', i: 2, o: 1, html: () =>
       `<div class="wfx-hd"><i class="wfx-dot" style="background:#64748b"></i>合流</div>

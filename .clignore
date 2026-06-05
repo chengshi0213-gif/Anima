@@ -1,0 +1,13 @@
+node_modules/
+src-tauri/target/
+backend/__pycache__/
+backend/dist/
+backend/build/
+backend/.pytest_cache/
+landing/Anima_*.exe
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+.git/

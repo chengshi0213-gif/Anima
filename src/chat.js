@@ -19,8 +19,6 @@ function applyAgentTheme(tabId) {
   const theme = AGENT_THEME_MAP[tabId];
   if (theme) document.body.dataset.agent = theme;
   else delete document.body.dataset.agent;
-  // 沉浸世界跟随切换（仅四主人格有世界；其余隐藏）
-  window.PersonaFX?.setMode(theme || tabId);
 }
 
 window.switchTab = function(tabId, el) {
@@ -47,11 +45,11 @@ window.switchTab = function(tabId, el) {
 };
 
 // ══════════════════════════════════════════════════
-//  陶朱团队展开/折叠
+//  团队展开/折叠
 // ══════════════════════════════════════════════════
 window.toggleTeam = function(e) {
   e.stopPropagation();
-  // 陶朱团队展开/折叠已移除（人格合并），保留空函数避免调用报错
+  // 团队展开/折叠已移除（人格合并），保留空函数避免调用报错
 };
 
 // ══════════════════════════════════════════════════
@@ -231,9 +229,12 @@ window.clearChat = function(agentId) {
   const box = document.getElementById(`messages-${agentId}`);
   if (!box) return;
   const agent = AGENTS[agentId];
+  const avatar = agent.avatarImg
+    ? `<div class="welcome-avatar ${agent.colorClass} welcome-avatar-img"><img src="${agent.avatarImg}" alt="${agent.name}"></div>`
+    : `<div class="welcome-avatar ${agent.colorClass}">${agent.icon}</div>`;
   box.innerHTML = `
     <div class="chat-welcome">
-      <div class="welcome-avatar ${agent.colorClass}">${agent.icon}</div>
+      ${avatar}
       <div class="welcome-name">${agent.name}</div>
       <div class="welcome-desc">${agent.title}</div>
     </div>`;

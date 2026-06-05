@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>陶朱控制台</title>
+<title>Anima 控制台</title>
 <style>
 :root {
   --bg: #0D0D1A; --sidebar: #141425; --border: #2A2A45;
@@ -91,14 +91,14 @@ body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei
 
 <div class="sidebar">
   <div class="sidebar-header">
-    <h2>陶朱控制台</h2>
-    <p>Taozhu Console</p>
+    <h2>Anima 控制台</h2>
+    <p>Anima Console</p>
   </div>
   <div class="sidebar-nav">
     <div class="nav-section">员工</div>
     <div class="nav-item active" data-agent="xi" onclick="switchAgent('xi',this)">🤖 Anima</div>
-    <div class="nav-item" data-agent="yiyi" onclick="switchAgent('yiyi',this)">🌸 晞</div>
-    <div class="nav-item" data-agent="tianyuan" onclick="switchAgent('tianyuan',this)">🏢 陶朱</div>
+    <div class="nav-item" data-agent="yiyi" onclick="switchAgent('yiyi',this)">🌸 情感通道</div>
+    <div class="nav-item" data-agent="tianyuan" onclick="switchAgent('tianyuan',this)">🏢 任务通道</div>
     <div class="nav-section">功能</div>
     <div class="nav-item" onclick="window.open('http://127.0.0.1:9119')">📊 Dashboard</div>
     <div class="nav-item" onclick="window.open('http://127.0.0.1:9119/kanban')">📋 Kanban</div>
@@ -125,8 +125,8 @@ let agent = 'xi';
 
 const EMPLOYEES = {
   xi:  { name:'Anima', icon:'🤖', title:'私人助理', color:'#7B9CC2', ws:'/ws/xi', quota:1000 },
-  yiyi:    { name:'晞',   icon:'🌸', title:'情感伙伴', color:'#E8A87C', ws:'/ws/yiyi', quota:200 },
-  tianyuan:{ name:'陶朱',   icon:'🏢', title:'创业CEO',  color:'#6B9080', ws:'/ws/tianyuan', quota:800 },
+  yiyi:    { name:'情感通道', icon:'🌸', title:'情感支持', color:'#E8A87C', ws:'/ws/yiyi', quota:200 },
+  tianyuan:{ name:'任务通道', icon:'🏢', title:'任务编排', color:'#6B9080', ws:'/ws/tianyuan', quota:800 },
 };
 
 function switchAgent(id, el) {
@@ -134,7 +134,7 @@ function switchAgent(id, el) {
   document.querySelectorAll('.nav-item[data-agent]').forEach(n => n.classList.remove('active'));
   if (el) el.classList.add('active');
   document.getElementById('pageTitle').innerHTML = `${EMPLOYEES[id].icon} ${EMPLOYEES[id].name}`;
-  document.title = `${EMPLOYEES[id].name} · 陶朱`;
+  document.title = `${EMPLOYEES[id].name} · Anima`;
   refresh();
 }
 
@@ -195,7 +195,7 @@ function render(usage, status) {
     </div>
 
     <div class="card">
-      <h3>👥 陶朱团队</h3>
+      <h3>👥 Anima 团队</h3>
       ${['deepseek-executor','qwen-writer','kimi-reader','claude-critic'].map((w,i) => `
         <div class="worker-row">
           <span class="worker-name"><span class="worker-dot ${i===0?'busy':'online'}"></span>${w}</span>

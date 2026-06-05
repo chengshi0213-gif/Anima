@@ -139,7 +139,7 @@ function renderOverview(usage, statusAll, skillsData = {}, membershipData = {}) 
     return `
       <div class="glass agent-tile" style="--ag:${AGCOL[id]}" onclick="switchTab('${id}',document.querySelector('[data-tab=${id}]'))">
         <div class="agent-tile-top">
-          <div class="agent-tile-av ${agent.colorClass}">${agent.icon}</div>
+          <div class="agent-tile-av ${agent.colorClass} ${agent.avatarImg ? 'msg-avatar-img' : ''}">${agent.avatarImg ? `<img src="${agent.avatarImg}" alt="${agent.name}">` : agent.icon}</div>
           <span class="pill ${pillCls}"><span class="pdot"></span>${pillText}</span>
         </div>
         <div class="agent-tile-name">${agent.name}</div>
@@ -194,7 +194,7 @@ function renderOverview(usage, statusAll, skillsData = {}, membershipData = {}) 
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px;font-size:12px;color:var(--muted)">
         <span>共 <b style="color:var(--text)">${summary.total||0}</b> 个</span><span>·</span>
-        <span>守藏升级 <b style="color:var(--text)">${summary.upgraded||0}</b> 次</span><span>·</span>
+        <span>自动精进 <b style="color:var(--text)">${summary.upgraded||0}</b> 次</span><span>·</span>
         <span>均质 <b style="color:var(--text)">${summary.avg_score?summary.avg_score.toFixed(1):'-'}</b></span>
       </div>
       <div class="skill-mini-row">${skillMini}</div>
@@ -230,11 +230,11 @@ function renderOverview(usage, statusAll, skillsData = {}, membershipData = {}) 
 let kanbanTasks = JSON.parse(localStorage.getItem('animaKanban') || 'null') || {
   todo: [
     { id:1, title:'配置 API 密钥', meta:'Anima · 待处理' },
-    { id:2, title:'上传项目文档给守藏分析', meta:'守藏 · 待处理' },
+    { id:2, title:'整理项目文档', meta:'Anima · 待处理' },
   ],
   inprogress: [],
   done: [
-    { id:3, title:'搭建 Anima v1.0 UI', meta:'陶朱 · 已完成' },
+    { id:3, title:'搭建 Anima v1.0 UI', meta:'Anima · 已完成' },
   ],
 };
 let nextTaskId = 10;
@@ -313,7 +313,7 @@ window.addKanbanTask = function() {
 };
 
 // ══════════════════════════════════════════════════
-//  陶朱子员工详情页（含完整对话界面）
+//  子员工详情页（含完整对话界面）
 // ══════════════════════════════════════════════════
 export function renderWorkerDetail(wrap, workerId) {
   const w = WORKER_DETAILS[workerId];
@@ -572,7 +572,7 @@ function _skillTier(s) {
     + Math.min((s.tags || []).length, 5) * 1.5 + ((s.description || '').length > 40 ? 4 : 0);
   const mature = Math.min((s.version || 1) - 1, 5) * 2;
   const Q = Math.round(srcBase + quality + complete + mature);
-  // 历练 M：使用次数 + 守藏为我精进的次数
+  // 历练 M：使用次数 + 自动精进次数
   const upg = (s.improvement_log && s.improvement_log.length) || Math.max(0, (s.version || 1) - 1);
   const M = Math.round((s.usage_count || 0) * 1.5 + upg * 12);
   const total = Q + M;
@@ -608,7 +608,7 @@ function _renderSkillWall(cat) {
       </div>
       <div class="sk-desc">${s.description || ''}</div>
       <div class="sk-uses">${(s.use_cases || []).slice(0, 4).map(u => `<span class="sk-use">${u}</span>`).join('')}</div>
-      <div class="sk-foot" title="段位 = 品质(来源·内在评分·完整度·成熟度) + 历练(使用·守藏精进)">
+      <div class="sk-foot" title="段位 = 品质(来源·内在评分·完整度·成熟度) + 历练(使用·自动精进)">
         <span>品质 ${t.Q}<span style="opacity:.5"> · </span>历练 ${t.M}</span>
         <span class="grow">${t.next ? `距${t.next.name} ${t.next.min - t.total}` : '✦ 满阶'}</span>
       </div>
@@ -649,7 +649,7 @@ async function skillsLoad() {
       sumRow.innerHTML = `
         <div class="num-tile glass"><div class="nt-label">Skill 总数</div><div class="nt-value">${summary.total||0}</div><div class="nt-sub">能力模块</div></div>
         <div class="num-tile glass"><div class="nt-label">内置 / 社区</div><div class="nt-value">${summary.builtin||0}<span style="font-size:18px;color:var(--muted)"> / ${summary.community||0}</span></div><div class="nt-sub">官方 / 社区</div></div>
-        <div class="num-tile glass"><div class="nt-label">守藏升级</div><div class="nt-value">${summary.upgraded||0}</div><div class="nt-sub">次自我精进</div></div>
+        <div class="num-tile glass"><div class="nt-label">精进记录</div><div class="nt-value">${summary.upgraded||0}</div><div class="nt-sub">次自动精进</div></div>
         <div class="num-tile glass"><div class="nt-label">平均掌握</div><div class="nt-value">${summary.avg_score?summary.avg_score.toFixed(1):'–'}<span style="font-size:18px;color:var(--muted)">/5</span></div><div class="nt-sub">段位均值</div></div>`;
     }
     // Skill 网格
@@ -659,9 +659,9 @@ async function skillsLoad() {
           <div class="empty-state-box" style="grid-column:1/-1">
             <div class="es-emoji">🧩</div>
             <div class="es-title">Skill 墙还没有积木</div>
-            <div class="es-desc">Skill 是 Anima 的专项能力模块<br>守藏会在每日 SOP 后自动分析对话，为低分 Skill 自动升级</div>
+            <div class="es-desc">Skill 是 Anima 的专项能力模块<br>Anima 会在后台自动分析对话，为低分 Skill 自动升级</div>
             <div class="es-actions">
-              <button class="btn-primary" onclick="fetch('${CONFIG.api}/shoucang/sop',{method:'POST'}).then(()=>toast('守藏 SOP 已启动','success'))">📜 立即运行守藏 SOP</button>
+              <button class="btn-primary" onclick="fetch('${CONFIG.api}/shoucang/sop',{method:'POST'}).then(()=>toast('自动精进已启动','success'))">📜 立即运行自动精进</button>
               <button class="hdr-btn-sm" onclick="document.getElementById('skillInstallUrl')?.focus()">📦 安装社区 Skill</button>
             </div>
             <div class="es-hint">首次运行 SOP 后，内置 Skill 将自动出现</div>
@@ -693,7 +693,7 @@ async function skillsLoad() {
             </div>`)
         ).join('');
       } else {
-        growthEl.textContent = '守藏尚未升级过任何 Skill。每天夜间，守藏会自动分析聊天记录并改进低分 Skill。';
+        growthEl.textContent = 'Anima 尚未自动精进过任何 Skill。每天夜间会自动分析聊天记录并改进低分 Skill。';
       }
     }
   } catch(e) {
