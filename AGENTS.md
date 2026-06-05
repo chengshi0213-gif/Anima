@@ -29,9 +29,11 @@ backend/agent_base.py        ← ReAct 核心，改错全挂
 backend/capabilities.py      ← 能力积木，改了测试就红
 backend/orchestrator.py      ← 子员工编排，受控递归逻辑
 backend/persona.py           ← 人格卡，只改文字不改结构
-backend/*_worker.py          ← 所有子员工（7个），不要轻易改
 src-tauri/src/               ← Rust 层，不碰
 ```
+
+**worker 文件说明**：`xi_worker.py` 顶部的工具函数（`_list_dir`/`_shell_run` 等）是可以改的，
+改的是工具实现，不是 agent 类本身。真正的禁区是 `XiWorker` 类和其他子员工的 agent 逻辑。
 
 ---
 

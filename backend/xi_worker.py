@@ -88,11 +88,30 @@ def _search_code(pattern: str, path: str = ".", file_glob: str = "*", limit: int
     except Exception as e:
         return {"error": str(e)}
 
-_FORBIDDEN = {"rm -rf /", "format", "del /f /s /q c:\\", "shutdown", "mkfs", ":(){:|:&};:"}
+import re as _re
+
+# 精确危险命令检测（替换旧的裸子串匹配，避免误杀 npm run format / git log --format 等正常命令）
+def _is_dangerous(cmd: str) -> bool:
+    low = cmd.strip().lower()
+    # Windows 磁盘格式化：format c: / format d: / format /dev/...
+    if _re.search(r'\bformat\s+[a-z]:', low) or _re.search(r'\bformat\s+/dev/', low):
+        return True
+    # Unix 根目录递归删除
+    if _re.search(r'rm\s+.*-[^\s]*r.*\s+/', low) or "rm -rf /" in low:
+        return True
+    # Windows 强制删除系统盘
+    if "del /f /s /q c:\\" in low or "del /f /s /q c:/" in low:
+        return True
+    # 关机/格盘/fork炸弹
+    if _re.search(r'\bshutdown\b', low) or _re.search(r'\bmkfs\b', low):
+        return True
+    if ":(){:|:&};:" in cmd:
+        return True
+    return False
+
 
 def _shell_run(command: str, timeout: int = 60, cwd: str | None = None) -> dict:
-    low = command.lower()
-    if any(bad in low for bad in _FORBIDDEN):
+    if _is_dangerous(command):
         return {"error": f"命令被安全策略拒绝: {command[:80]}"}
     try:
         result = subprocess.run(
