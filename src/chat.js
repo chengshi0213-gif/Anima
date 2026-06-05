@@ -2,7 +2,7 @@
  * Anima — chat.js
  * Tab 切换、聊天 UI、模型选择器、文件上传、侧边栏历史
  */
-import { CONFIG, AGENTS, WORKER_DETAILS, wsStatus, chatState, pendingFiles, selectedModel, runtime, escHtml, formatTime, toast, agentAvatarHtml, scrollBottom } from './state.js';
+import { CONFIG, AGENTS, WORKER_DETAILS, wsStatus, chatState, pendingFiles, selectedModel, runtime, escHtml, markdownToHtml, formatTime, toast, agentAvatarHtml, scrollBottom } from './state.js';
 import { wsSend } from './ws.js';
 
 // ══════════════════════════════════════════════════
@@ -86,6 +86,13 @@ window.sendMessage = function(agentId) {
   updateSendBtn(agentId);
 };
 
+window.stopMessage = function(agentId) {
+  import('./ws.js').then(m => {
+    const send = m.sendWS || m.wsSend;
+    if (send) send(agentId, { action: 'cancel' });
+  });
+};
+
 export function appendUserMsg(agentId, text, files = []) {
   const box = document.getElementById(`messages-${agentId}`);
   if (!box) return;
@@ -124,7 +131,7 @@ export function appendAssistantMsg(agentId, data) {
   div.innerHTML = `
     ${agentAvatarHtml(agent)}
     <div class="msg-body">
-      <div class="msg-bubble">${escHtml(data.summary || '（完成）')}</div>
+      <div class="msg-bubble">${markdownToHtml(data.summary || '（完成）')}</div>
       ${toolHtml}
       <div class="msg-meta">${agent.name} · ${formatTime(new Date())} · ${selectedModel[agentId]}</div>
     </div>`;
@@ -132,6 +139,38 @@ export function appendAssistantMsg(agentId, data) {
   scrollBottom(agentId);
 }
 window.appendAssistantMsg = appendAssistantMsg;
+
+export function appendAssistantDelta(agentId, content) {
+  if (!content) return;
+  const box = document.getElementById(`messages-${agentId}`);
+  if (!box) return;
+  document.querySelector(`#messages-${agentId} .chat-welcome`)?.remove();
+
+  let div = box.querySelector('.streaming-msg');
+  if (!div) {
+    removeThinking(agentId);
+    const agent = AGENTS[agentId];
+    div = document.createElement('div');
+    div.className = 'msg assistant streaming-msg';
+    div.innerHTML = `
+      ${agentAvatarHtml(agent)}
+      <div class="msg-body">
+        <div class="msg-bubble"><span class="msg-content"></span></div>
+        <div class="msg-meta">${agent.name} · ${formatTime(new Date())} · ${selectedModel[agentId]}</div>
+      </div>`;
+    box.appendChild(div);
+  }
+
+  const contentEl = div.querySelector('.msg-content');
+  contentEl?.appendChild(document.createTextNode(content));
+  scrollBottom(agentId);
+}
+window.appendAssistantDelta = appendAssistantDelta;
+
+export function removeStreamingMsg(agentId) {
+  document.querySelector(`#messages-${agentId} .streaming-msg`)?.remove();
+}
+window.removeStreamingMsg = removeStreamingMsg;
 
 export function appendErrMsg(agentId, text) {
   const box = document.getElementById(`messages-${agentId}`);
@@ -162,7 +201,7 @@ export function showThinking(agentId) {
         思考中
         <div class="thinking-dots"><span></span><span></span><span></span></div>
       </div>
-      <div class="thinking-live-steps"></div>
+      <div class="thinking-live-steps" style="display:none"></div>
     </div>`;
   box.appendChild(div);
   scrollBottom(agentId);
@@ -174,6 +213,7 @@ export function addThinkingStep(agentId, tool, args, turn) {
   if (!box) return;
   const stepsEl = box.querySelector('.thinking-msg .thinking-live-steps');
   if (!stepsEl) return;
+  stepsEl.style.display = 'none';
 
   const TOOL_ICONS = {
     file_read:'📄', file_write:'💾', file_edit:'✏️', file_list:'📁',
@@ -274,7 +314,12 @@ window.toggleSteps = function(hdr) {
 export function setInputState(agentId, disabled) {
   const inp = document.getElementById(`input-${agentId}`);
   const btn = document.getElementById(`send-${agentId}`);
+  const stopBtn = document.getElementById(`stop-${agentId}`);
   if (inp) inp.disabled = disabled;
+  if (agentId === 'xi') {
+    if (btn) btn.style.display = disabled ? 'none' : 'flex';
+    if (stopBtn) stopBtn.style.display = disabled ? 'flex' : 'none';
+  }
   if (btn) btn.disabled = disabled || true;
   if (!disabled) updateSendBtn(agentId);
 }
