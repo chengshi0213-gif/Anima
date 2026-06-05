@@ -224,12 +224,15 @@
         </div>
       </div>
       <div class="chat-composer" id="composer-xi">
+        <!-- / Skill 唤起面板 -->
+        <div id="skill-slash-panel" class="skill-slash-panel"></div>
         <div class="file-chips-bar hidden" id="fileBar-xi"></div>
         <textarea class="composer-input" id="input-xi"
-          placeholder="给 Anima 发消息…"
+          placeholder="给 Anima 发消息… （输入 / 调用 Skill）"
           rows="1"
-          onkeydown="handleInputKey(event,'xi')"
-          oninput="autoResize(this)"></textarea>
+          onkeydown="if(window._slashPanelKey&&window._slashPanelKey(event))return;handleInputKey(event,'xi')"
+          oninput="autoResize(this);window._slashPanelInput&&window._slashPanelInput('xi')"
+          onblur="setTimeout(()=>window._closeSlashPanel&&window._closeSlashPanel(),200)"></textarea>
         <div class="composer-toolbar">
           <div class="toolbar-left">
             <button class="toolbar-btn" title="上传文件" onclick="triggerFileUpload('xi')">

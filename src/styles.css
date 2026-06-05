@@ -659,6 +659,7 @@ svg.nav-icon { display: inline-block; vertical-align: middle; color: var(--muted
   padding: 12px 20px 16px;
   flex-shrink: 0;
   background: var(--bg);
+  position: relative;
 }
 
 /* 外层卡片 */
@@ -808,6 +809,37 @@ svg.nav-icon { display: inline-block; vertical-align: middle; color: var(--muted
 .send-btn:active:not(:disabled) { transform: scale(.94); }
 .send-btn:disabled { background: #D1D5DB; cursor: not-allowed; }
 #stop-xi { background: var(--error, #DC2626); }
+
+/* ── / Skill 快捷面板 ─────────────────────────────── */
+.skill-slash-panel {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 20px; right: 20px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 -4px 24px rgba(0,0,0,.12);
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 200;
+  padding: 6px;
+}
+.skill-slash-panel.visible { display: block; }
+.skill-slash-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background .1s;
+}
+.skill-slash-item:hover,
+.skill-slash-item.active { background: var(--hover); }
+.ssi-icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+.ssi-body { flex: 1; min-width: 0; }
+.ssi-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.ssi-desc { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ssi-cat  { font-size: 11px; color: var(--muted); background: var(--surface2); border-radius: 4px; padding: 2px 6px; flex-shrink: 0; }
 
 /* ══ CSS 包装让 composer 区域显示成卡片 ══ */
 /* 注意: textarea + toolbar 需要被 .composer-card 包裹

@@ -69,15 +69,26 @@ window.sendMessage = function(agentId) {
   const files = pendingFiles[agentId] || [];
   if ((!text && !files.length) || chatState[agentId].pending) return;
 
+  // 若选了 Skill，在消息前拼入 system_prompt 指令
+  const skillPrompt = inp.dataset.skillPrompt || '';
+  const skillName   = inp.dataset.skillName   || '';
+  const fullMessage = skillPrompt
+    ? `[启用 Skill：${skillName}]\n${skillPrompt}\n\n---\n${text}`
+    : text;
+  // 清除 skill 状态
+  delete inp.dataset.skillId;
+  delete inp.dataset.skillPrompt;
+  delete inp.dataset.skillName;
+
   document.querySelector(`#messages-${agentId} .chat-welcome`)?.remove();
-  appendUserMsg(agentId, text, files);
+  appendUserMsg(agentId, text, files);   // 用户看到干净消息，不含 system_prompt
   inp.value = '';
   inp.style.height = 'auto';
   clearFileBar(agentId);
 
   const sent = wsSend(agentId, {
     action: 'chat',
-    message: text,
+    message: fullMessage,               // 实际发送含 skill 指令
     model: selectedModel[agentId],
     session_id: chatState[agentId].sessionId,
     files: files.map(f => ({ name: f.name, content: f.content, type: f.type })),
@@ -544,3 +555,114 @@ window.applyPorts = function() {
   }
   window.checkBackend();
 };
+
+// ══════════════════════════════════════════════════
+//  / Skill 快捷唤起面板
+// ══════════════════════════════════════════════════
+
+let _skillCache = null;
+
+async function _getSkills() {
+  if (_skillCache) return _skillCache;
+  try {
+    const d = await fetch(`${CONFIG.api}/skills`, CONFIG.fetchOpts()).then(r => r.json());
+    _skillCache = (d.skills || []).filter(s => s.name && !s.locked);
+  } catch(_) { _skillCache = []; }
+  return _skillCache;
+}
+
+function _getPanel() { return document.getElementById('skill-slash-panel'); }
+
+function _closePanel() {
+  const p = _getPanel();
+  if (p) { p.classList.remove('visible'); p.innerHTML = ''; }
+}
+
+async function _openPanel(agentId, query) {
+  let panel = _getPanel();
+  if (!panel) return;
+
+  const skills = await _getSkills();
+  const q = query.toLowerCase();
+  const filtered = q
+    ? skills.filter(s => s.name.toLowerCase().includes(q) || (s.category||'').toLowerCase().includes(q) || (s.tags||[]).some(t => t.toLowerCase().includes(q)))
+    : skills;
+
+  if (!filtered.length) { _closePanel(); return; }
+
+  panel.innerHTML = filtered.slice(0, 12).map((s, i) =>
+    `<div class="skill-slash-item${i===0?' active':''}" data-id="${s.id}" data-name="${escHtml(s.name)}" onclick="skillSlashSelect('${agentId}','${s.id}')">
+      <span class="ssi-icon">${s.icon||'✦'}</span>
+      <div class="ssi-body">
+        <div class="ssi-name">${escHtml(s.name)}</div>
+        <div class="ssi-desc">${escHtml((s.description||'').slice(0,48))}…</div>
+      </div>
+      <span class="ssi-cat">${escHtml(s.category||'')}</span>
+    </div>`
+  ).join('');
+  panel.classList.add('visible');
+}
+
+// 键盘导航
+function _panelNav(e) {
+  const panel = _getPanel();
+  if (!panel || !panel.classList.contains('visible')) return false;
+  const items = [...panel.querySelectorAll('.skill-slash-item')];
+  const cur = items.findIndex(el => el.classList.contains('active'));
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    items[cur]?.classList.remove('active');
+    items[Math.min(cur+1, items.length-1)]?.classList.add('active');
+    return true;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    items[cur]?.classList.remove('active');
+    items[Math.max(cur-1, 0)]?.classList.add('active');
+    return true;
+  }
+  if (e.key === 'Enter') {
+    const active = panel.querySelector('.skill-slash-item.active');
+    if (active) { e.preventDefault(); active.click(); return true; }
+  }
+  if (e.key === 'Escape') { _closePanel(); return true; }
+  return false;
+}
+
+// 输入监听
+function _onComposerInput(agentId) {
+  const inp = document.getElementById(`input-${agentId}`);
+  if (!inp) return;
+  const val = inp.value;
+  if (val.startsWith('/')) {
+    _openPanel(agentId, val.slice(1).trim());
+  } else {
+    _closePanel();
+  }
+}
+
+// 选中 skill
+window.skillSlashSelect = function(agentId, skillId) {
+  _skillCache = _skillCache || [];
+  const skill = _skillCache.find(s => s.id === skillId);
+  if (!skill) { _closePanel(); return; }
+  const inp = document.getElementById(`input-${agentId}`);
+  if (inp) {
+    // 填入 "@skill 名称 " 作为提示词前缀，用户可以继续输入任务
+    inp.value = `[${skill.name}] `;
+    inp.focus();
+    window.autoResize(inp);
+    updateSendBtn(agentId);
+    // 把 skill 的 system_prompt 存起来，发送时附加
+    inp.dataset.skillId = skillId;
+    inp.dataset.skillPrompt = skill.system_prompt || '';
+    inp.dataset.skillName = skill.name;
+  }
+  _closePanel();
+  toast(`✦ 已选择 Skill：${skill.name}`, 'success');
+};
+
+// 挂载：在 textarea oninput 里额外调用
+window._slashPanelInput = _onComposerInput;
+window._slashPanelKey   = _panelNav;
+window._closeSlashPanel = _closePanel;
