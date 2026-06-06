@@ -129,6 +129,7 @@ jobs:
 
       # ── tauri-action 不上传 .sig，手动补 ──
       - name: Upload updater signatures
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
