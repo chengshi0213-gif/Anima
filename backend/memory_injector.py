@@ -163,7 +163,7 @@ def get_memory_self_description(agent_id: str = "") -> str:
             store_line = f"长期记忆：Obsidian 笔记库（{loc}），都是普通 Markdown，可直接打开编辑"
         else:
             loc = st.get("db_path", "")
-            store_line = f"长期记忆：本地数据库（{loc}），守藏每天夜里整理归档"
+            store_line = f"长期记忆：本地数据库（{loc}），Anima 每天整理归档"
         entries = st.get("entries", 0)
         return (
             "\n\n## 关于「我的记忆」——用户问起时，照实说，别含糊\n"

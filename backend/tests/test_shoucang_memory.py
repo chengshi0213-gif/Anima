@@ -52,7 +52,7 @@ def test_remember_then_injected_global():
 
 
 def test_remember_agent_scoped_no_leak():
-    """晞的情感记忆不应泄露给陶朱。"""
+    """情感模式的记忆不应泄露给商业决策模式。"""
     sw._remember("近期情绪", "因发布焦虑", category="emotional", agent_id="yiyi")
 
     mi.invalidate_cache()

@@ -57,14 +57,12 @@ def _gather_signals(app) -> dict:
         sig["workflows"] = len(app["workflow_mgr"].list_all())
     except Exception:
         pass
-    # 对话数 / 主人格 / 活跃天数：从真实使用日志汇总（best-effort）
+    # 对话数 / 活跃天数：从真实使用日志汇总（best-effort）
     try:
         ut = app.get("usage_tracker")
         if ut is not None:
             ss = ut.get_signal_stats(3650)
-            per = ss.get("per_agent", {})
             sig["messages"] = int(ss.get("messages", 0))
-            sig["personas_used"] = 1 if int(per.get("xi", 0)) > 0 else 0
             sig["active_days"] = int(ss.get("active_days", 0))
     except Exception:
         pass
