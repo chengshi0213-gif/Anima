@@ -1,3 +1,14 @@
+# ── 签名私钥（绝不可提交！泄露=他人可伪造更新包）──
+anima-signing.key
+*.signing.key
+*-signing.key
+
+# ── 后端运行时产物 / 测试临时目录 ──
+backend/.pytest-tmp/
+backend/.tmp-test-home/
+backend/Anima-Vault/
+backend/_*.log
+
 # Logs
 logs
 *.log

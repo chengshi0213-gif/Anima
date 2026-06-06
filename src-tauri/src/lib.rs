@@ -57,46 +57,80 @@ pub fn run() {
                     }
                 }
             });
-            // 1. 启动 Python 后端 sidecar
+            // 1. 启动 Python 后端 sidecar（带自动重启守护）
             //    dev 模式: 请手动运行 python backend/websocket_server.py
-            //    release 模式: 自动从 resources 目录启动 anima-server.exe
+            //    release 模式: 自动从 resources 目录启动 anima-server.exe，
+            //                   崩溃后按指数退避自动重启，连续失败时通知前端
             #[cfg(not(debug_assertions))]
             {
-                let shell = app.shell();
-                match shell.sidecar("anima-server") {
-                    Ok(cmd) => {
-                        match cmd.spawn() {
+                let sidecar_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    use tauri_plugin_shell::process::CommandEvent;
+                    let mut consecutive_failures: u32 = 0;
+                    loop {
+                        let started_at = std::time::Instant::now();
+                        // 每轮重新创建 sidecar 命令并启动
+                        let spawn_result = sidecar_handle
+                            .shell()
+                            .sidecar("anima-server")
+                            .and_then(|cmd| cmd.spawn());
+
+                        match spawn_result {
                             Ok((mut rx, _child)) => {
-                                // 后台监听 sidecar 输出（可选日志）
-                                tauri::async_runtime::spawn(async move {
-                                    use tauri_plugin_shell::process::CommandEvent;
-                                    while let Some(event) = rx.recv().await {
-                                        match event {
-                                            CommandEvent::Stdout(line) => {
-                                                let s = String::from_utf8_lossy(&line);
-                                                println!("[Backend] {}", s.trim_end());
-                                            }
-                                            CommandEvent::Stderr(line) => {
-                                                let s = String::from_utf8_lossy(&line);
-                                                eprintln!("[Backend] {}", s.trim_end());
-                                            }
-                                            CommandEvent::Error(e) => {
-                                                eprintln!("[Backend] error: {e}");
-                                            }
-                                            CommandEvent::Terminated(status) => {
-                                                eprintln!("[Backend] terminated: {:?}", status);
-                                                break;
-                                            }
-                                            _ => {}
+                                // 进程已起来，通知前端后端恢复
+                                let _ = sidecar_handle.emit("backend-up", ());
+                                // 监听 sidecar 输出，直到进程退出
+                                while let Some(event) = rx.recv().await {
+                                    match event {
+                                        CommandEvent::Stdout(line) => {
+                                            let s = String::from_utf8_lossy(&line);
+                                            println!("[Backend] {}", s.trim_end());
                                         }
+                                        CommandEvent::Stderr(line) => {
+                                            let s = String::from_utf8_lossy(&line);
+                                            eprintln!("[Backend] {}", s.trim_end());
+                                        }
+                                        CommandEvent::Error(e) => {
+                                            eprintln!("[Backend] error: {e}");
+                                        }
+                                        CommandEvent::Terminated(status) => {
+                                            eprintln!("[Backend] terminated: {:?}", status);
+                                            break;
+                                        }
+                                        _ => {}
                                     }
-                                });
+                                }
+                                // 进程退出：活够 30s 视为"正常运行后崩溃"，重置失败计数
+                                if started_at.elapsed().as_secs() >= 30 {
+                                    consecutive_failures = 0;
+                                } else {
+                                    consecutive_failures += 1;
+                                }
                             }
-                            Err(e) => eprintln!("[Anima] 后端启动失败: {e}"),
+                            Err(e) => {
+                                eprintln!("[Anima] 后端启动失败: {e}");
+                                consecutive_failures += 1;
+                            }
                         }
+
+                        // 连续快速失败 ≥5 次：通知前端展示"后端不可用"提示
+                        if consecutive_failures >= 5 {
+                            let _ = sidecar_handle.emit(
+                                "backend-down",
+                                serde_json::json!({ "failures": consecutive_failures }),
+                            );
+                        }
+
+                        // 指数退避：1,2,4,8,16,最多 30 秒
+                        let shift = std::cmp::min(consecutive_failures, 5);
+                        let backoff = std::cmp::min(30u64, 1u64 << shift);
+                        eprintln!(
+                            "[Anima] {}秒后重启后端 (连续失败 {} 次)",
+                            backoff, consecutive_failures
+                        );
+                        tokio::time::sleep(std::time::Duration::from_secs(backoff)).await;
                     }
-                    Err(e) => eprintln!("[Anima] sidecar 未找到: {e}"),
-                }
+                });
             }
 
             // 2. 注册全局热键 Ctrl+Shift+H — 显示/隐藏窗口（失败时仅记录，不崩溃）

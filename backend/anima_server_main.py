@@ -42,6 +42,13 @@ sys.path.insert(0, str(_dir))
 #     import ctypes
 #     ctypes.windll.kernel32.FreeConsole()
 
+# ── 初始化中央日志（尽早，在导入业务模块之前）──
+try:
+    from log_config import setup_logging
+    setup_logging()
+except Exception as _e:
+    print(f"[Anima] 日志初始化失败（降级为 print）: {_e}")
+
 from websocket_server import main
 import asyncio
 

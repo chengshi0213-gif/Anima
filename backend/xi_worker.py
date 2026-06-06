@@ -14,7 +14,22 @@ from persona import compose_base_prompt
 
 # ── 工具实现 ──────────────────────────────────────────────────────────────────
 
+def _sandbox(path: str, write: bool = False):
+    """文件访问护栏：拦截凭证/系统路径。返回拒绝原因 dict，放行返回 None。"""
+    try:
+        import path_sandbox
+        ok, reason = path_sandbox.check_path(path, write=write)
+        if not ok:
+            return {"error": reason}
+    except Exception:
+        # 护栏模块异常时不阻断正常使用（fail-open），但拒绝判定本身 fail-closed
+        pass
+    return None
+
 def _list_dir(path: str, max_depth: int = 2) -> dict:
+    _blk = _sandbox(path, write=False)
+    if _blk:
+        return _blk
     try:
         p = Path(path)
         if not p.exists():
@@ -34,6 +49,9 @@ def _list_dir(path: str, max_depth: int = 2) -> dict:
         return {"error": str(e)}
 
 def _read_file(path: str, offset: int = 0, limit: int = 200) -> dict:
+    _blk = _sandbox(path, write=False)
+    if _blk:
+        return _blk
     try:
         lines = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
         sliced = lines[offset:offset + limit]
@@ -43,6 +61,9 @@ def _read_file(path: str, offset: int = 0, limit: int = 200) -> dict:
         return {"error": str(e)}
 
 def _write_file(path: str, content: str) -> dict:
+    _blk = _sandbox(path, write=True)
+    if _blk:
+        return _blk
     try:
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -52,6 +73,9 @@ def _write_file(path: str, content: str) -> dict:
         return {"error": str(e)}
 
 def _edit_file(path: str, old_string: str, new_string: str, replace_all: bool = False) -> dict:
+    _blk = _sandbox(path, write=True)
+    if _blk:
+        return _blk
     try:
         p = Path(path)
         content = p.read_text(encoding="utf-8")
@@ -69,12 +93,23 @@ def _edit_file(path: str, old_string: str, new_string: str, replace_all: bool = 
         return {"error": str(e)}
 
 def _search_code(pattern: str, path: str = ".", file_glob: str = "*", limit: int = 30) -> dict:
+    _blk = _sandbox(path, write=False)
+    if _blk:
+        return _blk
     try:
         import re
+        import path_sandbox
         results = []
         for fpath in Path(path).rglob(file_glob):
             if not fpath.is_file() or fpath.stat().st_size > 2_000_000:
                 continue
+            # 跳过命中护栏的敏感文件（如目录下混有 id_rsa、.ssh 等）
+            try:
+                _ok, _ = path_sandbox.check_path(str(fpath), write=False)
+                if not _ok:
+                    continue
+            except Exception:
+                pass
             try:
                 text = fpath.read_text(encoding="utf-8", errors="replace")
                 for i, line in enumerate(text.splitlines(), 1):

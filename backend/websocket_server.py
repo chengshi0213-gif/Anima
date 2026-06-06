@@ -36,6 +36,34 @@ from routes import core, knowledge, workflow, config as config_routes, services,
 
 
 async def main():
+    # 一次性把 config.yaml 残留的明文 API Key 迁移为加密存储（幂等）
+    try:
+        import config as _cfg_mod
+        await asyncio.to_thread(_cfg_mod.migrate_encrypt_secrets)
+    except Exception as _e:
+        print(f"[Anima] 密钥加密迁移跳过: {_e}")
+
+    # asyncio 事件循环未捕获异常 → 落盘崩溃报告
+    try:
+        import crash_reporter as _cr
+        _loop = asyncio.get_running_loop()
+
+        def _aio_exc_handler(loop, context):
+            exc = context.get("exception")
+            msg = context.get("message", "asyncio error")
+            try:
+                if exc is not None:
+                    _cr.dump_exception(type(exc), exc, exc.__traceback__, context=msg)
+                else:
+                    _cr.dump_message(msg, context="asyncio")
+            except Exception:
+                pass
+            loop.default_exception_handler(context)
+
+        _loop.set_exception_handler(_aio_exc_handler)
+    except Exception as _e:
+        print(f"[Anima] asyncio 异常钩子安装失败: {_e}")
+
     # 初始化内置 Skill
     await asyncio.to_thread(init_builtin_skills)
 
@@ -163,4 +191,10 @@ async def main():
 
 
 if __name__ == "__main__":
+    # dev 模式直跑：也初始化中央日志（幂等）
+    try:
+        from log_config import setup_logging
+        setup_logging()
+    except Exception as _e:
+        print(f"[Anima] 日志初始化失败（降级为 print）: {_e}")
     asyncio.run(main())

@@ -438,6 +438,37 @@ async def data_home_reset(request):
                              "message": "已恢复默认目录，重启后生效。"}, headers=CORS_HEADERS)
 
 
+# ── 诊断 / 崩溃上报 ───────────────────────────────────────────
+async def diagnostics_status(request):
+    """GET /diagnostics/status — 返回崩溃文件列表，供设置页展示。"""
+    try:
+        import crash_reporter
+        crashes = await asyncio.to_thread(crash_reporter.list_crashes)
+        return web.json_response({"crashes": crashes}, headers=CORS_HEADERS)
+    except Exception as e:
+        return web.json_response({"crashes": [], "error": str(e)},
+                                 headers=CORS_HEADERS)
+
+
+async def diagnostics_export(request):
+    """POST /diagnostics/export — 打包诊断 zip（脱敏），返回本地路径。
+    请求体可选 {frontend_errors: [...]}（前端错误队列）。"""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    fe_errors = body.get("frontend_errors") if isinstance(body, dict) else None
+    try:
+        import crash_reporter
+        result = await asyncio.to_thread(
+            crash_reporter.export_diagnostics, fe_errors, "")
+        status = 200 if result.get("ok") else 500
+        return web.json_response(result, status=status, headers=CORS_HEADERS)
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)},
+                                 status=500, headers=CORS_HEADERS)
+
+
 def register(app):
     # Agent 配置
     app.router.add_get("/config/agents",           agent_config_get)
@@ -461,3 +492,6 @@ def register(app):
     app.router.add_get("/config/data-home",        data_home_get)
     app.router.add_post("/config/data-home",       data_home_set)
     app.router.add_post("/config/data-home/reset", data_home_reset)
+    # 诊断 / 崩溃上报
+    app.router.add_get("/diagnostics/status",      diagnostics_status)
+    app.router.add_post("/diagnostics/export",     diagnostics_export)

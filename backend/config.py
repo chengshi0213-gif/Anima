@@ -85,7 +85,7 @@ WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _get(key: str, default=None):
-    """从环境变量或 YAML 配置读值"""
+    """从环境变量或 YAML 配置读值（敏感字段透明解密）"""
     env_key = f"ANIMA_{key.upper().replace('.', '_')}"
     if env_key in os.environ:
         return os.environ[env_key]
@@ -95,12 +95,27 @@ def _get(key: str, default=None):
         if not isinstance(val, dict):
             return default
         val = val.get(p, default)
-    return val if val is not None else default
+    if val is None:
+        return default
+    # 透明解密：仅对带 marker 的密文生效，旧明文原样返回
+    try:
+        import secret_box
+        if secret_box.is_encrypted(val):
+            return secret_box.decrypt(val)
+    except Exception:
+        pass
+    return val
 
 
 def save_user_config(updates: dict):
-    """将更新写入 ~/.anima/config.yaml"""
+    """将更新写入 ~/.anima/config.yaml（敏感字段透明加密）"""
     import yaml as _yaml
+    # 写盘前加密敏感叶子字段（API Key / Token 等）
+    try:
+        import secret_box
+        updates = secret_box.encrypt_sensitive_tree(updates)
+    except Exception:
+        pass
     cfg = {}
     if _user_cfg_path.exists():
         with open(_user_cfg_path, "r", encoding="utf-8") as f:
@@ -115,6 +130,54 @@ def save_user_config(updates: dict):
         _yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False)
     global _cfg
     _cfg = cfg
+
+
+def migrate_encrypt_secrets():
+    """
+    一次性迁移：把 config.yaml 中残留的明文敏感字段加密。
+    幂等——无明文需要加密时直接返回（升级后首次运行才会真正写盘）。
+    由服务入口显式调用，避免在 import / 测试时意外写盘。
+    """
+    try:
+        import secret_box
+        import yaml as _yaml
+    except Exception:
+        return
+    if not _user_cfg_path.exists():
+        return
+    try:
+        with open(_user_cfg_path, "r", encoding="utf-8") as f:
+            cfg = _yaml.safe_load(f) or {}
+    except Exception:
+        return
+
+    found_plain = [False]
+
+    def _scan(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if isinstance(v, (dict, list)):
+                    _scan(v)
+                elif (secret_box.looks_sensitive(k) and isinstance(v, str)
+                      and v and not secret_box.is_encrypted(v)):
+                    found_plain[0] = True
+
+    _scan(cfg)
+    if not found_plain[0]:
+        return
+
+    encrypted = secret_box.encrypt_sensitive_tree(cfg)
+    try:
+        with open(_user_cfg_path, "w", encoding="utf-8") as f:
+            _yaml.dump(encrypted, f, allow_unicode=True, default_flow_style=False)
+        global _cfg
+        _cfg = encrypted
+        import logging
+        logging.getLogger("anima.secret").info(
+            "已将 config.yaml 中的明文 API Key 迁移为加密存储")
+    except Exception as e:
+        import logging
+        logging.getLogger("anima.secret").error("加密迁移写盘失败: %s", e)
 
 
 def is_configured() -> bool:

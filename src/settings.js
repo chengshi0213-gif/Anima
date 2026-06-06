@@ -295,13 +295,61 @@ window.memDeleteEntry = async function(id, btn) {
   } catch(e) { toast(e.message, 'error'); }
 };
 
-// 切换到设置 tab 时加载记忆后端状态
+// ── 诊断与反馈 ──
+window.diagLoadStatus = async function() {
+  const el = document.getElementById('diagCrashCount');
+  if (!el) return;
+  try {
+    const d = await fetch(`${CONFIG.api}/diagnostics/status`).then(r => r.json());
+    const n = (d.crashes || []).length;
+    el.textContent = n ? `最近 ${n} 条记录` : '无（运行正常）';
+  } catch (e) {
+    el.textContent = '检查失败';
+  }
+};
+
+window.exportDiagnostics = async function() {
+  const btn = document.getElementById('diagExportBtn');
+  const res = document.getElementById('diagResult');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 打包中…'; }
+  if (res) res.textContent = '';
+  try {
+    const frontend_errors = (typeof window.getErrorReport === 'function')
+      ? window.getErrorReport() : [];
+    const d = await fetch(`${CONFIG.api}/diagnostics/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ frontend_errors }),
+    }).then(r => r.json());
+    if (d.ok) {
+      toast('✅ 诊断包已导出', 'success');
+      if (res) res.innerHTML = `✅ 已导出：<code>${d.path}</code>`;
+      // Tauri 环境下顺手打开所在文件夹
+      if (window.__TAURI__) {
+        try {
+          const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
+          await revealItemInDir(d.path);
+        } catch (_) {}
+      }
+    } else {
+      toast(d.error || '导出失败', 'error');
+      if (res) res.textContent = '✗ ' + (d.error || '导出失败');
+    }
+  } catch (e) {
+    toast(`导出失败: ${e.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📦 导出诊断包'; }
+  }
+};
+
+// 切换到设置 tab 时加载记忆后端状态 + 诊断状态
 (function() {
   const _prevSwitch = window.switchTab;
   window.switchTab = function(tabId, el) {
     _prevSwitch(tabId, el);
     if (tabId === 'settings') {
       setTimeout(memLoadStatus, 100);
+      setTimeout(window.diagLoadStatus, 120);
     }
   };
 })();

@@ -171,6 +171,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 监听 Tauri 后端推送的 update-available 事件，显示更新通知条
+  // 同时监听后端守护进程的 backend-down / backend-up 健康事件
   if (window.__TAURI__) {
     try {
       const { listen } = await import('@tauri-apps/api/event');
@@ -178,9 +179,32 @@ window.addEventListener('DOMContentLoaded', async () => {
         const { version, body } = event.payload || {};
         showUpdateBanner(version, body);
       });
+      // 后端连续重启失败：提示用户后端不可用
+      await listen('backend-down', (event) => {
+        const n = (event.payload && event.payload.failures) || 0;
+        showBackendDownBanner(n);
+      });
+      // 后端恢复：移除提示条
+      await listen('backend-up', () => {
+        const bar = document.getElementById('backend-down-banner');
+        if (bar) bar.remove();
+      });
     } catch(_) {}
   }
 });
+
+// 后端不可用提示条
+function showBackendDownBanner(failures) {
+  if (document.getElementById('backend-down-banner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'backend-down-banner';
+  bar.innerHTML = `
+    <span>⚠ 本地后端服务多次启动失败（已重试 ${failures} 次），AI 功能暂不可用</span>
+    <button onclick="window.location.reload()">重新加载</button>
+    <button onclick="this.closest('#backend-down-banner').remove()">忽略</button>
+  `;
+  document.body.appendChild(bar);
+}
 
 function showUpdateBanner(version, notes) {
   if (document.getElementById('update-banner')) return; // 已显示
