@@ -134,10 +134,15 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           TAG=${{ github.ref_name }}
-          find src-tauri/target/${{ matrix.target }}/release/bundle -name '*.sig' -type f 2>/dev/null | while read f; do
-            echo "Uploading signature: $(basename $f)"
-            gh release upload ${TAG} "$f" --repo chengshi0213-gif/Anima --clobber
+          echo "Working dir: $(pwd)"
+          echo "Searching for .sig files..."
+          find . -name '*.sig' -type f 2>/dev/null
+          echo "--- Uploading ---"
+          find . -name '*.sig' -type f 2>/dev/null | while read f; do
+            echo "Uploading: $f"
+            gh release upload ${TAG} "$f" --repo chengshi0213-gif/Anima --clobber || echo "FAILED: $f"
           done
+          echo "Done"
 
   # ── 构建完成后：把安装包 + update.json 发布到 anima-site（公开仓库）──
   publish-release:
