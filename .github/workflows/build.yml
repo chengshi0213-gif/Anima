@@ -104,12 +104,13 @@ jobs:
 
       # ── Tauri 构建 ──
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          appId: com.anima.app
           tagName: ${{ github.ref_name }}
           releaseName: 'Anima ${{ github.ref_name }}'
           releaseBody: |
@@ -127,59 +128,40 @@ jobs:
           args: --target ${{ matrix.target }}
 
   # ── 构建完成后：把安装包 + update.json 发布到 anima-site（公开仓库）──
-  #    需要仓库 secret: ANIMA_SITE_TOKEN（对 anima-site 有写权限的 PAT）
-  #    未配置该 secret 时整个任务优雅跳过（仅 warning，不让 CI 变红）
   publish-release:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - name: Check ANIMA_SITE_TOKEN
-        id: check
-        run: |
-          if [ -n "${{ secrets.ANIMA_SITE_TOKEN }}" ]; then
-            echo "ok=true" >> $GITHUB_OUTPUT
-          else
-            echo "ok=false" >> $GITHUB_OUTPUT
-            echo "::warning::未配置 ANIMA_SITE_TOKEN，跳过自动发布到 anima-site（可手动发布）"
-          fi
-
       - name: Checkout anima-site
-        if: steps.check.outputs.ok == 'true'
         uses: actions/checkout@v4
         with:
           repository: chengshi0213-gif/anima-site
-          token: ${{ secrets.ANIMA_SITE_TOKEN }}
+          token: ${{ secrets.RELEASE_TOKEN }}
           path: anima-site
 
       - name: Download Anima release assets
-        if: steps.check.outputs.ok == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           TAG=${{ github.ref_name }}
           mkdir -p assets
-          # 下载全部安装包 + 签名（自有私有仓库，默认 token 可读）
           gh release download ${TAG} --repo chengshi0213-gif/Anima --dir ./assets/ \
             --pattern "Anima_*" --pattern "*.sig" \
             --pattern "*.AppImage" --pattern "*.deb" --pattern "*.rpm" --pattern "*.msi" || true
           ls -la ./assets/
 
       - name: Publish installers to anima-site release
-        if: steps.check.outputs.ok == 'true'
         env:
-          GH_TOKEN: ${{ secrets.ANIMA_SITE_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           TAG=${{ github.ref_name }}
-          # release 不存在则创建
           gh release view ${TAG} --repo chengshi0213-gif/anima-site >/dev/null 2>&1 || \
             gh release create ${TAG} --repo chengshi0213-gif/anima-site \
               --title "Anima ${TAG}" --notes "Anima ${TAG} — 本地优先 AI 伙伴"
-          # 上传（覆盖同名）
           gh release upload ${TAG} --repo chengshi0213-gif/anima-site ./assets/* --clobber
 
       - name: Generate update.json
-        if: steps.check.outputs.ok == 'true'
         run: |
           TAG=${{ github.ref_name }}
           WIN_SIG=$(cat ./assets/*x64-setup.exe.sig 2>/dev/null || echo "")
@@ -212,7 +194,6 @@ jobs:
           cat anima-site/update.json
 
       - name: Push update.json to anima-site
-        if: steps.check.outputs.ok == 'true'
         run: |
           cd anima-site
           git config user.name "github-actions[bot]"
