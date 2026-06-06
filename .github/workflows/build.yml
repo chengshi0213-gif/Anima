@@ -128,21 +128,27 @@ jobs:
           args: --target ${{ matrix.target }}
 
       # ── tauri-action 不上传 .sig，手动补 ──
+      # tauri-action 完成后 sig 文件仍在 target/*/release/bundle/ 下，
+      # 但 find 在某些 runner 上会因 shell 环境差异搜不到。
+      # 改用 glob 直接指定路径，更可靠。
       - name: Upload updater signatures
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG=${{ github.ref_name }}
-          echo "Working dir: $(pwd)"
-          echo "Searching for .sig files..."
-          find . -name '*.sig' -type f 2>/dev/null
-          echo "--- Uploading ---"
-          find . -name '*.sig' -type f 2>/dev/null | while read f; do
+          TARGET=${{ matrix.target }}
+          BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
+          echo "=== Looking for .sig files in ${BUNDLE_DIR} ==="
+          ls -laR "${BUNDLE_DIR}" 2>/dev/null | grep '\.sig' || echo "(no sig via ls)"
+          # 上传所有 .sig 文件（nsis/*.sig + msi/*.sig 等）
+          uploaded=0
+          for f in "${BUNDLE_DIR}"/**/*.sig "${BUNDLE_DIR}"/*/*.sig; do
+            [ -f "$f" ] || continue
             echo "Uploading: $f"
-            gh release upload ${TAG} "$f" --repo chengshi0213-gif/Anima --clobber || echo "FAILED: $f"
+            gh release upload "${TAG}" "$f" --repo chengshi0213-gif/Anima --clobber && uploaded=$((uploaded+1)) || echo "WARN: failed $f"
           done
-          echo "Done"
+          echo "=== Uploaded ${uploaded} sig file(s) ==="
 
   # ── 构建完成后：把安装包 + update.json 发布到 anima-site（公开仓库）──
   publish-release:
