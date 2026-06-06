@@ -470,6 +470,22 @@ export async function loadSidebarHistory() {
 }
 window.loadSidebarHistory = loadSidebarHistory;
 
+// 事件委托：历史列表点击（只注册一次，innerHTML 刷新后仍有效）
+document.addEventListener('click', (e) => {
+  // 点击删除按钮（或其内部 SVG）
+  const delBtn = e.target.closest('[data-delete-id]');
+  if (delBtn) {
+    e.stopPropagation();
+    window.deleteSession(delBtn.dataset.deleteId);
+    return;
+  }
+  // 点击历史条目打开会话
+  const item = e.target.closest('.history-item[data-session-id]');
+  if (item && !e.target.closest('[data-delete-id]')) {
+    window.openSession(item.dataset.sessionId, item.dataset.agent);
+  }
+});
+
 function renderSidebarHistory(sessions) {
   const container = document.getElementById('historyGroups');
   if (!container) return;
@@ -497,9 +513,9 @@ function renderSidebarHistory(sessions) {
     for (const s of groups[key]) {
       const agent = AGENTS[s.agent] || { icon:'💬' };
       const sum   = (s.summary || s.session_id.slice(-10)).slice(0, 28);
-      html += `<div class="history-item" onclick="openSession('${s.session_id}','${s.agent}')">
+      html += `<div class="history-item" data-session-id="${s.session_id}" data-agent="${s.agent}">
         <span class="history-item-text">${escHtml(sum)}</span>
-        <button class="history-delete-btn" title="删除" onclick="event.stopPropagation();deleteSession('${s.session_id}')">
+        <button class="history-delete-btn" data-delete-id="${s.session_id}" title="删除">
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/></svg>
         </button>
       </div>`;
@@ -514,10 +530,16 @@ function startOfDay(d) {
 }
 
 window.deleteSession = async function(sessionId) {
+  // 乐观更新：立即淡出条目，给即时视觉反馈
+  const el = document.querySelector(`.history-item[data-session-id="${sessionId}"]`);
+  if (el) { el.style.opacity = '0.3'; el.style.pointerEvents = 'none'; }
   try {
-    await fetch(`${CONFIG.api}/sessions/${sessionId}`, CONFIG.fetchOpts({ method: 'DELETE' }));
-  } catch(_) {}
-  loadSidebarHistory();
+    const resp = await fetch(`${CONFIG.api}/sessions/${sessionId}`, CONFIG.fetchOpts({ method: 'DELETE' }));
+    if (!resp.ok) toast('删除失败（' + resp.status + '）', 'error');
+  } catch(_) {
+    toast('删除失败：后端未响应', 'error');
+  }
+  await loadSidebarHistory();
 };
 
 window.openSession = async function(sessionId, agentId) {
