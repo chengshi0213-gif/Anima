@@ -104,7 +104,7 @@ jobs:
 
       # ── Tauri 构建 ──
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v2
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -126,6 +126,17 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
+
+      # ── tauri-action 不上传 .sig，手动补 ──
+      - name: Upload updater signatures
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          TAG=${{ github.ref_name }}
+          find src-tauri/target/${{ matrix.target }}/release/bundle -name '*.sig' -type f 2>/dev/null | while read f; do
+            echo "Uploading signature: $(basename $f)"
+            gh release upload ${TAG} "$f" --repo chengshi0213-gif/Anima --clobber
+          done
 
   # ── 构建完成后：把安装包 + update.json 发布到 anima-site（公开仓库）──
   publish-release:
