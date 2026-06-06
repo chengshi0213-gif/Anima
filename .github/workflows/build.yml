@@ -172,6 +172,7 @@ jobs:
           # 版本号去掉 v 前缀
           VERSION=${TAG#v}
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          BASE="https://github.com/chengshi0213-gif/anima-site/releases/download/${TAG}"
           cat > anima-site/update.json << EOF
           {
             "version": "${VERSION}",
@@ -180,15 +181,15 @@ jobs:
             "platforms": {
               "windows-x86_64": {
                 "signature": "${WIN_SIG}",
-                "url": "https://github.com/chengshi0213-gif/anima-site/releases/download/v1.1.0/Anima_1.1.0_x64-setup.exe"
+                "url": "${BASE}/Anima_${VERSION}_x64-setup.exe"
               },
               "darwin-aarch64": {
                 "signature": "${MAC_ARM_SIG}",
-                "url": "https://github.com/chengshi0213-gif/anima-site/releases/download/v1.1.0/Anima_1.1.0_aarch64.dmg"
+                "url": "${BASE}/Anima_aarch64.app.tar.gz"
               },
               "darwin-x86_64": {
                 "signature": "${MAC_X64_SIG}",
-                "url": "https://github.com/chengshi0213-gif/anima-site/releases/download/v1.1.0/Anima_1.1.0_x64.dmg"
+                "url": "${BASE}/Anima_x64.app.tar.gz"
               }
             }
           }
