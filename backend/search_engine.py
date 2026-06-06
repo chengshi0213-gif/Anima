@@ -87,8 +87,9 @@ class SearchEngine:
         return [{"role":r[0],"content":r[1]} for r in rows]
 
     def delete_session(self, session_id: str) -> None:
-        """删除某条历史会话"""
+        """删除某条历史会话（同时删 sessions 主记录和 messages_fts 消息体）"""
         with self._lock:
+            self.conn.execute("DELETE FROM sessions WHERE session_id=?", (session_id,))
             self.conn.execute("DELETE FROM messages_fts WHERE session_id=?", (session_id,))
             self.conn.commit()
 

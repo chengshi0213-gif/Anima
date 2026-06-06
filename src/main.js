@@ -184,10 +184,15 @@ window.addEventListener('DOMContentLoaded', async () => {
         const n = (event.payload && event.payload.failures) || 0;
         showBackendDownBanner(n);
       });
-      // 后端恢复：移除提示条
+      // 后端恢复：移除提示条，并刷新邀请面板（修复"后端无响应"残留）
       await listen('backend-up', () => {
         const bar = document.getElementById('backend-down-banner');
         if (bar) bar.remove();
+        // 若邀请面板正在显示（内容为"后端无响应"），自动重新加载
+        const inviteList = document.getElementById('inviteCodesList');
+        if (inviteList && inviteList.textContent.includes('后端无响应')) {
+          window.inviteLoadPanel?.();
+        }
       });
     } catch(_) {}
   }
