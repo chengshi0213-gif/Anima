@@ -25,6 +25,11 @@
   格式化时缺少 `user_name` 实参 → `KeyError: 'user_name'` → 未捕获异常 → sidecar
   每次启动都崩。这是 v1.1.6 出现的「连接中…卡死 / 后端无响应 / 崩溃提示横幅」的根因。
   修复：将该占位符改为 `{investor}`，与同模板其余文案一致。
+- **邀请邮箱管家 IMAP/SMTP 握手失败**：`backend/invite_mailer.py` 连接 139 等老牌邮箱时，
+  Python 默认 SSL 上下文过严，握手报 `[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE]`，导致"测试连接"
+  和自动收发码全部失败。修复：新增 `_mail_ssl_context()`（放宽到 `SECLEVEL=1`），
+  应用到 IMAP/SMTP 连接与发信的全部三处。已用 `animaos@139.com` 端到端实测：
+  自动收申请邮件 → 铸码 → 回信发码全链路打通。
 - **历史记录删除完全失效**：旧 sidecar 二进制早于 DELETE 路由加入的时间编译，运行时
   `DELETE /sessions/{id}` 返回 405 Method Not Allowed + CORS 拦截，点删除「完全没反应」。
   修复：重新打包包含 DELETE 路由的 sidecar；前端改用 document 级事件委托

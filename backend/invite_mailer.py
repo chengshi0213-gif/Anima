@@ -21,6 +21,7 @@ import logging
 import email
 import imaplib
 import smtplib
+import ssl
 import re
 from email.header import decode_header, make_header
 from email.mime.text import MIMEText
@@ -32,6 +33,19 @@ from config import DATA_DIR
 import invite as _invite
 
 log = logging.getLogger("invite_mailer")
+
+
+def _mail_ssl_context() -> ssl.SSLContext:
+    """部分老牌邮箱（如 139/QQ/网易）的 IMAP/SMTP 服务端 TLS 栈较旧，
+    Python 3.10+ 默认 SSL 上下文的握手会报
+    `[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failure`。
+    放宽到 SECLEVEL=1 允许较旧的密码套件，仅用于邮件收发，不影响其余 HTTPS 请求。"""
+    ctx = ssl.create_default_context()
+    try:
+        ctx.set_ciphers("DEFAULT@SECLEVEL=1")
+    except Exception:
+        pass
+    return ctx
 
 _CFG_PATH = DATA_DIR / "invite_mailer.json"
 
@@ -145,7 +159,7 @@ def _fetch_new_senders(cfg: dict) -> list[str]:
         return []
     senders: list[str] = []
     try:
-        M = imaplib.IMAP4_SSL(host, port)
+        M = imaplib.IMAP4_SSL(host, port, ssl_context=_mail_ssl_context())
         M.login(user, pwd)
         M.select("INBOX")
         typ, data = M.search(None, "UNSEEN")
@@ -183,9 +197,9 @@ def _send_code(cfg: dict, to_addr: str, code: str) -> bool:
     msg["To"] = to_addr
     try:
         if port == 465:
-            s = smtplib.SMTP_SSL(host, port, timeout=30)
+            s = smtplib.SMTP_SSL(host, port, timeout=30, context=_mail_ssl_context())
         else:
-            s = smtplib.SMTP(host, port, timeout=30); s.starttls()
+            s = smtplib.SMTP(host, port, timeout=30); s.starttls(context=_mail_ssl_context())
         s.login(user, pwd)
         s.sendmail(user, [to_addr], msg.as_string())
         s.quit()
@@ -202,7 +216,7 @@ def test_connection(cfg: dict) -> dict:
         return {"ok": False, "error": "请填写完整：IMAP 主机 / 邮箱 / 授权码"}
     # IMAP
     try:
-        M = imaplib.IMAP4_SSL(host, int(cfg.get("imap_port") or 993))
+        M = imaplib.IMAP4_SSL(host, int(cfg.get("imap_port") or 993), ssl_context=_mail_ssl_context())
         M.login(user, pwd); M.select("INBOX"); M.logout()
     except Exception as e:
         return {"ok": False, "error": f"IMAP 登录失败：{e}"}
@@ -210,9 +224,9 @@ def test_connection(cfg: dict) -> dict:
     try:
         sport = int(cfg.get("smtp_port") or 465)
         if sport == 465:
-            s = smtplib.SMTP_SSL(cfg.get("smtp_host"), sport, timeout=20)
+            s = smtplib.SMTP_SSL(cfg.get("smtp_host"), sport, timeout=20, context=_mail_ssl_context())
         else:
-            s = smtplib.SMTP(cfg.get("smtp_host"), sport, timeout=20); s.starttls()
+            s = smtplib.SMTP(cfg.get("smtp_host"), sport, timeout=20); s.starttls(context=_mail_ssl_context())
         s.login(user, pwd); s.quit()
     except Exception as e:
         return {"ok": False, "error": f"SMTP 登录失败：{e}"}
