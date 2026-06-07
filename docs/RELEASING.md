@@ -43,11 +43,38 @@ CI 默认的 `GITHUB_TOKEN` 只能写当前仓库（Anima），无权推送到�
 
 ---
 
-## 三、正常发版流程（配好 PAT 后）
+## 三、发版前自检（强制 · smoke test）
+
+> 血泪教训：v1.1.6 的后端 sidecar 因 `persona.py` 一个占位符错配，**每次启动即崩溃**，
+> 但因为没人在发版前跑一次，直到用户报「连接中…卡死」才发现。**以下 30 秒自检是发版硬门槛。**
 
 ```bash
-# 1. 改版本号（三处一致）
-#    src-tauri/tauri.conf.json, src-tauri/Cargo.toml
+# 1. 重新打包后端（确保二进制含最新源码改动）
+pwsh ./scripts/build_backend.ps1
+
+# 2. 直接运行 sidecar，确认不崩、能监听、健康检查通过
+./backend/dist/anima-server.exe &        # 后台启动
+sleep 8
+curl -s http://127.0.0.1:9100/health     # 必须返回 {"status":"ok",...}
+# 关键：日志里不能出现 CRITICAL / Traceback / "未捕获异常"
+
+# 3. 验证关键路由（历史删除曾因旧二进制 405 失效）
+curl -s -X DELETE http://127.0.0.1:9100/sessions/__smoke_test__ -w " [%{http_code}]"
+#   期望 200，绝不能是 405 Method Not Allowed
+
+# 4. 自检通过后再杀掉测试进程
+taskkill /F /IM anima-server.exe
+```
+
+只有自检全绿，才进入下面的发版流程。
+
+---
+
+## 四、正常发版流程（配好 PAT 后）
+
+```bash
+# 1. 改版本号（三处一致）+ 更新 CHANGELOG.md「未发布」段 → 对应版本号
+#    src-tauri/tauri.conf.json, src-tauri/Cargo.toml, src-tauri/Cargo.lock(anima 包)
 
 # 2. 提交 + 打 tag + 推送
 git add -A && git commit -m "release: vX.Y.Z"
@@ -56,12 +83,15 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
+> ⚠️ 版本号只升不复用：tag 一旦推送到远程就视为「烧掉」，即使没发布也不要复用同号
+> （例：v1.1.7 已推送但未发布 → 直接跳到 v1.1.8）。
+
 CI 自动完成：四平台构建 → Anima release（私有，留存）→ 安装包 + update.json
 发布到 anima-site（公开）→ 用户端自动更新。
 
 ---
 
-## 四、手动发布（没配 PAT，或想本地补发某个版本）
+## 五、手动发布（没配 PAT，或想本地补发某个版本）
 
 前提：本地 `gh` 已登录、且对 anima-site 有写权限（`gh auth status` 查看）。
 
@@ -85,7 +115,7 @@ gh release upload $TAG --repo chengshi0213-gif/anima-site ./_pub/* --clobber
 
 ---
 
-## 五、自动更新原理速记
+## 六、自动更新原理速记
 
 - 应用启动 5 秒后，`src-tauri/src/lib.rs` 后台调 updater，拉取
   `https://chengshi0213-gif.github.io/anima-site/update.json`
