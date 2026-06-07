@@ -2,7 +2,8 @@
 anima-signing.key
 *.signing.key
 *-signing.key
-tmp_sign/          # 本地签名工作目录：含私钥(anima*.key)+构建产物，绝不入库
+# 本地签名工作目录：含私钥(anima*.key)+构建产物，绝不入库
+tmp_sign/
 
 # ── 本地 agent/工具状态（不入库）──
 .claude/
