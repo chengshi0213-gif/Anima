@@ -80,9 +80,20 @@
     try { _sr.start(); } catch (_) { _stopListen(); }
   };
 
+  // 监听 Anima 对话区是否已经有消息 → 驱动中心灵体淡出，
+  // 避免陪伴模式自己的装饰光球与自己的聊天气泡重叠（同一模式内的内容碰撞，不是跨模式渗透）
+  function _watchChatContent() {
+    const box = document.getElementById('messages-xi');
+    if (!box) return;
+    const sync = () => document.body.classList.toggle('chat-has-content', !!box.querySelector('.msg'));
+    sync();
+    new MutationObserver(sync).observe(box, { childList: true });
+  }
+
   function init() {
     const saved = (function () { try { return localStorage.getItem('anima_mode'); } catch (_) { return null; } })();
     window.setAppMode(saved === 'workspace' ? 'workspace' : 'companion');  // 默认陪伴
+    _watchChatContent();
   }
   if (document.readyState !== 'loading') init();
   else document.addEventListener('DOMContentLoaded', init);

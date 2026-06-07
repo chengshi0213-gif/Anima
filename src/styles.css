@@ -3280,7 +3280,7 @@ body[data-agent="shoucang"] .agent-name, body[data-agent="shoucang"] .welcome-na
 /* ════════════════════════════════════════════════════════════════
    双层架构：陪伴模式（默认极简）↔ 工作台（进阶）
    ════════════════════════════════════════════════════════════════ */
-#companionDock, #companionMic{ display:none; }
+#companionDock{ display:none; }
 body.mode-companion .sidebar{ display:none; }
 /* 顶部人格坞 */
 body.mode-companion #companionDock{ position:fixed; top:18px; left:50%; transform:translateX(-50%); z-index:40;
@@ -3300,20 +3300,17 @@ body.mode-companion #companionDock{ position:fixed; top:18px; left:50%; transfor
 .cd-adv{ border:none; background:rgba(0,0,0,.06); cursor:pointer; padding:8px 14px; border-radius:999px;
   font-size:12.5px; font-weight:600; color:var(--text); font-family:inherit; transition:background .15s; white-space:nowrap; }
 .cd-adv:hover{ background:rgba(0,0,0,.12); }
-/* 语音麦克风 FAB（人格色）*/
-body.mode-companion #companionMic{ position:fixed; right:34px; bottom:34px; z-index:40; width:60px; height:60px;
-  border-radius:50%; border:none; cursor:pointer; color:#fff; display:flex; align-items:center; justify-content:center;
-  background:linear-gradient(135deg, var(--agent,#C99A2E), color-mix(in srgb,var(--agent,#C99A2E) 55%, #1a1a1a));
-  box-shadow:0 10px 30px color-mix(in srgb,var(--agent,#C99A2E) 50%, transparent); transition:transform .15s var(--ease-out,ease); }
-body.mode-companion #companionMic:hover{ transform:scale(1.07); }
-body.mode-companion #companionMic:active{ transform:scale(.93); }
-#companionMic.rec{ animation:micPulse 1s infinite; }
-@keyframes micPulse{ 0%,100%{ box-shadow:0 10px 30px rgba(220,40,40,.55) } 50%{ box-shadow:0 10px 46px rgba(220,40,40,.95) } }
+/* 语音输入：嵌入聊天输入框工具栏（与上传/记忆按钮同列，录音时人格色呼吸提示）*/
+#companionMic.rec{ color:#dc2828; animation:micPulse 1.1s infinite; }
+@keyframes micPulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(220,40,40,.4) } 50%{ box-shadow:0 0 0 6px rgba(220,40,40,0) } }
 
 /* 中心灵体光球（companion-OS 的"活的存在"）*/
 #companionCenter{ display:none; }
 body.mode-companion #companionCenter{ display:flex; flex-direction:column; align-items:center;
-  position:fixed; top:48%; left:50%; transform:translate(-50%,-54%); z-index:20; pointer-events:none; }
+  position:fixed; top:48%; left:50%; transform:translate(-50%,-54%); z-index:20; pointer-events:none;
+  opacity:1; transition:opacity .4s var(--ease-out,ease); }
+/* 对话已有内容时，灵体淡出让位，避免与消息气泡重叠（陪伴模式自身的内容碰撞，而非跨模式渗透）*/
+body.mode-companion.chat-has-content #companionCenter{ opacity:0; }
 body.mode-companion .chat-welcome{ display:none; }      /* 旧 emoji 欢迎块隐藏 */
 /* 陪伴模式：去掉聊天区蒙版 + 隐藏冗余顶栏（身份由灵体+坞承担）*/
 body.mode-companion .chat-messages{ background-image:none !important; }
