@@ -266,8 +266,52 @@ class InviteMailer:
                 sent += 1
                 self._sent_count += 1
                 log.info("已向 %s 发出结缘码 %s", addr, code)
-        self._last_result = f"轮询到 {len(senders)} 封，新发 {sent} 枚码"
-        return {"polled": True, "found": len(senders), "sent": sent}
+
+        # 顺带处理网页「申请结缘码」排队（anima-site 云函数登记，本机用同一条
+        # 已验证可用的 139 通道发信，绕开境外云服务器被反垃圾拦截的问题）
+        web_found = web_sent = 0
+        try:
+            pending = await _invite.fetch_pending_web_invites()
+        except Exception as e:
+            log.warning("拉取网页申请队列失败: %s", e)
+            pending = []
+        web_found = len(pending)
+        for row in pending:
+            addr = (row.get("email") or "").strip()
+            rid = row.get("id")
+            if not addr or rid is None:
+                continue
+            if _already_sent(addr):
+                await _invite.mark_web_invite(rid, status="sent")
+                continue
+            # 复用已经铸造过的码（重试场景），避免每次失败都白白多铸一枚
+            code = (row.get("code") or "").strip() or None
+            if not code:
+                code = await _invite.mint_code("web", int(cfg.get("code_ttl_days") or 7))
+                if not code:
+                    log.warning("网页申请铸码失败（Supabase 未配置？），跳过 %s", addr)
+                    continue
+                await _invite.mark_web_invite(rid, code=code)  # 先落盘，防止重试时重复铸造
+            ok = await asyncio.to_thread(_send_code, cfg, addr, code)
+            if ok:
+                _mark_sent(addr, code)
+                await _invite.mark_web_invite(rid, status="sent")
+                web_sent += 1
+                self._sent_count += 1
+                log.info("已向网页申请人 %s 发出结缘码 %s", addr, code)
+            else:
+                # 不标记终态：邮箱服务商的拒收常是临时限流/反垃圾评分，留给下一轮重试
+                log.warning("网页申请发信暂时失败，留作下轮重试 → %s", addr)
+
+        self._last_result = (
+            f"邮件轮询到 {len(senders)} 封新发 {sent} 枚；"
+            f"网页申请处理 {web_found} 条新发 {web_sent} 枚"
+        )
+        return {
+            "polled": True,
+            "found": len(senders), "sent": sent,
+            "web_found": web_found, "web_sent": web_sent,
+        }
 
     async def _loop_run(self):
         self._running = True

@@ -331,6 +331,46 @@ async def mint_code(created_by: str = "mailer", ttl_days: int = CODE_TTL_DAYS) -
     return code if res else None
 
 
+# ── 网页「申请结缘码」排队（云函数登记，本机邮箱管家发信）───────────────
+#
+# anima-site 是纯静态页面，没有自己的服务器；访客填邮箱后由一个云函数
+# （Vercel serverless）把申请写进 Supabase 的 web_invite_requests 表
+# （status=pending）。但 139 等国内邮箱会拒绝来自境外云服务器 IP 的发信
+# 请求（实测 "450 Mail rejected"），所以真正的发信仍由本机（家庭 IP，
+# 已端到端验证可用）的邮箱管家轮询这张表来完成，复用与邮件申请完全相同的
+# 铸码 + SMTP 发信通道。
+
+async def fetch_pending_web_invites(limit: int = 20) -> list[dict]:
+    """拉取网页申请队列里待处理的条目（status=pending），按申请时间升序。"""
+    if not _configured():
+        return []
+    rows = await _sb_get("web_invite_requests", {
+        "status": "eq.pending",
+        "select": "id,email,code,created_at",
+        "order": "created_at.asc",
+        "limit": str(limit),
+    })
+    return rows or []
+
+
+async def mark_web_invite(req_id: int, status: str | None = None, code: str | None = None) -> bool:
+    """更新网页申请队列条目（status 和/或 code，按需更新其一或两者都更新）。
+
+    设计要点：发信失败（如邮箱服务商临时限流/反垃圾拒收）时【不要】标记为终态，
+    应保持 pending 留给下一轮轮询重试；同时把已经铸造好的码先持久化在行上，
+    重试时复用同一枚码，避免每次失败都白白多铸一枚。"""
+    patch: dict = {}
+    if status is not None:
+        patch["status"] = status
+        if status == "sent":
+            patch["sent_at"] = datetime.now(timezone.utc).isoformat()
+    if code is not None:
+        patch["code"] = code
+    if not patch:
+        return True
+    return await _sb_patch("web_invite_requests", {"id": req_id}, patch)
+
+
 async def get_user_codes(user_token: str | None = None) -> dict:
     """
     列出某用户生成的所有邀请码及状态 + 配额。
