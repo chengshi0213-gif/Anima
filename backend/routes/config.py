@@ -205,6 +205,23 @@ async def setup_save_handler(request):
         _cfg_mod.save_user_config({"user": {"address": cleaned}})
         _cfg_mod.reload_user_config()
 
+    # 「让 Anima 认识你」自由书写 → 写入 user_profile 记忆。
+    # user_profile 被所有人格优先注入 system prompt，Anima 从第一句起就带着这些了解你。
+    profile = (body.get("profile") or "").strip()
+    if profile:
+        try:
+            from memory_injector import write_memory
+            write_memory(
+                key="用户自述（首次见面）",
+                value=profile,
+                category="user_profile",
+                importance=5,
+            )
+        except Exception as e:
+            # 记忆写入失败不应阻断 onboarding 完成
+            import logging
+            logging.getLogger("setup").warning("写入用户自述记忆失败: %s", e)
+
     if not is_ftue_done():
         mark_ftue_done(body.get("agent_names", {}))
 

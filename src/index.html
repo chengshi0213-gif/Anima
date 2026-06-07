@@ -1328,6 +1328,7 @@
       <div class="ob-step" data-step="2"></div>
       <div class="ob-step" data-step="3"></div>
       <div class="ob-step" data-step="4"></div>
+      <div class="ob-step" data-step="5"></div>
     </div>
 
     <!-- Step 0: 语言选择 -->
@@ -1442,8 +1443,25 @@
       </div>
       <div class="ob-actions">
         <button class="ob-btn-secondary" onclick="obPrev()">← 返回</button>
+        <button class="ob-btn-primary" onclick="obNext()">下一步 →</button>
+      </div>
+    </div>
+
+    <!-- Step 5: 让 Anima 认识你 -->
+    <div class="ob-page" id="ob-page-5">
+      <div class="ob-hero">🪔</div>
+      <h2 class="ob-title">让我先认识认识你</h2>
+      <p class="ob-desc">和我说点你的事吧 —— 想到什么写什么。<br>我会慢慢记住、慢慢懂你。不想说的，往后日子还长。</p>
+      <textarea id="obAboutYou" class="ob-input"
+                style="width:100%;min-height:120px;resize:vertical;line-height:1.6;font-family:inherit"
+                placeholder="比如：我在做跨境电商，最近在忙选品；性子有点急，喜欢你直接给结论；养了只猫叫团子……&#10;&#10;随便写，这些只存在你自己的电脑里，随时能改或删。"></textarea>
+      <div class="ob-actions">
+        <button class="ob-btn-secondary" onclick="obPrev()">← 返回</button>
         <button class="ob-btn-primary" onclick="obFinish()">完成，进入 Anima</button>
       </div>
+      <p class="ob-desc" style="font-size:11px;margin-top:12px;opacity:.6">
+        想直接进去也行 —— 留空点完成即可，以后聊着聊着我自然会懂你。
+      </p>
     </div>
   </div>
 </div>

@@ -691,7 +691,7 @@ async function loadUserAddress() {
 // ══════════════════════════════════════════════════
 let _obStep    = 0;
 let _obLang    = 'zh';
-const OB_TOTAL = 5;
+const OB_TOTAL = 6;
 
 window.showOnboarding = function() {
   _obStep = 0;
@@ -759,10 +759,13 @@ window.obFinish = async function() {
   const addrXi       = document.getElementById('obAddrXi')?.value.trim();
   if (addrXi)       user_address.xi       = addrXi;
 
+  // 「让 Anima 认识你」自由书写 → 写入 user_profile 记忆，Anima 从第一句起就懂你
+  const profile = document.getElementById('obAboutYou')?.value.trim() || '';
+
   try {
     const r = await fetch(`${CONFIG.api}/setup/save`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ api, agent_names, user_address, lang: _obLang }),
+      body: JSON.stringify({ api, agent_names, user_address, lang: _obLang, profile }),
     });
     const d = await r.json();
     if (!d.ok) throw new Error('保存失败');
@@ -787,6 +790,10 @@ window.obFinish = async function() {
     } catch(_) {
       // 后端离线时降级：使用本地模板
       welcomeMsg = '你来了？等你很久了......';
+    }
+    // 用户在「认识你」里写了东西 → 让第一句话就显出「我听见了」
+    if (profile) {
+      welcomeMsg += '\n\n你刚才跟我说的，我都记下了 —— 往后我会带着这些慢慢懂你。';
     }
 
     // 注入欢迎消息到 Anima 聊天面板（支持 Markdown 渲染）
