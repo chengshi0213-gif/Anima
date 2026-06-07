@@ -1328,7 +1328,6 @@
       <div class="ob-step" data-step="2"></div>
       <div class="ob-step" data-step="3"></div>
       <div class="ob-step" data-step="4"></div>
-      <div class="ob-step" data-step="5"></div>
     </div>
 
     <!-- Step 0: 语言选择 -->
@@ -1413,42 +1412,39 @@
     <!-- Step 3: 认识团队 -->
     <div class="ob-page" id="ob-page-3">
       <div class="ob-hero">🫂</div>
-      <h2 class="ob-title">认识你的 AI 团队</h2>
-      <p class="ob-desc">Anima 是你唯一的伴，她的名字由系统固定。</p>
-      <div class="ob-name-grid">
+      <h2 class="ob-title">认识一下</h2>
+      <p class="ob-desc">这是我，这是你 —— 往后的路，一起走。</p>
+
+      <div class="ob-name-grid" style="grid-template-columns:1fr">
         <div class="ob-name-row">
           <span class="ob-name-icon ob-name-avatar"><img src="/assets/anima-avatar.png" alt="Anima"></span>
           <div>
-            <div class="ob-name-role">核心同行者 · 日常 + 创作 + 探索</div>
             <div class="ob-name-fixed-label">Anima</div>
+            <div class="ob-name-role">我陪你在洞穴里诗意的栖居。</div>
           </div>
         </div>
       </div>
-      <div class="ob-actions">
-        <button class="ob-btn-secondary" onclick="obPrev()">← 返回</button>
-        <button class="ob-btn-primary" onclick="obNext()">下一步 →</button>
-      </div>
-    </div>
 
-    <!-- Step 4: 你的称呼 -->
-    <div class="ob-page" id="ob-page-4">
-      <h2 class="ob-title" style="margin-top:8px">他们该怎么唤你？</h2>
-      <p class="ob-desc">每位伙伴可以有自己的叫法，也可以都一样。<br>留空则用你的名字 — 日后随时能改。</p>
-      <div class="ob-addr2-list">
-        <label class="ob-addr2-row" style="--accent:#d9b15e" for="obAddrXi">
-          <span class="ob-addr2-av xi-bg ob-addr2-avatar"><img src="/assets/anima-avatar.png" alt="Anima"></span>
-          <span class="ob-addr2-meta"><b>Anima</b><i>核心同行者</i></span>
-          <input type="text" id="obAddrXi" class="ob-addr2-input" placeholder="你的名字 / 老板" maxlength="20">
+      <div class="ob-self-card">
+        <label class="ob-self-avatar" id="obSelfAvatarPick" for="obSelfAvatarFile" title="点击上传你的头像">
+          <img id="obSelfAvatarImg" alt="你的头像" hidden>
+          <span id="obSelfAvatarHint">+</span>
         </label>
+        <input type="file" id="obSelfAvatarFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+        <input type="text" id="obSelfName" class="ob-self-name-input" placeholder="怎么称呼你？" maxlength="20" autocomplete="nickname">
       </div>
+      <p class="ob-desc" style="font-size:11px;margin-top:8px;opacity:.6">
+        这会是你在 Anima 里的名片 —— 头像只存在你自己的电脑里，以后随时能换；也是 Anima 称呼你时用的名字。
+      </p>
+
       <div class="ob-actions">
         <button class="ob-btn-secondary" onclick="obPrev()">← 返回</button>
         <button class="ob-btn-primary" onclick="obNext()">下一步 →</button>
       </div>
     </div>
 
-    <!-- Step 5: 让 Anima 认识你 -->
-    <div class="ob-page" id="ob-page-5">
+    <!-- Step 4: 让 Anima 认识你 -->
+    <div class="ob-page" id="ob-page-4">
       <div class="ob-hero">🪔</div>
       <h2 class="ob-title">让我先认识认识你</h2>
       <p class="ob-desc">和我说点你的事吧 —— 想到什么写什么。<br>我会慢慢记住、慢慢懂你。不想说的，往后日子还长。</p>

@@ -2,7 +2,9 @@
 routes/config.py — Agent 配置、Onboarding/FTUE、TTS、API Catalog
 """
 import asyncio
+import base64
 import json as _json
+import re
 from pathlib import Path
 from aiohttp import web
 
@@ -160,6 +162,8 @@ async def setup_status_handler(request):
         "ftue_done":  is_ftue_done(),
         "agent_names": {**DEFAULT_AGENT_NAMES, **cfg.get("names", {})},
         "user_address": user_address,
+        "user_name":  user_cfg.get("name", ""),
+        "has_avatar": _find_user_avatar() is not None,
         "keys": {
             "deepseek":  bool(_cfg_mod.DEEPSEEK_KEY and not _cfg_mod.DEEPSEEK_KEY.startswith("sk-xxx")),
             "kimi":      bool(_cfg_mod.KIMI_KEY      and not _cfg_mod.KIMI_KEY.startswith("sk-xxx")),
@@ -205,6 +209,12 @@ async def setup_save_handler(request):
         _cfg_mod.save_user_config({"user": {"address": cleaned}})
         _cfg_mod.reload_user_config()
 
+    # 「认识一下」名片：用户的显示名（同一个名字也用作 user_address.xi，见上）
+    # 为后续的社交身份打底——只是名字，本机存储，不外传。
+    user_name = (body.get("user_name") or "").strip()
+    if user_name:
+        _cfg_mod.save_user_config({"user": {"name": user_name}})
+
     # 「让 Anima 认识你」自由书写 → 写入 user_profile 记忆。
     # user_profile 被所有人格优先注入 system prompt，Anima 从第一句起就带着这些了解你。
     profile = (body.get("profile") or "").strip()
@@ -226,6 +236,76 @@ async def setup_save_handler(request):
         mark_ftue_done(body.get("agent_names", {}))
 
     return web.json_response({"ok": True}, headers=CORS_HEADERS)
+
+
+# ── 用户头像（本机存储，不外传；为后续社交身份打底）──────────
+_AVATAR_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
+_AVATAR_CTYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                  ".webp": "image/webp", ".gif": "image/gif"}
+_AVATAR_DATA_URL_RE = re.compile(r"^data:image/(png|jpe?g|webp|gif);base64,(.+)$",
+                                 re.IGNORECASE | re.DOTALL)
+
+
+def _find_user_avatar():
+    import config as _cfg_mod
+    for ext in _AVATAR_EXTS:
+        p = _cfg_mod.DATA_DIR / f"avatar_user{ext}"
+        if p.exists():
+            return p
+    return None
+
+
+async def setup_avatar_get(request):
+    """GET /setup/avatar — 返回用户上传的头像；未上传则 404"""
+    p = _find_user_avatar()
+    if not p:
+        return web.json_response({"error": "no avatar"}, status=404, headers=CORS_HEADERS)
+    return web.FileResponse(p, headers={**CORS_HEADERS, "Content-Type": _AVATAR_CTYPES.get(p.suffix.lower(), "application/octet-stream")})
+
+
+async def setup_avatar_save(request):
+    """POST /setup/avatar — 保存用户上传的头像（Onboarding「认识一下」用）
+    body: {image: "data:image/png;base64,xxxx"}（≤3MB，只写本机磁盘，绝不外传）"""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid json"}, status=400, headers=CORS_HEADERS)
+
+    data_url = (body.get("image") or "").strip()
+    m = _AVATAR_DATA_URL_RE.match(data_url)
+    if not m:
+        return web.json_response({"ok": False, "error": "格式不支持，请上传 png / jpg / webp / gif 图片"},
+                                  status=400, headers=CORS_HEADERS)
+    ext_raw = m.group(1).lower()
+    ext = ".jpg" if ext_raw in ("jpg", "jpeg") else f".{ext_raw}"
+    try:
+        raw = base64.b64decode(m.group(2))
+    except Exception:
+        return web.json_response({"ok": False, "error": "图片数据解析失败"}, status=400, headers=CORS_HEADERS)
+    if len(raw) > 3 * 1024 * 1024:
+        return web.json_response({"ok": False, "error": "图片有点大，换一张 3MB 以内的吧"},
+                                  status=400, headers=CORS_HEADERS)
+
+    import config as _cfg_mod
+
+    def _write():
+        # 先清掉旧头像（可能后缀不同），保证只有一份
+        for old_ext in _AVATAR_EXTS:
+            old = _cfg_mod.DATA_DIR / f"avatar_user{old_ext}"
+            if old.exists():
+                try:
+                    old.unlink()
+                except Exception:
+                    pass
+        path = _cfg_mod.DATA_DIR / f"avatar_user{ext}"
+        path.write_bytes(raw)
+        return path
+
+    try:
+        await asyncio.to_thread(_write)
+    except Exception as e:
+        return web.json_response({"ok": False, "error": f"保存失败：{e}"}, status=500, headers=CORS_HEADERS)
+    return web.json_response({"ok": True, "url": "/setup/avatar"}, headers=CORS_HEADERS)
 
 
 async def setup_welcome_handler(request):
@@ -499,6 +579,8 @@ def register(app):
     # Onboarding / FTUE
     app.router.add_get("/setup/status",            setup_status_handler)
     app.router.add_post("/setup/save",             setup_save_handler)
+    app.router.add_get("/setup/avatar",            setup_avatar_get)
+    app.router.add_post("/setup/avatar",           setup_avatar_save)
     app.router.add_get("/setup/welcome",           setup_welcome_handler)
     app.router.add_post("/setup/complete",         setup_complete_handler)
     # API Catalog

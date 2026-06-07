@@ -691,13 +691,45 @@ async function loadUserAddress() {
 // ══════════════════════════════════════════════════
 let _obStep    = 0;
 let _obLang    = 'zh';
-const OB_TOTAL = 6;
+let _obAvatarDataUrl = '';   // 用户选的头像（data: URL，本机存储，不外传）
+const OB_TOTAL = 5;
 
 window.showOnboarding = function() {
   _obStep = 0;
+  _obAvatarDataUrl = '';
   document.getElementById('obOverlay')?.classList.remove('hidden');
   obGotoStep(0);
+  _obBindAvatarPicker();
 };
+
+// 头像选择：点击圆形头像位 → 弹出文件选择 → 本地预览（base64），完成时再一并上传
+function _obBindAvatarPicker() {
+  const pick = document.getElementById('obSelfAvatarPick');
+  const file = document.getElementById('obSelfAvatarFile');
+  if (!pick || !file || pick.dataset.bound) return;
+  pick.dataset.bound = '1';
+  file.addEventListener('change', () => {
+    const f = file.files && file.files[0];
+    if (!f) return;
+    if (!/^image\/(png|jpe?g|webp|gif)$/i.test(f.type)) {
+      toast('头像得是 png / jpg / webp / gif 图片', 'error');
+      return;
+    }
+    if (f.size > 3 * 1024 * 1024) {
+      toast('图片有点大，换一张 3MB 以内的吧', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      _obAvatarDataUrl = String(reader.result || '');
+      const img = document.getElementById('obSelfAvatarImg');
+      const hint = document.getElementById('obSelfAvatarHint');
+      if (img) { img.src = _obAvatarDataUrl; img.hidden = false; }
+      if (hint) hint.style.display = 'none';
+    };
+    reader.readAsDataURL(f);
+  });
+}
 
 window.obSetLang = function(lang, btn) {
   _obLang = lang;
@@ -754,10 +786,10 @@ window.obFinish = async function() {
   // Agent 名称由系统固定，不由用户在 onboarding 设置
   const agent_names = { ...DEFAULT_AGENT_NAMES };
 
-  // Collect per-agent user address (how each agent calls the user)
+  // 「认识一下」名片：一个名字，同时用作「Anima 怎么称呼你」和「你的身份名片」
+  const selfName = document.getElementById('obSelfName')?.value.trim() || '';
   const user_address = {};
-  const addrXi       = document.getElementById('obAddrXi')?.value.trim();
-  if (addrXi)       user_address.xi       = addrXi;
+  if (selfName) user_address.xi = selfName;
 
   // 「让 Anima 认识你」自由书写 → 写入 user_profile 记忆，Anima 从第一句起就懂你
   const profile = document.getElementById('obAboutYou')?.value.trim() || '';
@@ -765,10 +797,20 @@ window.obFinish = async function() {
   try {
     const r = await fetch(`${CONFIG.api}/setup/save`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ api, agent_names, user_address, lang: _obLang, profile }),
+      body: JSON.stringify({ api, agent_names, user_address, user_name: selfName, lang: _obLang, profile }),
     });
     const d = await r.json();
     if (!d.ok) throw new Error('保存失败');
+
+    // 头像只存本机：选了就上传给后端落盘，失败也不挡用户进门
+    if (_obAvatarDataUrl) {
+      try {
+        await fetch(`${CONFIG.api}/setup/avatar`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ image: _obAvatarDataUrl }),
+        });
+      } catch (_) {}
+    }
 
     // ⚡ 保存成功即放行：先进门，再做装饰。任何装饰报错都不该把用户挡在外面。
     document.getElementById('obOverlay')?.classList.add('hidden');
