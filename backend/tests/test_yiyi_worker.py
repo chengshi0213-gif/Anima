@@ -48,8 +48,8 @@ def test_tools_registered():
 def test_compose_system_assembles_layers():
     w = yw.YiyiWorker()
     s = w._compose_system()
-    # 人格底色
-    assert "晞" in s
+    # 人格底色（四人格合并后统一为 "Anima"）
+    assert "Anima" in s
     # 命理 skill 工作流（仅晞可取）
     assert "命理巨师" in s
     # 本系统适配说明
