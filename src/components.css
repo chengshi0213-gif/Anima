@@ -34,60 +34,74 @@
    后端 confirm.py 发 confirm_request{confirm_id,kind,tool,detail,risk}；
    本卡片回 confirm_response{approved,scope}。默认策略全 off，故此卡平时
    不出现——机制就位、不打扰，用户在 config 开 ask 后才会见到。
+
+   工艺版（taste-skill 材质/按钮层级 + emil 动效）：
+   · 去硬边框，暖色层叠阴影造深度（taste §4.4 材质）
+   · 风险用 chip + 低调"● 高风险"标，不用刺眼大 pill（克制）
+   · 按钮层级：允许一次=实填主按钮 / 本会话·永久=ghost / 拒绝=低调红
+   · :active scale(.97) 按压感、强 ease-out 入场（emil）
+   · 风险语义色用降饱和暖色（陶土红/黏土琥珀），非工业 Tailwind 三原色
    ─────────────────────────────────────────────────────────────── */
 .confirm-card {
   align-self: stretch;
-  max-width: min(720px, 92%);
+  max-width: min(480px, 92%);
   margin: var(--space-2) 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow);
   overflow: hidden;
-  animation: anima-confirm-in var(--dur-base) var(--ease-out);
+  animation: anima-confirm-in var(--dur-base) var(--ease-out) both;
 }
 @keyframes anima-confirm-in {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: scale(.97) translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
+@media (prefers-reduced-motion: reduce) {
+  .confirm-card { animation: none; }
+}
 
-/* 风险色带：high=红 / medium=暖橙。左缘粗条 + 顶部底纹，"危险"一眼可辨 */
-.confirm-card[data-risk="high"]   { --cc-risk: var(--color-error); }
-.confirm-card[data-risk="medium"] { --cc-risk: var(--color-warn); }
-.confirm-card { --cc-risk: var(--color-warn); }
+/* 风险语义色（降饱和暖色，taste §4.2：弃工业三原色）。high=陶土红 / medium=黏土琥珀 */
+.confirm-card                     { --cc-risk: #BE7B3A; }
+.confirm-card[data-risk="high"]   { --cc-risk: #B5483E; }
+.confirm-card[data-risk="medium"] { --cc-risk: #BE7B3A; }
 
 .confirm-hdr {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-3);
   font-size: var(--text-base);
   font-weight: 600;
   color: var(--color-text);
-  border-left: 3px solid var(--cc-risk);
-  background: color-mix(in srgb, var(--cc-risk) 8%, var(--color-surface));
 }
-.confirm-hdr .cc-icon { font-size: var(--text-lg); line-height: 1; }
+/* 图标 chip：风险色淡底方块（替代刺眼图标） */
+.confirm-hdr .cc-icon {
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--text-lg); line-height: 1;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--cc-risk) 13%, var(--color-surface));
+}
+/* 风险标：低调"● 文字"，不抢戏 */
 .confirm-hdr .cc-risk-tag {
   margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
   font-size: var(--text-xs);
   font-weight: 600;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-full);
-  color: var(--cc-risk);
-  background: color-mix(in srgb, var(--cc-risk) 14%, transparent);
+  color: var(--color-text-muted);
+}
+.confirm-hdr .cc-risk-tag::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--cc-risk);
 }
 
-.confirm-body {
-  padding: var(--space-3) var(--space-4);
-  border-left: 3px solid var(--cc-risk);
-}
+.confirm-body { padding: 0 var(--space-4); }
 .confirm-tool {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin-bottom: var(--space-1);
+  margin-bottom: var(--space-2);
 }
-.confirm-tool b { color: var(--color-text); }
+.confirm-tool b { color: var(--color-text); font-weight: 600; }
 .confirm-detail {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
@@ -97,59 +111,63 @@
   padding: var(--space-2) var(--space-3);
   word-break: break-all;
   white-space: pre-wrap;
+  line-height: 1.5;
   max-height: 160px;
   overflow: auto;
 }
 
 .confirm-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4) var(--space-4);
-  border-left: 3px solid var(--cc-risk);
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4) var(--space-4);
 }
+/* 基础=ghost（本会话/永久 这类次级操作安静退场） */
 .confirm-btn {
   font-size: var(--text-sm);
   font-weight: 600;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
   cursor: pointer;
   transition: transform var(--dur-fast) var(--ease-out),
-              background var(--dur-fast), border-color var(--dur-fast);
+              background var(--dur-fast), color var(--dur-fast);
 }
-.confirm-btn:hover { background: var(--color-surface-2); transform: translateY(-1px); }
-.confirm-btn:active { transform: translateY(0); }
+.confirm-btn:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  color: var(--color-text);
+}
+.confirm-btn:active { transform: scale(.97); }
 .confirm-btn:disabled { opacity: .5; cursor: default; transform: none; }
 
-.confirm-btn.cc-allow {
-  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
-  color: var(--color-accent);
-}
+/* 主按钮"允许一次"：固定深琥珀实填，白字——两套主题都过 AA 对比（taste 按钮对比强制项） */
 .confirm-btn.cc-allow.cc-primary {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  background: #A85C13;
   color: #fff;
+  padding: var(--space-2) var(--space-5);
 }
-.confirm-btn.cc-allow.cc-primary:hover { background: var(--color-accent-hover); }
+.confirm-btn.cc-allow.cc-primary:hover { background: #925012; color: #fff; }
+/* 拒绝：低调红，推到最右 */
 .confirm-btn.cc-deny {
   margin-left: auto;
-  border-color: color-mix(in srgb, var(--color-error) 40%, var(--color-border));
-  color: var(--color-error);
+  color: color-mix(in srgb, #B5483E 80%, var(--color-text-muted));
 }
-.confirm-btn.cc-deny:hover { background: color-mix(in srgb, var(--color-error) 8%, var(--color-surface)); }
+.confirm-btn.cc-deny:hover {
+  background: color-mix(in srgb, #B5483E 9%, transparent);
+  color: #B5483E;
+}
 
 /* 已决议：整卡降饱和 + 结果条 */
-.confirm-card.cc-resolved { opacity: .7; }
+.confirm-card.cc-resolved { opacity: .72; }
 .confirm-card.cc-resolved .confirm-actions { display: none; }
 .confirm-result {
   display: none;
-  padding: var(--space-2) var(--space-4) var(--space-3);
+  padding: 0 var(--space-4) var(--space-4);
   font-size: var(--text-sm);
-  border-left: 3px solid var(--cc-risk);
+  font-weight: 600;
 }
 .confirm-card.cc-resolved .confirm-result { display: block; }
-.confirm-result.cc-approved { color: var(--color-success); }
-.confirm-result.cc-denied   { color: var(--color-error); }
+.confirm-result.cc-approved { color: #5F8A5B; }   /* 鼠尾草绿（降饱和），替工业绿 */
+.confirm-result.cc-denied   { color: #B5483E; }
