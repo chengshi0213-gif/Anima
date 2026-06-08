@@ -136,6 +136,12 @@ function handleAgentMessage(agentId, msg) {
     window.markThinkingStep?.(agentId, msg.data?.tool, msg.data?.ok, msg.data?.hint);
     return;
   }
+  if (msg.type === 'confirm_request') {
+    // M14 内核3：危险操作确认。后端默认策略全 off，故平时不触发；
+    // 用户在 config 开 ask 后，这里渲染 ConfirmCard 让其决定放行/拒绝。
+    window.showConfirmRequest?.(agentId, msg.data);
+    return;
+  }
   if (msg.type === 'permission_request') {
     window.removeThinking?.(agentId);
     window.removeStreamingMsg?.(agentId);

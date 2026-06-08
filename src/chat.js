@@ -199,6 +199,79 @@ export function appendErrMsg(agentId, text) {
 }
 window.appendErrMsg = appendErrMsg;
 
+// ══════════════════════════════════════════════════
+//  ConfirmCard —— M14 危险操作确认卡
+//  后端 confirm_request{confirm_id,kind,tool,detail,risk} → 本卡 →
+//  confirm_response{confirm_id,approved,scope}。默认策略全 off，平时不出现。
+// ══════════════════════════════════════════════════
+const CONFIRM_KIND = {
+  shell:                   { icon: '⚙️', label: '执行 Shell 命令' },
+  write_outside_workspace: { icon: '💾', label: '写入工作区以外' },
+  git_push:                { icon: '🚀', label: '推送到远程仓库' },
+  mcp_destructive:         { icon: '⚠️', label: '破坏性外部操作' },
+};
+
+export function showConfirmRequest(agentId, data = {}) {
+  const box = document.getElementById(`messages-${agentId}`);
+  if (!box) return;
+  const { confirm_id, kind, tool, detail, risk } = data;
+  if (!confirm_id) return;
+  const meta = CONFIRM_KIND[kind] || { icon: '⚠️', label: kind || '危险操作' };
+  const riskTag = risk === 'high' ? '高风险' : '需确认';
+
+  const div = document.createElement('div');
+  div.className = 'confirm-card';
+  div.dataset.risk = risk || 'medium';
+  div.dataset.confirmId = confirm_id;
+  div.innerHTML = `
+    <div class="confirm-hdr">
+      <span class="cc-icon">${meta.icon}</span>
+      <span>${escHtml(meta.label)}</span>
+      <span class="cc-risk-tag">${riskTag}</span>
+    </div>
+    <div class="confirm-body">
+      <div class="confirm-tool">${AGENTS[agentId]?.name || agentId} 想调用 <b>${escHtml(tool || '')}</b></div>
+      ${detail ? `<div class="confirm-detail">${escHtml(detail)}</div>` : ''}
+    </div>
+    <div class="confirm-actions">
+      <button class="confirm-btn cc-allow cc-primary" onclick="resolveConfirm('${agentId}','${confirm_id}',true,'once',this)">允许一次</button>
+      <button class="confirm-btn cc-allow" onclick="resolveConfirm('${agentId}','${confirm_id}',true,'session',this)">本会话允许</button>
+      <button class="confirm-btn cc-allow" onclick="resolveConfirm('${agentId}','${confirm_id}',true,'always',this)">永久允许</button>
+      <button class="confirm-btn cc-deny" onclick="resolveConfirm('${agentId}','${confirm_id}',false,'once',this)">拒绝</button>
+    </div>
+    <div class="confirm-result"></div>`;
+  box.appendChild(div);
+  scrollBottom(agentId);
+}
+window.showConfirmRequest = showConfirmRequest;
+
+window.resolveConfirm = function(agentId, confirmId, approved, scope, btn) {
+  const card = btn?.closest('.confirm-card')
+            || document.querySelector(`#messages-${agentId} .confirm-card[data-confirm-id="${confirmId}"]`);
+  // 防重复点击：先锁住所有按钮
+  card?.querySelectorAll('.confirm-btn').forEach(b => { b.disabled = true; });
+
+  const sent = wsSend(agentId, {
+    action: 'confirm_response', confirm_id: confirmId,
+    approved, scope,
+  });
+  if (!sent) {
+    card?.querySelectorAll('.confirm-btn').forEach(b => { b.disabled = false; });
+    toast('未连接后端，确认未送达', 'error');
+    return;
+  }
+
+  if (card) {
+    card.classList.add('cc-resolved');
+    const res = card.querySelector('.confirm-result');
+    if (res) {
+      const scopeTxt = scope === 'session' ? '（本会话）' : scope === 'always' ? '（永久）' : '';
+      res.className = 'confirm-result ' + (approved ? 'cc-approved' : 'cc-denied');
+      res.textContent = approved ? `✓ 已允许${scopeTxt}` : '✕ 已拒绝';
+    }
+  }
+};
+
 export function showThinking(agentId) {
   const box = document.getElementById(`messages-${agentId}`);
   if (!box || box.querySelector('.thinking-msg')) return;
