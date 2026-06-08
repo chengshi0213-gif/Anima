@@ -4,7 +4,7 @@
 AgentBase — Anima 员工基类
 可移植版本：所有路径通过 config.py 配置，无硬编码
 """
-import json, os, re, sys, time, hashlib, asyncio
+import json, os, re, sys, time, hashlib, asyncio, inspect
 from pathlib import Path
 from datetime import datetime
 from typing import Any
@@ -404,7 +404,7 @@ class AgentBase:
                         "type": "tool_start",
                         "data": {"tool": name, "args": safe_args, "turn": turn},
                     })
-                    result = self._execute_tool(name, args)
+                    result = await self._execute_tool(name, args)
 
                 if name in ("file_write", "file_edit") and "error" not in result:
                     if p := result.get("path"):
@@ -436,11 +436,20 @@ class AgentBase:
         return {"status": "max_turns_reached",
                 "summary": f"达到最大轮数 {self.max_turns}", "turn_count": self.max_turns}
 
-    def _execute_tool(self, name: str, args: dict) -> dict:
+    async def _execute_tool(self, name: str, args: dict) -> dict:
+        """工具调用的全局唯一咽喉（M11 内核1：异步化）。
+
+        同步工具返回 dict，iscoroutine 为 False，行为与旧版完全一致；
+        异步工具（MCP / 任何 async 回调）返回协程，在此 await。
+        这是向后兼容的全部保证——同步工具一字未动地继续工作。
+        """
         if name not in self.tool_dispatch:
             return {"error": f"未知工具: {name}"}
         try:
-            return self.tool_dispatch[name](**args)
+            result = self.tool_dispatch[name](**args)
+            if inspect.iscoroutine(result):
+                result = await result
+            return result
         except PermissionRequest:
             raise   # 权限请求必须向上传播，由 websocket_server 捕获并推送卡片
         except TypeError as e:
