@@ -8,6 +8,7 @@ import aiohttp
 from aiohttp import web
 
 from agent_base import PermissionRequest
+from task_registry import get_registry
 
 
 class WorkerServer:
@@ -16,7 +17,8 @@ class WorkerServer:
         self.search = search_engine
         self.workflow = workflow_mgr
         self.usage = usage_tracker
-        self.current_task = None
+        self.tasks = get_registry()          # M12：共享任务注册表（提交走人 + 重连看流）
+        self.current_task = None             # 向后兼容：最近一个 asyncio.Task（cancel/status 用）
         self.current_session_id = None
         # 每个会话的完整对话累积（session_id -> [ {role,content}, ... ]）。
         # 关键：index_session 是"删旧重写"语义，必须每轮传**整段**对话，
@@ -63,6 +65,11 @@ class WorkerServer:
                     "usage_agents":      self._handle_usage_agents,
                     "usage_projection":  self._handle_usage_projection,
                     "cancel":            self._handle_cancel,
+                    # ── M12 内核2：异步任务（提交走人 / 断线重连）──
+                    "task_submit":       self._handle_task_submit,
+                    "task_attach":       self._handle_task_attach,
+                    "task_list":         self._handle_task_list,
+                    "task_cancel":       self._handle_task_cancel,
                 }
                 handler = handlers.get(action)
                 if handler:
@@ -71,12 +78,16 @@ class WorkerServer:
                     await ws.send_json({"type": "error", "message": f"未知 action: {action}"})
             except Exception as e:
                 await ws.send_json({"type": "error", "message": str(e)})
+        # 连接关闭：把所有 attach 到本 ws 的 live 任务解绑，避免向死连接发送。
+        # 任务本身继续在后台跑（提交走人）；重连后用 task_attach 拉回流。
+        self.tasks.detach_ws(ws)
         return ws
 
-    async def _handle_chat(self, ws, data):
+    def _prepare_chat(self, data):
+        """从 chat / task_submit 请求体提炼 (message, model, session_id, error)。
+        附件拼接逻辑两个入口共用。"""
         message = data.get("message", "")
         files   = data.get("files", [])
-
         if files:
             file_blocks = []
             for f in files:
@@ -87,49 +98,49 @@ class WorkerServer:
             if file_blocks:
                 file_ctx = "\n\n---\n\n".join(file_blocks)
                 message  = f"{file_ctx}\n\n---\n\n{message}" if message.strip() else file_ctx
-
         if not message.strip():
-            await ws.send_json({"type": "error", "message": "消息为空"})
-            return
-
-        selected_model = data.get("model") or None
+            return "", None, "", "消息为空"
+        model = data.get("model") or None
         session_id = data.get("session_id") or f"{self.worker.name}-{int(asyncio.get_event_loop().time())}"
-        self.current_session_id = session_id
-        await ws.send_json({"type": "status", "status": "running",
-                            "session_id": session_id, "model": selected_model})
+        return message, model, session_id, ""
 
-        # ── 以后台 task 运行，不阻塞消息循环 ──
-        #   关键：handle() 的 `async for msg ... await handler` 是顺序执行的，
-        #   若在此处 await worker.run() 会卡住整个循环，导致后续的 cancel 消息
-        #   永远读不到。包成 task 并记录 current_task，cancel 才能真正生效。
-        async def _run_and_respond():
+    def _spawn_task(self, task, selected_model):
+        """把任务跑成主循环上的 asyncio.Task：不阻塞消息循环，可 cancel / 重连。
+        task 自身当作 ws 传给 worker.run（缓冲事件 + 转发给当前 attach 的 ws），
+        这样断线重连 task_attach 即可换上新 ws 并 replay，流不丢。"""
+        async def _run():
+            self.tasks.set_status(task, "running")
             try:
                 result = await self.worker.run(
-                    message, session_id=session_id, model=selected_model, ws=ws)
+                    task.message, session_id=task.session_id,
+                    model=selected_model, ws=task)
             except asyncio.CancelledError:
-                await self._safe_send(ws, {"type": "response", "data": {
-                    "session_id": session_id, "status": "cancelled",
-                    "summary": "已取消", "turn_count": 0,
+                self.tasks.set_status(task, "cancelled", "已取消")
+                await task.send_json({"type": "response", "data": {
+                    "session_id": task.session_id, "task_id": task.task_id,
+                    "status": "cancelled", "summary": "已取消", "turn_count": 0,
                 }})
                 raise
             except PermissionRequest as pr:
-                await self._safe_send(ws, {
-                    "type": "permission_request",
-                    "data": {
-                        "api_name":     pr.api_name,
-                        "reason":       pr.reason,
-                        "signup_url":   pr.signup_url,
-                        "alternatives": pr.alternatives,
-                        "related":      pr.related,
-                    }
-                })
+                self.tasks.set_status(task, "error", "需要权限")
+                await task.send_json({"type": "permission_request", "data": {
+                    "api_name":     pr.api_name,
+                    "reason":       pr.reason,
+                    "signup_url":   pr.signup_url,
+                    "alternatives": pr.alternatives,
+                    "related":      pr.related,
+                }})
                 return
             except Exception as e:
-                await self._safe_send(ws, {"type": "error", "message": str(e)})
+                self.tasks.set_status(task, "error", str(e))
+                await task.send_json({"type": "error", "message": str(e)})
                 return
-            self._record_turn(session_id, message, result.get("summary", ""))
-            await self._safe_send(ws, {"type": "response", "data": {
-                "session_id":    session_id,
+            task.result = result
+            self.tasks.set_status(task, "done", result.get("summary", ""))
+            self._record_turn(task.session_id, task.message, result.get("summary", ""))
+            await task.send_json({"type": "response", "data": {
+                "session_id":    task.session_id,
+                "task_id":       task.task_id,
                 "status":        result["status"],
                 "summary":       result.get("summary", ""),
                 "model":         selected_model or self.worker.model,
@@ -137,7 +148,22 @@ class WorkerServer:
                 "turn_count":    result.get("turn_count", 0),
             }})
 
-        self.current_task = asyncio.create_task(_run_and_respond())
+        task.aio_task = asyncio.create_task(_run())
+        self.current_task = task.aio_task   # 向后兼容：cancel / status 仍指最近任务
+
+    async def _handle_chat(self, ws, data):
+        """老入口：chat = submit + 自动 attach。行为与旧版一致，老前端零改动。"""
+        message, selected_model, session_id, err = self._prepare_chat(data)
+        if err:
+            await ws.send_json({"type": "error", "message": err})
+            return
+        self.current_session_id = session_id
+        task = self.tasks.create(self.worker.name, session_id, message)
+        self.tasks.attach(task.task_id, ws)
+        await ws.send_json({"type": "status", "status": "running",
+                            "session_id": session_id, "task_id": task.task_id,
+                            "model": selected_model})
+        self._spawn_task(task, selected_model)
 
     @staticmethod
     async def _safe_send(ws, payload):
@@ -204,3 +230,41 @@ class WorkerServer:
             self.current_task.cancel()
         self.current_session_id = None
         await ws.send_json({"type": "response", "data": {"cancelled": True}})
+
+    # ── M12 内核2：异步任务 actions ──
+    async def _handle_task_submit(self, ws, data):
+        """提交即走人：建任务 + 立即回 task_id（也顺手 attach，留下就能看流）。"""
+        message, model, session_id, err = self._prepare_chat(data)
+        if err:
+            await ws.send_json({"type": "error", "message": err})
+            return
+        self.current_session_id = session_id
+        task = self.tasks.create(self.worker.name, session_id, message)
+        self.tasks.attach(task.task_id, ws)
+        await ws.send_json({"type": "task_submitted", "data": {
+            "task_id": task.task_id, "session_id": session_id}})
+        self._spawn_task(task, model)
+
+    async def _handle_task_attach(self, ws, data):
+        """断线重连：换上新 ws + replay 缓冲事件。任务已结束则回历史记录。"""
+        task_id = data.get("task_id", "")
+        task = self.tasks.attach(task_id, ws)
+        if task is None:
+            rec = self.tasks.get_record(task_id)
+            if rec is None:
+                await ws.send_json({"type": "error", "message": f"任务不存在: {task_id}"})
+                return
+            await ws.send_json({"type": "task_state", "data": rec})
+            return
+        await ws.send_json({"type": "task_state", "data": task.to_dict()})
+        await self.tasks.replay(task_id, ws)
+
+    async def _handle_task_list(self, ws, data=None):
+        tasks = self.tasks.list(agent=self.worker.name)
+        await ws.send_json({"type": "response", "data": {"tasks": tasks}})
+
+    async def _handle_task_cancel(self, ws, data):
+        task_id = data.get("task_id", "")
+        ok = await self.tasks.cancel(task_id)
+        await ws.send_json({"type": "response", "data": {
+            "cancelled": ok, "task_id": task_id}})

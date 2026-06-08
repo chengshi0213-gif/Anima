@@ -32,7 +32,7 @@ from skill_manager import init_builtin_skills
 
 from ws_manager import WorkerServer
 from routes.auth import auth_middleware, CORS_HEADERS
-from routes import core, knowledge, workflow, config as config_routes, services, data, login, economy, invite
+from routes import core, knowledge, workflow, config as config_routes, services, data, login, economy, invite, tasks
 
 
 async def main():
@@ -111,6 +111,7 @@ async def main():
     economy.register(app)
     invite.register(app)
     login.register(app)
+    tasks.register(app)
 
     # ── OpenAPI docs ──
     from openapi_spec import get_spec_json, SWAGGER_UI_HTML
