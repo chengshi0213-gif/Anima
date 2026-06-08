@@ -138,11 +138,24 @@ def _orchestration_cap(agent_id: str) -> Capability:
                       build_orchestration_dispatch(), _ORCH_FRAGMENT)
 
 
+def _mcp_cap(agent_id: str) -> Capability:
+    """第 5 块积木（M11）：已连接的 MCP 外部工具。
+    构造期 snapshot 多为空（boot 可能晚于 worker 构造，用户也可能运行中加 server）；
+    真正的工具集由 worker 每轮 run 前 _sync_mcp_tools() 刷新，
+    提示词片段由 dynamic_prompt 每轮取最新——靠 mcp__ 前缀只换 MCP 子集，不碰原生工具。"""
+    from mcp_client import MCPManager, _compose_mcp_fragment
+    snap = MCPManager.snapshot()
+    return Capability("mcp", snap.tool_defs, snap.dispatch,
+                      prompt_fragment="",
+                      dynamic_prompt=lambda: _compose_mcp_fragment(MCPManager._tools))
+
+
 _FACTORIES: dict[str, Callable[[str], Capability]] = {
     "execution":     _execution_cap,
     "web":           _web_cap,
     "divination":    _divination_cap,
     "orchestration": _orchestration_cap,
+    "mcp":           _mcp_cap,
 }
 
 

@@ -33,5 +33,9 @@ cryptography>=42.0      # 回调消息 AES-CBC 加解密（WXBizMsgCrypt）
 pyautogui>=0.9.54       # 鼠标/键盘控制
 pillow>=10.0            # 截屏（ImageGrab）
 
+# ── MCP 外部工具（Model Context Protocol，M11，可选）──
+# 一个协议接入无限外部工具。未安装则 MCP 功能自动跳过，不影响其它能力。
+mcp>=1.0                # 官方 MCP Python SDK（需 Python 3.10+）
+
 # ── 打包 ──
 pyinstaller>=6.0        # 打包为单文件 exe

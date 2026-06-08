@@ -180,7 +180,7 @@ class XiWorker(AgentBase):
       orchestration 调动子员工拆大活
     记忆由 AgentBase 自动注入，不在此列。
     """
-    CAPS = ["execution", "web", "divination", "orchestration"]
+    CAPS = ["execution", "web", "divination", "orchestration", "mcp"]
 
     def __init__(self):
         from capabilities import build as _build_caps
@@ -224,6 +224,22 @@ class XiWorker(AgentBase):
             pass
         return "\n".join(p for p in parts if p)
 
+    def _sync_mcp_tools(self):
+        """热加载：把当前已连接的 MCP 工具并进 tool_defs/dispatch。
+        靠 mcp__ 前缀只换 MCP 子集，原生 13 工具一字不动。
+        用户运行中加完 server，下一句话即可用，无需重启。容错：任何异常静默跳过。"""
+        try:
+            from mcp_client import MCPManager
+            snap = MCPManager.snapshot()
+            base_defs = [d for d in self.tool_defs
+                         if not d["function"]["name"].startswith("mcp__")]
+            self.tool_defs = base_defs + snap.tool_defs
+            self.tool_dispatch = {k: v for k, v in self.tool_dispatch.items()
+                                  if not k.startswith("mcp__")}
+            self.tool_dispatch.update(snap.dispatch)
+        except Exception:
+            pass
+
     async def run(self, task, session_id=None, model=None, ws=None, project=None):
         # 记录用户消息到语言图谱（容错，不阻塞主流程）
         try:
@@ -231,6 +247,8 @@ class XiWorker(AgentBase):
             _lp.record_message(str(task))
         except Exception:
             pass
+        # 热加载 MCP 工具（boot 可能晚于构造 / 运行中新增 server）
+        self._sync_mcp_tools()
         # 每次对话前刷新 system prompt（含最新出生信息和语言图谱）
         self.system_prompt = self._compose_system()
         return await super().run(task, session_id=session_id, model=model,

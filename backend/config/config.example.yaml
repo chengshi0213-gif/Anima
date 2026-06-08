@@ -24,3 +24,26 @@ lang: "zh"   # zh | en
 # ── 工作区 ──
 # Agent 执行代码操作的目录
 # workspace: "~/anima-workspace"
+
+# ── MCP 外部工具（Model Context Protocol，M11）──
+# 一个协议接入无限外部工具，无需手写集成。默认无 server（功能关闭）。
+# 安全：只有 enabled=true 且你显式配置的 server 才会启动；stdio server 会运行命令，
+#       启用前请确认命令可信。env 可用 ${api.xxx} 复用上面的 Key，无需重复填写。
+# 需要安装 SDK：pip install "mcp>=1.0"（未安装则自动跳过，不影响其它功能）
+# mcp:
+#   servers:
+#     - name: github
+#       transport: stdio
+#       command: npx
+#       args: ["-y", "@modelcontextprotocol/server-github"]
+#       env: { GITHUB_TOKEN: "${api.github_token}" }   # 复用已配置的 token
+#       enabled: false
+#     - name: filesystem
+#       transport: stdio
+#       command: npx
+#       args: ["-y", "@modelcontextprotocol/server-filesystem", "~/anima-workspace"]
+#       enabled: false
+#     - name: remote_example
+#       transport: sse
+#       url: "http://localhost:3001/sse"
+#       enabled: false

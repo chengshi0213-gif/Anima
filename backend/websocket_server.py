@@ -67,6 +67,14 @@ async def main():
     # 初始化内置 Skill
     await asyncio.to_thread(init_builtin_skills)
 
+    # 启动 MCP 客户端（M11）：在主循环上连接 config 里 enabled 的 server。
+    # 容错：未装 SDK / 未配置 / 单个 server 失败均不影响主程序启动；默认无 server=空连接。
+    try:
+        from mcp_client import MCPManager
+        await MCPManager.boot(asyncio.get_running_loop())
+    except Exception as _e:
+        print(f"[Anima] MCP 启动跳过: {_e}")
+
     search_engine = SearchEngine(SESSIONS_DB)
     workflow_mgr  = WorkflowManager(WORKFLOWS_DIR)
     usage_tracker = UsageTracker(LOG_DIR)
