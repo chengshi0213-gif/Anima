@@ -47,3 +47,23 @@ lang: "zh"   # zh | en
 #       transport: sse
 #       url: "http://localhost:3001/sse"
 #       enabled: false
+
+# ── 安全：危险操作确认 + 工具钩子（M14 内核3）──
+# 默认全关——机制就位但不打扰。需要时再 opt-in 打开。
+# confirm 策略值：off(默认放行) | ask(问你) | allow(永远放行) | deny(永远拒)。
+#   ask 时危险工具会弹确认卡片；"本次会话允许 / 永久允许" 由卡片选择。
+#   无人值守（子员工 / 定时任务 / 无界面）默认拒 ask 类；可设 unattended: allow 放开。
+# hooks：在每次工具调用前后插自定义动作。python 形态 "模块:函数"（返回
+#   {"block":"原因"} 可在 pre_tool 否决工具）；shell 形态把 payload 以 JSON 喂 stdin。
+# security:
+#   confirm:
+#     shell: ask                      # 执行 shell 命令前确认
+#     write_outside_workspace: ask    # 写工作区以外的文件前确认
+#     git_push: ask
+#     mcp_destructive: ask            # 名字含 delete/remove/drop... 的 MCP 工具
+#     unattended: deny                # 无活动界面时 ask 类如何处置
+#   hooks:
+#     pre_tool:
+#       - {match: file_write, python: "myhooks:guard_sensitive_path"}
+#     post_tool:
+#       - {match: file_write, shell: "echo formatted"}   # 钩子自行解析 stdin 的 JSON payload

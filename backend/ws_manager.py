@@ -70,6 +70,8 @@ class WorkerServer:
                     "task_attach":       self._handle_task_attach,
                     "task_list":         self._handle_task_list,
                     "task_cancel":       self._handle_task_cancel,
+                    # ── M14 内核3：危险操作确认答复 ──
+                    "confirm_response":  self._handle_confirm_response,
                 }
                 handler = handlers.get(action)
                 if handler:
@@ -268,3 +270,12 @@ class WorkerServer:
         ok = await self.tasks.cancel(task_id)
         await ws.send_json({"type": "response", "data": {
             "cancelled": ok, "task_id": task_id}})
+
+    async def _handle_confirm_response(self, ws, data):
+        """用户对 confirm_request 的答复：approved + scope(once/session/always)。"""
+        from confirm import get_broker
+        ok = get_broker().resolve(
+            data.get("confirm_id", ""),
+            bool(data.get("approved", False)),
+            data.get("scope", "once"))
+        await ws.send_json({"type": "response", "data": {"resolved": ok}})

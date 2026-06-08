@@ -344,6 +344,9 @@ class AgentBase:
                 await _ws_send({"type": "assistant_delta", "data": {"content": chunk}})
             on_delta = _on_delta
 
+        # 内核3：工具上下文（确认/钩子用）。默认策略全 off + 默认无钩子 → 零行为变化。
+        tool_ctx = {"ws": ws, "session_id": session_id, "agent": self.name}
+
         for turn in range(1, self.max_turns + 1):
             if turn > 1 and turn % self.compress_every == 0:
                 old = len(messages)
@@ -404,7 +407,7 @@ class AgentBase:
                         "type": "tool_start",
                         "data": {"tool": name, "args": safe_args, "turn": turn},
                     })
-                    result = await self._execute_tool(name, args)
+                    result = await self._execute_tool(name, args, ctx=tool_ctx)
 
                 if name in ("file_write", "file_edit") and "error" not in result:
                     if p := result.get("path"):
@@ -436,26 +439,64 @@ class AgentBase:
         return {"status": "max_turns_reached",
                 "summary": f"达到最大轮数 {self.max_turns}", "turn_count": self.max_turns}
 
-    async def _execute_tool(self, name: str, args: dict) -> dict:
-        """工具调用的全局唯一咽喉（M11 内核1：异步化）。
+    async def _execute_tool(self, name: str, args: dict, ctx: dict | None = None) -> dict:
+        """工具调用的全局唯一咽喉。
 
-        同步工具返回 dict，iscoroutine 为 False，行为与旧版完全一致；
-        异步工具（MCP / 任何 async 回调）返回协程，在此 await。
-        这是向后兼容的全部保证——同步工具一字未动地继续工作。
+        内核1（异步化）：同步工具返回 dict（iscoroutine=False，行为与旧版完全一致）；
+            异步工具（MCP / 任何 async 回调）返回协程，在此 await。
+        内核3（确认 / Hooks）：仅当传入 ctx 时启用——pre_tool 钩子可否决、危险操作
+            走 confirm 往返、post_tool 钩子收尾。ctx=None（含所有单测直调）时整条
+            确认/钩子链跳过，路径与内核1 时期字节级一致，故向后兼容不破。
+            默认策略全 off、默认无钩子，所以即便传 ctx，默认配置下也零行为变化。
         """
         if name not in self.tool_dispatch:
             return {"error": f"未知工具: {name}"}
+        if ctx is not None:
+            blocked = await self._guard_tool(name, args, ctx)
+            if blocked is not None:
+                return blocked
         try:
             result = self.tool_dispatch[name](**args)
             if inspect.iscoroutine(result):
                 result = await result
-            return result
         except PermissionRequest:
             raise   # 权限请求必须向上传播，由 websocket_server 捕获并推送卡片
         except TypeError as e:
-            return {"error": f"工具参数错误: {e}"}
+            result = {"error": f"工具参数错误: {e}"}
         except Exception as e:
-            return {"error": f"工具执行异常: {e}"}
+            result = {"error": f"工具执行异常: {e}"}
+        if ctx is not None:
+            await self._post_tool(name, args, result, ctx)
+        return result
+
+    async def _guard_tool(self, name: str, args: dict, ctx: dict) -> dict | None:
+        """咽喉前置：pre_tool 钩子（可否决）+ 危险操作确认。
+        返回 None=放行；返回 dict=拦下（作为工具结果回给模型）。"""
+        try:
+            from hooks import run_pre_tool
+            veto = await run_pre_tool(name, args, ctx)
+            if veto is not None:
+                return veto
+        except Exception:
+            pass
+        try:
+            from confirm import get_broker, classify
+            kind = classify(name, args)
+            if kind and not await get_broker().guard(kind, name, args, ctx):
+                return {"error": f"操作被拒绝（{kind}）: {name}", "cancelled": True}
+        except PermissionRequest:
+            raise
+        except Exception:
+            pass
+        return None
+
+    async def _post_tool(self, name: str, args: dict, result: dict, ctx: dict) -> None:
+        """咽喉后置：post_tool 钩子（如自动格式化）。异常不影响工具结果。"""
+        try:
+            from hooks import run_post_tool
+            await run_post_tool(name, args, result, ctx)
+        except Exception:
+            pass
 
     # ── 工具 ──
     @staticmethod
