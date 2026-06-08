@@ -159,6 +159,53 @@
   color: #B5483E;
 }
 
+/* ───────────────────────────────────────────────────────────────
+   3. MCP 管理面板（#22）—— 设置页只读状态展示，工艺与 ConfirmCard 同源
+   ─────────────────────────────────────────────────────────────── */
+.mcp-summary {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-sm); color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+.mcp-summary b { color: var(--color-text); font-weight: 600; }
+.mcp-summary .mcp-dot { opacity: .5; }
+.mcp-empty {
+  font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.7;
+  background: var(--color-surface-2); border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+}
+.mcp-empty code {
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  padding: 1px 5px; border-radius: var(--radius-sm);
+}
+.mcp-srv-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.mcp-srv {
+  background: var(--color-surface); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); padding: var(--space-3) var(--space-4);
+}
+.mcp-srv-top { display: flex; align-items: center; gap: var(--space-2); }
+.mcp-srv-name { font-weight: 600; font-size: var(--text-base); color: var(--color-text); }
+.mcp-srv-count { margin-left: auto; font-size: var(--text-xs); color: var(--color-text-muted); }
+.mcp-badge { font-size: var(--text-xs); font-weight: 600; }
+.mcp-badge.ok  { color: #5F8A5B; }
+.mcp-badge.err { color: #B5483E; }
+.mcp-badge.off { color: var(--color-text-muted); }
+.mcp-srv-meta { margin-top: var(--space-1); }
+.mcp-srv-meta code, .mcp-env {
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--color-text-muted);
+}
+.mcp-srv-err { margin-top: var(--space-1); font-size: var(--text-xs); color: #B5483E; }
+.mcp-env { display: inline-block; margin-top: var(--space-1); }
+.mcp-tools { margin-top: var(--space-3); }
+.mcp-tools summary { cursor: pointer; font-size: var(--text-sm); color: var(--color-text-muted); }
+.mcp-tool-grid { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-2); }
+.mcp-tool { display: flex; gap: var(--space-2); align-items: baseline; font-size: var(--text-xs); }
+.mcp-tool code {
+  font-family: var(--font-mono); color: var(--color-accent); white-space: nowrap;
+}
+.mcp-tool span { color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; }
+
 /* 已决议：整卡降饱和 + 结果条 */
 .confirm-card.cc-resolved { opacity: .72; }
 .confirm-card.cc-resolved .confirm-actions { display: none; }

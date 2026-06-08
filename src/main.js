@@ -12,6 +12,7 @@ import './chat.js';
 import './overview.js';
 import './workflow.js';
 import './settings.js';
+import './mcp-panel.js';
 import './economy.js';
 import './anim.js';   // GSAP 编排层（必须最后 import：包装其它模块已注册的 window.* 函数）
 
