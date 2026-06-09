@@ -24,18 +24,17 @@ from typing import Optional
 
 # 工作流里可调度的 agent → 能力简介（喂给规划器，让它知道派给谁）
 # 4 个核心人格 + 陶朱花名册 7 子员工。
-try:
-    from orchestrator import SUBAGENT_FACTORIES as _SUB
-    _ORCH = {r: d for r, (_, _, d) in _SUB.items()}
-except Exception:
-    _ORCH = {}
-
+# KNOWN_AGENTS 只列 websocket_server.py 里实际注册的 servers，避免 LLM 用不存在的 agent。
+# 调整时两处同步：websocket_server.py servers 字典 ↔ 这里。
 KNOWN_AGENTS: dict[str, str] = {
-    "xi":       "Anima（私人助理/通才）：日常对话、检索、轻量整理、统筹——拿不准派谁就用它",
+    "xi":       "Anima（私人助理/通才）：日常对话、检索、轻量整理、统筹调研——拿不准派谁就用它",
+    "writer":   "写手：内容创作、文章撰写、报告写作",
+    "reader":   "阅读者：文档阅读、资料整理、内容提炼",
+    "critic":   "评审：质量把关、审阅修改、给出建议",
+    "executor": "执行者：写代码、跑命令行、技术任务",
     "yiyi":     "晞（命理顾问）：八字/紫微排盘、命理解读",
-    "tianyuan": "陶朱（CEO/编排）：把模糊目标拆成计划、统筹多专员",
-    "shoucang": "守藏（谏臣/记忆）：复盘、谏言、长期记忆沉淀",
-    **_ORCH,
+    "tianyuan": "陶朱（统筹）：把模糊目标拆成计划、统筹多步骤",
+    "shoucang": "守藏（记忆/谏臣）：复盘、谏言、长期记忆沉淀",
 }
 
 _ALLOWED_TYPES = {"sequential", "parallel", "condition", "loop"}
@@ -54,7 +53,7 @@ _PLANNER_SYSTEM = """你是工作流架构师。把用户的目标编译成一�
 ## 规则
 - pass_context=true 表示把上一步的产出喂给这一步（默认就该 true，除非这一步是全新起点）。
 - 用户输入里需要运行时填的占位用 {{{{变量名}}}}（双花括号）表示，例如 {{{{主题}}}}。
-- 选对员工：调研用 researcher、写作用 writer、评审/把关用 critic、算数据用 analyst、写代码用 executor、需求排期用 product_manager。
+- 选对员工：通用助理/调研用 xi、写作创作用 writer、评审把关用 critic、写代码/命令行用 executor、文档阅读用 reader。
 - 步骤数量克制：能 3-5 步说清就别堆十几步。能并行的别串行。
 
 ## 输出格式（严格）
