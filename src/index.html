@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Anima</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=1.2.1">
 <!-- D2 组件层：新组件用设计 token，置于 styles.css 之后（级联在上）。详见 docs/anima-design-system.md §3 -->
-<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="components.css?v=1.2.1">
 <!-- 全局错误边界：必须最先加载，才能抓到启动期错误 -->
 <script src="/error-boundary.js"></script>
 </head>
@@ -309,10 +309,18 @@
           <span style="font-size:12px;color:var(--muted);margin-left:10px">多步骤 Agent 流水线 · AI 辅助构建</span>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="hdr-btn-sm" onclick="wfAiAssist()" title="让 Anima 帮你设计工作流">🤖 AI 辅助</button>
+          <button class="hdr-btn-sm" onclick="(function(){var p=document.getElementById('wfAiPanel');if(!p)return;p.style.display=getComputedStyle(p).display!=='none'?'none':'block';})()" title="让 Anima 帮你设计工作流">🤖 AI 辅助</button>
           <button class="hdr-btn-sm" onclick="wfNew()">+ 新建</button>
           <button class="hdr-btn-sm" onclick="wfLoadList()">📂 已保存</button>
         </div>
+      </div>
+
+      <!-- W1: 一句话动态生成入口（全宽，topbar 下方） -->
+      <div class="wf-dynamo-bar">
+        <input id="wfDynamoInput" class="wf-dynamo-input"
+          placeholder="⚡ 一句话目标，例如：帮我调研竞品，写分析报告…"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();wfDynamoRun()}">
+        <button class="wf-dynamo-btn" onclick="wfDynamoRun()">生成并执行</button>
       </div>
 
       <div class="wf-body">
@@ -334,14 +342,6 @@
               </label>
             </div>
             <div id="wfAiStatus" style="margin-top:8px;font-size:12px;color:var(--muted)"></div>
-          </div>
-
-          <!-- W1: 一句话动态生成入口 -->
-          <div class="wf-dynamo-bar">
-            <input id="wfDynamoInput" class="wf-dynamo-input"
-              placeholder="⚡ 一句话目标，例如：帮我调研竞品，写分析报告…"
-              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();wfDynamoRun()}">
-            <button class="wf-dynamo-btn" onclick="wfDynamoRun()">生成并执行</button>
           </div>
 
           <!-- 工作流名称行 -->
@@ -1502,14 +1502,14 @@
 </div>
 <div id="companionDock"></div>
 
-<script src="/companion.js"></script>
-<script src="/soul.js"></script>
+<script src="/companion.js?v=1.2.1"></script>
+<script src="/soul.js?v=1.2.1"></script>
 
 <!-- Drawflow 节点画布（n8n/扣子 风格工作流，本地 vendored）-->
 <link rel="stylesheet" href="/assets/vendor/drawflow/drawflow.min.css">
 <script src="/assets/vendor/drawflow/drawflow.min.js"></script>
-<script src="/workflow-canvas.js"></script>
+<script src="/workflow-canvas.js?v=1.2.1"></script>
 
-<script type="module" src="/main.js"></script>
+<script type="module" src="/main.js?v=1.2.1"></script>
 </body>
 </html>

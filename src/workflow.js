@@ -1371,7 +1371,10 @@ window.gcSaveSettings = function() {
 // ════════════════════════════════════════════════════
 window.wfAiAssist = function() {
   const panel = document.getElementById('wfAiPanel');
-  if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  if (!panel) return;
+  // getComputedStyle で実際の表示状態を読む（inline style の '' 問題を回避）
+  const visible = getComputedStyle(panel).display !== 'none';
+  panel.style.display = visible ? 'none' : 'block';
 };
 
 // W1: 一句话动态生成 + 自动执行（"看得见的动态工作流"入口）

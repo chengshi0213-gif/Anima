@@ -486,11 +486,12 @@ body.theme-dark .wfx-exec-badge { background: rgba(255,255,255,0.05); border-col
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 9px 12px;
-  margin-bottom: 14px;
+  padding: 8px 16px;
+  margin: 0;          /* 全幅配置：topbar 下に直置き */
+  flex-shrink: 0;
   background: var(--color-surface, var(--surface));
-  border: 1px solid var(--color-border, var(--border));
-  border-radius: 10px;
+  border-bottom: 1px solid var(--color-border, var(--border));
+  border-radius: 0;   /* 全幅なのでラウンドなし */
   transition: border-color 0.2s var(--ease-out, ease-out),
               box-shadow  0.2s var(--ease-out, ease-out);
 }
