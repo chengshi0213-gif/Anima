@@ -206,6 +206,72 @@
 }
 .mcp-tool span { color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; }
 
+/* ───────────────────────────────────────────────────────────────
+   4. MessageBubble —— D2 slice 2：聊天气泡工艺重做（设计文档 §3）
+   chat.js 已发 .msg.user/.msg.assistant > .msg-body > .msg-bubble（不改 JS）。
+   本节同名选择器在级联中覆盖 styles.css 旧值（components.css 后加载）。
+   注意：styles.css 的 body[data-agent] .msg.assistant .msg-bubble::before
+   人格细条 specificity 更高，保留不动——本节只换"材质"，不碰人格层。
+
+   工艺方向（taste-skill 材质 + emil 动效，与 ConfirmCard 同源）：
+   · 助手气泡去硬 1px 边框 → surface 填充 + 暖色软阴影造材质深度（去塑料）
+   · body[data-agent] 时气泡底吸一缕人格色（材质里见"她"，非贴装饰）
+   · 用户气泡=暖 surface2 实填"已发"质感，右下角收口
+   · 入场用强 ease-out 缓动、translateY 不用 scale(0)（emil）
+   ─────────────────────────────────────────────────────────────── */
+.msg-bubble {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+/* 助手气泡：去边框，软阴影立材质（核心去塑料动作） */
+.msg.assistant .msg-bubble {
+  background: var(--color-surface);
+  border: none;
+  box-shadow: var(--shadow-sm);
+  border-bottom-left-radius: var(--radius-sm);
+  color: var(--color-text);
+}
+/* 有人格上下文时：气泡底吸一缕主色（4%），材质里透出"她" */
+body[data-agent] .msg.assistant .msg-bubble {
+  background: color-mix(in srgb, var(--agent) 4%, var(--color-surface));
+}
+/* 用户气泡：暖 surface2 实填，右下角收口 */
+.msg.user .msg-bubble {
+  background: var(--color-surface-2);
+  border: none;
+  border-bottom-right-radius: var(--radius-sm);
+  color: var(--color-text);
+}
+
+/* 头像：圆角与气泡一家，去硬边 */
+.msg-avatar {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+/* 元信息：更收敛 */
+.msg-meta { font-size: var(--text-xs); color: var(--color-text-muted); }
+
+/* 消息区背景统一：去掉旧的"顶部 320px 金带"（上金下白的接缝来源）。
+   改为纯平白——整面统一，零装饰。
+   同选择器覆盖 styles.css:2921（components.css 后加载，等特异性后者胜）。 */
+body[data-agent] [id^="messages-"] {
+  background: var(--color-bg);
+}
+
+/* 入场：emil 强 ease-out，translateY 浮起（永不 scale(0)） */
+.msg { animation: anima-msg-in var(--dur-base) var(--ease-out) both; }
+@keyframes anima-msg-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg { animation: none; }
+}
+
 /* 已决议：整卡降饱和 + 结果条 */
 .confirm-card.cc-resolved { opacity: .72; }
 .confirm-card.cc-resolved .confirm-actions { display: none; }
