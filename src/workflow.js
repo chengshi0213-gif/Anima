@@ -332,6 +332,7 @@ window.wfRun = async function() {
   const useKb   = document.getElementById('wfUseKb')?.checked || false;
 
   _wfRows = []; _wfRowIdx = {}; _wfGate = null;
+  window.PersonaWF?.clearExecState?.();   // W1: 清除上次执行痕迹
   if (btn) btn.disabled = true;
   if (cbtn) cbtn.style.display = '';
   if (status) status.textContent = '连接中…';
@@ -364,6 +365,7 @@ window.wfRun = async function() {
         break;
       case 'step_start':
         _wfUpsertRow(ev.step, { type: ev.type, agent: ev.agent, status: 'running' });
+        window.PersonaWF?.setNodeExecState?.(ev.step, 'running');  // W1
         _wfRenderRows();
         break;
       case 'step_retry':
@@ -378,15 +380,18 @@ window.wfRun = async function() {
         if (status) status.textContent = `Anima 展开「${ev.name||''}」为 ${ev.sub_count} 步…`;
         _wfRenderRows();
         break;
-      case 'step_done':
+      case 'step_done': {
+        const _stepStatus = ev.ok === false ? 'error' : 'done';
         _wfUpsertRow(ev.step, {
-          type: ev.type, status: ev.ok === false ? 'error' : 'done',
+          type: ev.type, status: _stepStatus,
           output: ev.output, elapsed: ev.elapsed,
           note: { ...(_wfRows[_wfRowIdx[ev.step]]?.note||{}), ...(ev.extra||{}) },
           retryNote: '',
         });
+        window.PersonaWF?.setNodeExecState?.(ev.step, _stepStatus, ev.output);  // W1
         _wfRenderRows();
         break;
+      }
       case 'human_gate':
         _wfGate = { label: ev.step, message: ev.message, preview: ev.preview };
         if (status) status.textContent = '⏸ 等待人工审核…';
@@ -1369,6 +1374,31 @@ window.wfAiAssist = function() {
   if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
 };
 
+// W1: 一句话动态生成 + 自动执行（"看得见的动态工作流"入口）
+window.wfDynamoRun = async function() {
+  const input  = document.getElementById('wfDynamoInput');
+  const desc   = input?.value.trim();
+  if (!desc) { toast('请输入一句话目标', 'error'); return; }
+
+  // 同步到 AI 辅助面板，复用 wfAiGenerate 代码路径
+  const descEl = document.getElementById('wfAiDesc');
+  if (descEl) descEl.value = desc;
+  const editEl = document.getElementById('wfAiEditMode');
+  if (editEl) editEl.checked = false;   // 从头生成
+
+  // 生成工作流（含 Drawflow 入场动画）
+  await window.wfAiGenerate();
+
+  // 生成成功 → 延迟 500ms 等动画完成，自动触发执行
+  const statusText = document.getElementById('wfAiStatus')?.textContent || '';
+  if (statusText.includes('✅') || statusText.includes('已生成')) {
+    setTimeout(() => {
+      toast('工作流已生成，正在执行…', 'info');
+      window.wfRun();
+    }, 520);
+  }
+};
+
 window.wfAiGenerate = async function() {
   const desc   = document.getElementById('wfAiDesc')?.value.trim();
   const status = document.getElementById('wfAiStatus');
@@ -1395,8 +1425,14 @@ window.wfAiGenerate = async function() {
       return;
     }
 
-    // 落到画布 + 同步工作流名
-    wfLoadFromSteps(data.steps);
+    // 落到 Drawflow 画布（W1：节点动画入场 + 执行时可见状态）
+    if (window.PersonaWF?.importGraph) {
+      window.PersonaWF.importGraph(data.steps);  // 线性 steps → Drawflow 节点链 + GSAP 入场
+      wfStepList.length = 0;
+      data.steps.forEach(s => wfStepList.push(s));
+    } else {
+      wfLoadFromSteps(data.steps);   // 降级：旧 HTML 列表
+    }
     const nameEl = document.getElementById('wfName');
     if (nameEl && data.name) nameEl.value = data.name;
 
