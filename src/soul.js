@@ -59,16 +59,16 @@ void main(){
   }
 
   /* ── 氤氲主体 ────────────────────────────────────
-     body: 软化到(0.75→0.0)，再乘 fbm 噪声打碎均匀圆圈
+     body: 软化到(0.75→-0.15)，更宽的过渡区→柔和消散
      → 云雾斑块感而非扎实球体                          */
   float noise_mask = 0.4 + 0.6 * fbm(p * 0.85 + t * 0.22);
-  float body  = smoothstep(0.75, 0.0, rr) * noise_mask;
+  float body  = smoothstep(0.75, -0.15, rr) * noise_mask;
   float core  = pow(smoothstep(0.24, 0.0, rr), 2.2) * (1.3 + aud * 0.9);
 
   /* ── 外层雾气腱（mist）：延伸到球体外，形成氤氲飘散 ── */
   vec2 pp = uv * 1.55;
-  float mist1 = fbm(pp + t*0.40 + q*0.85) * smoothstep(0.95, 0.08, rr);
-  float mist2 = fbm(pp*1.25 - t*0.28 + w*0.90) * smoothstep(0.88, 0.0, rr);
+  float mist1 = fbm(pp + t*0.40 + q*0.85) * smoothstep(1.15, -0.35, rr);
+  float mist2 = fbm(pp*1.25 - t*0.28 + w*0.90) * smoothstep(1.05, -0.25, rr);
 
   /* ── 色彩合成 ─────────────────────────────────────
      body 权重降至 0.42（减实感）；mist 层提供外层暖光  */
@@ -100,8 +100,9 @@ void main(){
   col = col / (col + vec3(0.95)) * 1.65;
   col = pow(clamp(col, 0., 1.), vec3(0.94));
 
-  /* ── alpha 多层叠加：边缘渐隐而非硬截止 ── */
-  float a = clamp(body*0.68 + mist1*0.58 + mist2*0.46 + core, 0.0, 1.0);
+  /* ── alpha 多层叠加：指数衰减，无硬边界 ── */
+  float radial_fade = exp(-r * r * 0.35);
+  float a = clamp((mist1*0.65 + mist2*0.35 + core) * radial_fade, 0.0, 1.0);
   gl_FragColor = vec4(col, a);
 }`;
 
