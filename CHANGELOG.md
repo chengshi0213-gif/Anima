@@ -14,6 +14,40 @@
 
 ---
 
+## [1.2.0] - 2026-06-09
+
+### 新增 (Added)
+
+**生产力北极星 · 四支柱全落地**
+
+- **② MCP 内核**（commit `b5c8e26` + `f7e9e88`）：
+  完整 MCP 客户端（`mcp_client.py`）支持 stdio/SSE/HTTP，工具路由接入 `_execute_tool`
+  唯一咽喉；设置页新增只读状态面板（已连 Server / 工具数 / 每 Server 折叠工具列表）。
+- **④ 设计体系 D1+D2**（commits `84c0cc4` → `dc7aaf2`）：
+  `tokens.css` 语义词汇表（`--color-*` / `--persona-*` / `--shadow-*` / `--ease-*`）；
+  全新 `components.css` 组件层：MessageBubble 工艺重做（代码块/复制/微弹入场）、
+  ThinkingSteps 工具展开卡、输入工具栏工艺重构、OrbCenter 氤氲 WebGL 光雾、
+  ConfirmCard 危险操作确认卡（三档风险色，AA 对比度通过）。
+- **① 异步流式**（commit `fe3a3a6`）：
+  upgrade-in-place 零闪烁方案：流式气泡直接原地升级为最终消息，不销毁重建；
+  打字光标 `.msg-cursor` + 呼吸光环 `anima-stream-pulse`；debounce Markdown 渲染（150ms）。
+- **③ 工作流运行时 W1+W2**（commits `7f95457` + `044c053`）：
+  W1：Drawflow 可视化画布节点 GSAP 入场动画 + 实时执行态（`setNodeExecState` running/done/error）；
+  W2：`wfDynamoRun` 完全自洽重写——直接 `POST /workflow/ai_build`，
+  dynamo bar 按钮 loading 态防双击，内联 `#wfDynamoStatus` 状态行可见（取代隐藏面板），
+  成功后 520ms 等 GSAP 动画完成自动触发 `wfRun()`。
+
+### 改进 (Changed)
+- **内核三部曲**（commits `d2f0674` / `9adb655`）：
+  异步 `_execute_tool` + 任务注册表断线重连（M12）+ 危险操作确认/Hooks（M14），
+  全部挂在唯一咽喉，默认 off 零行为变化。
+- **`agent_base.py` 拆分**（commit `2924fbd`）：
+  从 711 行消除红线 → 457 行；
+  `AgentCompressMixin`（历史压缩落盘）→ `agent_compress.py`；
+  `AgentLoggingMixin`（结构化日志 + 飞书推送）→ `agent_logging.py`。
+
+---
+
 ## [1.1.9] - 2026-06-07
 
 ### 新增 (Added)
