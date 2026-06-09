@@ -284,3 +284,131 @@ body[data-agent] [id^="messages-"] {
 .confirm-card.cc-resolved .confirm-result { display: block; }
 .confirm-result.cc-approved { color: #5F8A5B; }   /* 鼠尾草绿（降饱和），替工业绿 */
 .confirm-result.cc-denied   { color: #B5483E; }
+
+/* ───────────────────────────────────────────────────────────────
+   5. ThinkingSteps —— D2 slice 3a：工具调用折叠块工艺重做
+   原版：硬边框+工业绿(#F0FDF4/#BBF7D0)+工业红。
+   工艺版：去边框软材质 + 降饱和语义色（与 ConfirmCard 同调）。
+   ─────────────────────────────────────────────────────────────── */
+.tool-steps {
+  margin-top: var(--space-2);
+  border: none;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  font-size: var(--text-xs);
+  overflow: hidden;
+}
+.tool-steps-hdr {
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-muted);
+}
+.tool-step-item {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+.tool-step-item code {
+  background: var(--color-surface-2);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+}
+
+/* thinking indicator：去硬边框 → 软阴影，与 msg.assistant 同材质 */
+.thinking-indicator {
+  background: var(--color-surface);
+  border: none;
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+/* 实时步骤：去工业绿红 → 降饱和语义色（鼠尾草绿/陶土红，同 ConfirmCard）*/
+.thinking-step-item {
+  background: var(--color-surface);
+  border: none;
+  box-shadow: var(--shadow-sm);
+}
+.thinking-step-item.done {
+  background: color-mix(in srgb, #5F8A5B 8%, var(--color-surface));
+  box-shadow: none;
+}
+.thinking-step-item.done .ts-spin { color: #5F8A5B; }
+.thinking-step-item.fail {
+  background: color-mix(in srgb, #B5483E 8%, var(--color-surface));
+  box-shadow: none;
+}
+.thinking-step-item.fail .ts-spin { color: #B5483E; }
+
+/* ───────────────────────────────────────────────────────────────
+   6. 输入工具栏 —— D2 slice 3b：composer 工艺重做
+   工艺方向：
+   · composer-card 更厚实暖阴影（材质感，去塑料 1px 边框依赖）
+   · toolbar-btn :active scale(.97) 按压感（emil）
+   · model-btn 用 token 替散值，人格上下文下边框吸主色
+   · send-btn 已有人格渐变（styles.css 2897），只补 :active 按压
+   ─────────────────────────────────────────────────────────────── */
+.composer-card {
+  border-color: var(--color-border);
+  box-shadow: var(--shadow);
+}
+.composer-card:focus-within {
+  box-shadow: var(--shadow), 0 0 0 3px var(--color-bg);
+}
+.toolbar-btn {
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast),
+              transform var(--dur-fast) var(--ease-out);
+}
+.toolbar-btn:active { transform: scale(.97); }
+
+.model-btn {
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast), color var(--dur-fast);
+}
+/* 人格上下文：model-btn 边框吸人格主色 */
+body[data-agent] .model-btn {
+  border-color: color-mix(in srgb, var(--agent) 30%, var(--color-border));
+  color: color-mix(in srgb, var(--agent) 60%, var(--color-text-muted));
+}
+body[data-agent] .model-btn:hover {
+  border-color: var(--agent);
+  color: var(--agent);
+}
+
+/* send-btn :active 按压感（styles.css 有 scale(.94)，这里加 translateY 下沉感）*/
+.send-btn:active:not(:disabled) {
+  transform: scale(.94) translateY(1px);
+}
+
+/* 输入框 placeholder 用 token */
+.composer-input::placeholder { color: var(--color-text-muted); }
+
+/* ───────────────────────────────────────────────────────────────
+   7. OrbCenter —— D2 slice 3c：陪伴模式光球工艺
+   OrbCenter 已有 canvas 动效，这里只补：
+   · hover 用 token ease-out（去 transform hack）
+   · 人格上下文下补一层 glow 环（与头像光环同工艺）
+   ─────────────────────────────────────────────────────────────── */
+#companionOrb {
+  transition: transform var(--dur-base) var(--ease-out),
+              box-shadow var(--dur-base) var(--ease-out);
+  border-radius: 50%;
+}
+#companionOrb:hover {
+  transform: scale(1.03);
+}
+/* 人格上下文：双层光环（与 msg-avatar 头像光环同工艺）*/
+body[data-agent] #companionOrb {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent) 40%, transparent),
+              0 0 0 8px var(--agent-glow),
+              0 8px 32px var(--agent-glow);
+}
+body[data-agent] #companionOrb:hover {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent) 60%, transparent),
+              0 0 0 12px var(--agent-glow),
+              0 12px 40px var(--agent-glow);
+}
