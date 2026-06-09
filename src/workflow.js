@@ -1377,28 +1377,82 @@ window.wfAiAssist = function() {
   panel.style.display = visible ? 'none' : 'block';
 };
 
-// W1: 一句话动态生成 + 自动执行（"看得见的动态工作流"入口）
+// W2: 一句话动态生成 + 自动执行（完全自洽，不再依赖隐藏面板）
 window.wfDynamoRun = async function() {
   const input  = document.getElementById('wfDynamoInput');
   const desc   = input?.value.trim();
   if (!desc) { toast('请输入一句话目标', 'error'); return; }
 
-  // 同步到 AI 辅助面板，复用 wfAiGenerate 代码路径
-  const descEl = document.getElementById('wfAiDesc');
-  if (descEl) descEl.value = desc;
-  const editEl = document.getElementById('wfAiEditMode');
-  if (editEl) editEl.checked = false;   // 从头生成
+  const btn    = document.querySelector('.wf-dynamo-btn');
+  const status = document.getElementById('wfDynamoStatus');
 
-  // 生成工作流（含 Drawflow 入场动画）
-  await window.wfAiGenerate();
+  // ── loading state ──────────────────────────────────────────────
+  if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+  if (status) {
+    status.className = 'wf-dynamo-status';
+    status.textContent = '⏳ Anima 正在规划工作流…';
+    status.style.display = '';
+  }
 
-  // 生成成功 → 延迟 500ms 等动画完成，自动触发执行
-  const statusText = document.getElementById('wfAiStatus')?.textContent || '';
-  if (statusText.includes('✅') || statusText.includes('已生成')) {
+  try {
+    const r = await fetch(`${WF_API()}/ai_build`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: desc }),
+    });
+    const data = await r.json();
+
+    if (!data.ok) {
+      if (status) {
+        status.className = 'wf-dynamo-status error';
+        status.textContent = `❌ ${data.error || '生成失败，请换个说法重试'}`;
+      }
+      toast('工作流生成失败', 'error');
+      return;
+    }
+
+    // ── 落到 Drawflow 画布（GSAP 节点入场动画）──────────────────
+    if (window.PersonaWF?.importGraph) {
+      window.PersonaWF.importGraph(data.steps);
+      wfStepList.length = 0;
+      data.steps.forEach(s => wfStepList.push(s));
+    } else {
+      wfLoadFromSteps(data.steps);
+    }
+    const nameEl = document.getElementById('wfName');
+    if (nameEl && data.name) nameEl.value = data.name;
+    // 同步到 AI 辅助面板，保持一致
+    const syncDesc = document.getElementById('wfAiDesc');
+    if (syncDesc) syncDesc.value = desc;
+
+    // ── 内联成功反馈 ───────────────────────────────────────────
+    const varNote = data.variables?.length
+      ? `，需填变量：${data.variables.join('、')}`
+      : '';
+    if (status) {
+      status.className = 'wf-dynamo-status success';
+      status.textContent = `✅ 已生成 ${data.steps.length} 步${varNote}，正在执行…`;
+    }
+    if (input) input.value = '';   // 清空输入框
+
+    // ── 等 GSAP 入场动画完成后自动执行 ────────────────────────
     setTimeout(() => {
-      toast('工作流已生成，正在执行…', 'info');
       window.wfRun();
+      setTimeout(() => {
+        if (status && status.classList.contains('success')) {
+          status.style.display = 'none';
+        }
+      }, 3000);
     }, 520);
+
+  } catch(e) {
+    if (status) {
+      status.className = 'wf-dynamo-status error';
+      status.textContent = `❌ 网络错误：${e.message}`;
+    }
+    toast(`生成失败：${e.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '生成并执行'; }
   }
 };
 

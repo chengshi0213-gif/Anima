@@ -640,8 +640,28 @@ body.theme-dark .wfx-exec-badge { background: rgba(255,255,255,0.05); border-col
   transition: opacity 0.15s, transform 0.1s var(--ease-out, ease-out);
   white-space: nowrap;
 }
-.wf-dynamo-btn:hover  { opacity: 0.88; }
-.wf-dynamo-btn:active { transform: scale(0.97); }
+.wf-dynamo-btn:hover           { opacity: 0.88; }
+.wf-dynamo-btn:active          { transform: scale(0.97); }
+.wf-dynamo-btn:disabled        {
+  opacity: 0.52;
+  cursor: not-allowed;
+  transform: none;
+}
+/* W2 状态行 —— 生成进度 / 成功 / 错误内联反馈 */
+.wf-dynamo-status {
+  padding: 5px 16px;
+  font-size: 12px;
+  color: var(--color-text-muted, var(--muted));
+  background: var(--color-surface, var(--surface));
+  border-bottom: 1px solid var(--color-border, var(--border));
+  animation: wf-status-in 0.18s var(--ease-out, ease-out) both;
+}
+.wf-dynamo-status.success { color: var(--color-success, #2e7d32); }
+.wf-dynamo-status.error   { color: var(--color-error, #c62828); }
+@keyframes wf-status-in {
+  from { opacity:0; transform: translateY(-4px); }
+  to   { opacity:1; transform: none; }
+}
 
 /* 输入框 placeholder 用 token */
 .composer-input::placeholder { color: var(--color-text-muted); }

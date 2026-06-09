@@ -6,7 +6,7 @@
 <title>Anima</title>
 <link rel="stylesheet" href="styles.css?v=1.2.1">
 <!-- D2 组件层：新组件用设计 token，置于 styles.css 之后（级联在上）。详见 docs/anima-design-system.md §3 -->
-<link rel="stylesheet" href="components.css?v=1.2.3">
+<link rel="stylesheet" href="components.css?v=1.2.4">
 <!-- 全局错误边界：必须最先加载，才能抓到启动期错误 -->
 <script src="/error-boundary.js"></script>
 </head>
@@ -315,13 +315,15 @@
         </div>
       </div>
 
-      <!-- W1: 一句话动态生成入口（全宽，topbar 下方） -->
+      <!-- W2: 一句话动态生成入口（全宽，topbar 下方） -->
       <div class="wf-dynamo-bar">
         <input id="wfDynamoInput" class="wf-dynamo-input"
           placeholder="⚡ 一句话目标，例如：帮我调研竞品，写分析报告…"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();wfDynamoRun()}">
         <button class="wf-dynamo-btn" onclick="wfDynamoRun()">生成并执行</button>
       </div>
+      <!-- W2: 生成状态行（内联反馈，避免错误埋入隐藏面板） -->
+      <div id="wfDynamoStatus" class="wf-dynamo-status" style="display:none"></div>
 
       <div class="wf-body">
         <!-- 左：AI辅助 + 构建器 -->
