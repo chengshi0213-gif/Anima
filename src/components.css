@@ -286,7 +286,47 @@ body[data-agent] [id^="messages-"] {
 .confirm-result.cc-denied   { color: #B5483E; }
 
 /* ───────────────────────────────────────────────────────────────
-   5. ThinkingSteps —— D2 slice 3a：工具调用折叠块工艺重做
+   5. OrbCenter 外晕层（GSAP 呼吸）—— D2 slice 3c 补充
+   三圈 CSS blur div 放在 canvas 后面，GSAP 驱动独立频率呼吸。
+   各圈尺寸超出 orb 边界 → overflow:visible 透出氤氲外延光晕。
+   ─────────────────────────────────────────────────────────────── */
+.orb-haze {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+}
+/* 三圈：从内到外尺寸递增，blur 递增，不透明度递减 */
+.orb-haze-1 { width: 300px; height: 300px; opacity: 0.50; }
+.orb-haze-2 { width: 420px; height: 420px; opacity: 0.28; }
+.orb-haze-3 { width: 560px; height: 560px; opacity: 0.14; }
+
+body[data-agent] .orb-haze-1 {
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--agent) 48%, transparent) 0%,
+    transparent 68%);
+  filter: blur(16px);
+}
+body[data-agent] .orb-haze-2 {
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--agent) 26%, transparent) 0%,
+    transparent 62%);
+  filter: blur(28px);
+}
+body[data-agent] .orb-haze-3 {
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--agent) 12%, transparent) 0%,
+    transparent 55%);
+  filter: blur(44px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb-haze { animation: none !important; opacity: 0.15 !important; }
+}
+
+/* ───────────────────────────────────────────────────────────────
+   6. ThinkingSteps —— D2 slice 3a：工具调用折叠块工艺重做
    原版：硬边框+工业绿(#F0FDF4/#BBF7D0)+工业红。
    工艺版：去边框软材质 + 降饱和语义色（与 ConfirmCard 同调）。
    ─────────────────────────────────────────────────────────────── */

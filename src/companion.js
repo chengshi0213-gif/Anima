@@ -80,6 +80,32 @@
     try { _sr.start(); } catch (_) { _stopListen(); }
   };
 
+  // GSAP 外晕层：三圈 blur div，独立频率呼吸 → 氤氲漫散感
+  function initOrbHaze() {
+    const orb = document.getElementById('companionOrb');
+    if (!orb || !window.gsap || orb._hazeReady) return;
+    orb._hazeReady = true;
+    // 注入三圈（在 canvas 之前 = z 轴在 canvas 后面）
+    const canvas = orb.querySelector('canvas');
+    for (let i = 3; i >= 1; i--) {
+      const d = document.createElement('div');
+      d.className = 'orb-haze orb-haze-' + i;
+      orb.insertBefore(d, canvas);
+    }
+    const h1 = orb.querySelector('.orb-haze-1');
+    const h2 = orb.querySelector('.orb-haze-2');
+    const h3 = orb.querySelector('.orb-haze-3');
+    // gsap.matchMedia 自动处理 prefers-reduced-motion
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      // 三圈不同频率 + 不同 delay → 有机非同步呼吸（emil: 禁 ease-in，用 sine.inOut）
+      gsap.to(h1, { scale: 1.07, opacity: 0.65, duration: 3.2, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+      gsap.to(h2, { scale: 1.12, opacity: 0.38, duration: 4.1, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 0.7 });
+      gsap.to(h3, { scale: 1.19, opacity: 0.22, duration: 5.3, repeat: -1, yoyo: true, ease: 'sine.inOut', delay: 1.4 });
+      return () => gsap.killTweensOf([h1, h2, h3]);
+    });
+  }
+
   // 监听 Anima 对话区是否已经有消息 → 驱动中心灵体淡出，
   // 避免陪伴模式自己的装饰光球与自己的聊天气泡重叠（同一模式内的内容碰撞，不是跨模式渗透）
   function _watchChatContent() {
@@ -94,6 +120,7 @@
     const saved = (function () { try { return localStorage.getItem('anima_mode'); } catch (_) { return null; } })();
     window.setAppMode(saved === 'workspace' ? 'workspace' : 'companion');  // 默认陪伴
     _watchChatContent();
+    initOrbHaze();
   }
   if (document.readyState !== 'loading') init();
   else document.addEventListener('DOMContentLoaded', init);
