@@ -151,6 +151,9 @@ export function appendAssistantMsg(agentId, data) {
 }
 window.appendAssistantMsg = appendAssistantMsg;
 
+// ── 流式缓冲区（per-agent）：文字积累 + debounce timer ────────────────────
+const _streamBuf = {};
+
 export function appendAssistantDelta(agentId, content) {
   if (!content) return;
   const box = document.getElementById(`messages-${agentId}`);
@@ -166,19 +169,97 @@ export function appendAssistantDelta(agentId, content) {
     div.innerHTML = `
       ${agentAvatarHtml(agent)}
       <div class="msg-body">
-        <div class="msg-bubble"><span class="msg-content"></span></div>
+        <div class="msg-bubble"></div>
         <div class="msg-meta">${agent.name} · ${formatTime(new Date())} · ${selectedModel[agentId]}</div>
       </div>`;
     box.appendChild(div);
+    _streamBuf[agentId] = { text: '', timer: null };
   }
 
-  const contentEl = div.querySelector('.msg-content');
-  contentEl?.appendChild(document.createTextNode(content));
+  const buf = (_streamBuf[agentId] = _streamBuf[agentId] || { text: '', timer: null });
+  buf.text += content;
+
+  // 每 150ms 渲染一次 Markdown，避免每个 token 都重写 DOM（体感：~6fps 的逐字感）
+  if (!buf.timer) {
+    buf.timer = setTimeout(() => {
+      const bubble = box.querySelector('.streaming-msg .msg-bubble');
+      if (bubble) {
+        bubble.innerHTML = markdownToHtml(buf.text)
+          + '<span class="msg-cursor" aria-hidden="true"></span>';
+      }
+      buf.timer = null;
+    }, 150);
+  }
+
   scrollBottom(agentId);
 }
 window.appendAssistantDelta = appendAssistantDelta;
 
+// 流式完成：升级到位（upgrade-in-place），不销毁重建气泡，零闪烁
+export function finalizeStreamingMsg(agentId, data) {
+  const box = document.getElementById(`messages-${agentId}`);
+  if (!box) return;
+
+  // 刷新待渲染的 debounce timer
+  const buf = _streamBuf[agentId];
+  if (buf?.timer) clearTimeout(buf.timer);
+  delete _streamBuf[agentId];
+
+  const agent = AGENTS[agentId];
+  const toolHtml = data.turn_count > 0 ? `
+    <div class="tool-steps">
+      <div class="tool-steps-hdr" onclick="toggleSteps(this)">
+        <span class="chevron">▶</span>
+        <span>${data.turn_count} 步推理</span>
+        ${(data.files_changed||[]).length ? `<span style="margin-left:auto;font-size:10px;color:var(--warn)">${data.files_changed.length} 个文件</span>` : ''}
+      </div>
+      <div class="tool-steps-body">
+        ${(data.files_changed||[]).map(f=>`<div class="tool-step-item">📄 <code>${escHtml(f)}</code></div>`).join('')||'<div class="tool-step-item">无文件变更</div>'}
+      </div>
+    </div>` : '';
+
+  const div = box.querySelector('.streaming-msg');
+
+  if (div) {
+    // 升级到位：渲染最终 Markdown，移除光标，插入工具步骤
+    const bubble = div.querySelector('.msg-bubble');
+    if (bubble) {
+      bubble.innerHTML = markdownToHtml(data.summary || '（完成）');
+    }
+    const meta = div.querySelector('.msg-meta');
+    if (meta) {
+      meta.textContent = `${agent.name} · ${formatTime(new Date())} · ${selectedModel[agentId]}`;
+    }
+    if (toolHtml && meta) {
+      const toolWrap = document.createElement('div');
+      toolWrap.innerHTML = toolHtml;
+      meta.before(toolWrap.firstElementChild);
+    }
+    // 去掉 streaming-msg 类：光标 CSS 动画消失，气泡呼吸光环停止
+    div.classList.remove('streaming-msg');
+  } else {
+    // 无流式内容（纯工具调用无文字输出）：降级为全量渲染
+    const newDiv = document.createElement('div');
+    newDiv.className = 'msg assistant';
+    newDiv.innerHTML = `
+      ${agentAvatarHtml(agent)}
+      <div class="msg-body">
+        <div class="msg-bubble">${markdownToHtml(data.summary || '（完成）')}</div>
+        ${toolHtml}
+        <div class="msg-meta">${agent.name} · ${formatTime(new Date())} · ${selectedModel[agentId]}</div>
+      </div>`;
+    box.appendChild(newDiv);
+  }
+
+  scrollBottom(agentId);
+}
+window.finalizeStreamingMsg = finalizeStreamingMsg;
+
 export function removeStreamingMsg(agentId) {
+  // 同时清理缓冲区
+  const buf = _streamBuf[agentId];
+  if (buf?.timer) clearTimeout(buf.timer);
+  delete _streamBuf[agentId];
   document.querySelector(`#messages-${agentId} .streaming-msg`)?.remove();
 }
 window.removeStreamingMsg = removeStreamingMsg;

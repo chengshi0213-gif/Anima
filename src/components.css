@@ -9,15 +9,17 @@
    ═══════════════════════════════════════════════════════════════ */
 
 /* ───────────────────────────────────────────────────────────────
-   1. 流式打字光标 —— 原则4「过程透明」：看着她一个字一个字写
-   .streaming-msg 由 chat.js 在流式期间创建；流结束被 final 气泡替换，
-   光标随之消失。纯 CSS，零额外 JS。
+   1. 流式打字体验 —— 原则4「过程透明」：看着她一字一字写出来
+   .streaming-msg 由 chat.js 在流式期间创建；
+   .msg-cursor 由 appendAssistantDelta 的 debounce render 注入气泡末尾；
+   finalizeStreamingMsg 完成时：移除 .streaming-msg 类 → 光标/呼吸动画自动消失。
    ─────────────────────────────────────────────────────────────── */
-.streaming-msg .msg-content::after {
-  content: "";
+
+/* 打字光标：人格主色 2px 细条，与末字对齐 */
+.msg-cursor {
   display: inline-block;
   width: 2px;
-  height: 1em;
+  height: 0.88em;
   margin-left: 2px;
   vertical-align: text-bottom;
   border-radius: 1px;
@@ -26,7 +28,20 @@
 }
 @keyframes anima-caret { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .streaming-msg .msg-content::after { animation: none; opacity: 1; }
+  .msg-cursor { animation: none; opacity: 1; }
+}
+
+/* 流式气泡：克制呼吸光环（1.5px 人格色描边，有无节奏）= 「她在写」的微信号 */
+.msg.assistant.streaming-msg .msg-bubble {
+  animation: anima-stream-pulse 1.4s ease-in-out infinite;
+}
+@keyframes anima-stream-pulse {
+  0%, 100% { box-shadow: var(--shadow-sm); }
+  50%       { box-shadow: var(--shadow-sm),
+              0 0 0 1.5px color-mix(in srgb, var(--color-accent) 22%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .msg.assistant.streaming-msg .msg-bubble { animation: none; }
 }
 
 /* ───────────────────────────────────────────────────────────────

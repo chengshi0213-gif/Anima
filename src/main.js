@@ -6,16 +6,16 @@
 // ── Module imports (side effects: each module registers its window.* functions) ──
 // ?v=1.2.1 强制浏览器跳过 ES module 缓存（开发期 cache-bust，生产 Tauri 直接读磁盘无需关心）
 import { CONFIG, AGENTS, runtime } from './state.js?v=1.2.1';
-import { checkBackend, wsSend } from './ws.js?v=1.2.1';
+import { checkBackend, wsSend } from './ws.js?v=1.2.3';
 import './invite-gate.js?v=1.2.1';
 import './auth.js?v=1.2.1';
-import './chat.js?v=1.2.1';
+import './chat.js?v=1.2.3';
 import './overview.js?v=1.2.1';
 import './workflow.js?v=1.2.1';
 import './settings.js?v=1.2.1';
 import './mcp-panel.js?v=1.2.1';
 import './economy.js?v=1.2.1';
-import './anim.js?v=1.2.2';   // GSAP 编排层（必须最后 import：包装其它模块已注册的 window.* 函数）
+import './anim.js?v=1.2.3';   // GSAP 编排层（必须最后 import：包装其它模块已注册的 window.* 函数）
 
 // ══════════════════════════════════════════════════
 //  命令面板 (Ctrl+K)

@@ -118,12 +118,12 @@ function handleAgentMessage(agentId, msg) {
   }
   if (msg.type === 'response' && msg.data?.status) {
     window.removeThinking?.(agentId);
-    window.removeStreamingMsg?.(agentId);
+    // upgrade-in-place：流式气泡不销毁，直接渲染最终内容（零闪烁）
+    window.finalizeStreamingMsg?.(agentId, msg.data);
     chatState[agentId].pending = false;
     wsStatus[agentId].busy     = false;
     window.setInputState?.(agentId, false);
     window.updateAgentUI?.(agentId);
-    window.appendAssistantMsg?.(agentId, msg.data);
     toast(`${AGENTS[agentId].icon} ${AGENTS[agentId].name} 已回复`, 'success');
     window.loadSidebarHistory?.();
     return;
