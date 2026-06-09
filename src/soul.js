@@ -65,10 +65,10 @@ void main(){
   float body  = smoothstep(0.75, -0.15, rr) * noise_mask;
   float core  = pow(smoothstep(0.24, 0.0, rr), 2.2) * (1.3 + aud * 0.9);
 
-  /* ── 外层雾气腱（mist）：延伸到球体外，形成氤氲飘散 ── */
+  /* ── 外层雾气腱（mist）：mist 范围收回到 rr<0.6，确保画布边缘雾气自然消散 ── */
   vec2 pp = uv * 1.55;
-  float mist1 = fbm(pp + t*0.40 + q*0.85) * smoothstep(1.15, -0.35, rr);
-  float mist2 = fbm(pp*1.25 - t*0.28 + w*0.90) * smoothstep(1.05, -0.25, rr);
+  float mist1 = fbm(pp + t*0.40 + q*0.85) * smoothstep(0.62, -0.05, rr);
+  float mist2 = fbm(pp*1.25 - t*0.28 + w*0.90) * smoothstep(0.55, 0.0, rr);
 
   /* ── 色彩合成 ─────────────────────────────────────
      body 权重降至 0.42（减实感）；mist 层提供外层暖光  */
@@ -100,9 +100,11 @@ void main(){
   col = col / (col + vec3(0.95)) * 1.65;
   col = pow(clamp(col, 0., 1.), vec3(0.94));
 
-  /* ── alpha 多层叠加：指数衰减，无硬边界 ── */
-  float radial_fade = exp(-r * r * 0.35);
-  float a = clamp((mist1*0.65 + mist2*0.35 + core) * radial_fade, 0.0, 1.0);
+  /* ── alpha：r^4 超陡衰减 + FBM 扰动 → 在 r<0.45 内消散，画布边缘无轮廓 ── */
+  float noise_r = r - fbm(uv * 3.5 + t * 0.11) * 0.12;
+  float r4 = noise_r * noise_r * noise_r * noise_r;
+  float radial_fade = exp(-r4 * 60.0);
+  float a = clamp((mist1*0.75 + mist2*0.45 + core) * radial_fade, 0.0, 1.0);
   gl_FragColor = vec4(col, a);
 }`;
 

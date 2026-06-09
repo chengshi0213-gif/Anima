@@ -441,10 +441,4 @@ body[data-agent] .model-btn:hover {
 #companionOrb:hover {
   transform: scale(1.03);
 }
-/* 人格上下文：双层光环（与 msg-avatar 头像光环同工艺）*/
-body[data-agent] #companionOrb {
-  box-shadow: 0 8px 32px var(--agent-glow);
-}
-body[data-agent] #companionOrb:hover {
-  box-shadow: 0 12px 40px var(--agent-glow);
-}
+/* OrbCenter 无 box-shadow / drop-shadow：光晕全由 WebGL shader 产生 */

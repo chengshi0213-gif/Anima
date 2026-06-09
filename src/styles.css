@@ -3323,9 +3323,10 @@ body.mode-companion .chat-messages{ background-image:none !important; }
 body.mode-companion .chat-header{ display:none !important; }
 /* 灵体：WebGL 渲染（有机质感 + 声纹）；容器只负责尺寸/漂浮/辉光 */
 #companionOrb{ width:300px; height:300px; cursor:pointer; pointer-events:auto; position:relative; margin-bottom:18px;
-  animation:orbFloat 7s ease-in-out infinite;
-  filter:drop-shadow(0 6px 50px color-mix(in srgb,var(--agent,#C99A2E) 30%, transparent)); }
-#soulCanvas{ width:100%; height:100%; display:block; }
+  animation:orbFloat 7s ease-in-out infinite; }
+#soulCanvas{ width:100%; height:100%; display:block;
+  -webkit-mask-image: radial-gradient(circle, black 48%, transparent 82%);
+  mask-image: radial-gradient(circle, black 48%, transparent 82%); }
 #companionOrb:hover{ transform:scale(1.03); }
 @keyframes orbFloat{ 0%,100%{ margin-top:0 } 50%{ margin-top:-14px } }
 .co-name{ font-family:"STSong","STKaiti","SimSun",serif; font-size:34px; font-weight:700; color:#23252a;
