@@ -14,6 +14,10 @@ import aiohttp
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+# ── Mixin 分层（历史压缩 / 日志）─────────────────────────────────────────────
+from agent_compress import AgentCompressMixin
+from agent_logging  import AgentLoggingMixin
+
 
 # ── 权限请求异常（Agent 发现缺少 API 时抛出）─────────────
 class PermissionRequest(Exception):
@@ -38,12 +42,10 @@ from config import (
 )
 
 # ── 模型注册表：前端显示名 → API 参数 ──────────────────────────────────────
-# 格式: display_name → (api_key_var, base_url, api_model_id)
-# OpenRouter 作为 Claude/Gemini 的兜底（兼容 OpenAI 协议）
+# 格式: display_name → (api_key_fn, base_url, api_model_id)
 # 中转站地址：可在 config.yaml 中通过 api.relay_url 自定义
 def _get_relay():
-    """中转站地址。仅从配置读取，未配置则返回空字符串——
-    不再兜底到任何硬编码服务器（避免裸 IP 单点 + 流量外泄面）。"""
+    """中转站地址。仅从配置读取，未配置则返回空字符串。"""
     try:
         from config import _get as _cfg_get
         url = _cfg_get("api.relay_url", "")
@@ -57,57 +59,42 @@ _RELAY = _get_relay()
 _DS    = "https://api.deepseek.com"
 _QWEN  = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 _KIMI  = "https://api.moonshot.cn/v1"
-_GLM   = GLM_URL    # 智谱 GLM（open.bigmodel.cn，OpenAI 兼容）
-_MIMO  = MIMO_URL   # 小米 MiMo（OpenAI 兼容，base_url 可在 config.yaml 覆盖）
+_GLM   = GLM_URL
+_MIMO  = MIMO_URL
 
 MODEL_REGISTRY: dict[str, tuple] = {
-    # ── DeepSeek 直连 ─────────────────────────────────────────────────────
-    "DeepSeek-V4-Pro":   (lambda: DEEPSEEK_KEY, _DS, "deepseek-v4-pro"),    # 最强
-    "DeepSeek-V4-Flash": (lambda: DEEPSEEK_KEY, _DS, "deepseek-v4-flash"),  # 最快
-    "DeepSeek-R1":       (lambda: DEEPSEEK_KEY, _DS, "deepseek-reasoner"),  # 推理
-    "DeepSeek-V3":       (lambda: DEEPSEEK_KEY, _DS, "deepseek-chat"),      # 经济/兼容
-
-    # ── 阿里 Qwen 直连（DashScope）────────────────────────────────────────
-    "Qwen3.7-Max":       (lambda: QWEN_KEY, _QWEN, "qwen3.7-max"),          # 最新旗舰
-    "Qwen3.6-Plus":      (lambda: QWEN_KEY, _QWEN, "qwen3.6-plus"),         # 高性价比
-    "Qwen3.6-Flash":     (lambda: QWEN_KEY, _QWEN, "qwen3.6-flash"),        # 最快
-    "Qwen3.5-Plus":      (lambda: QWEN_KEY, _QWEN, "qwen3.5-plus"),         # 稳定
-    "Qwen3-Max":         (lambda: QWEN_KEY, _QWEN, "qwen3-max"),            # 上代旗舰
-    "QwQ-Plus":          (lambda: QWEN_KEY, _QWEN, "qwq-plus"),             # 深度推理
-    "Qwen-Long":         (lambda: QWEN_KEY, _QWEN, "qwen-long"),            # 超长文
-
-    # ── Moonshot Kimi 直连 ────────────────────────────────────────────────
-    "Kimi-K2.6":         (lambda: KIMI_KEY, _KIMI, "kimi-k2.6"),            # 最新旗舰
-    "Kimi-K2.5":         (lambda: KIMI_KEY, _KIMI, "kimi-k2.5"),            # 上一代旗舰
-    "Kimi-Auto":         (lambda: KIMI_KEY, _KIMI, "moonshot-v1-auto"),     # 自动选档
-    "Kimi-128K":         (lambda: KIMI_KEY, _KIMI, "moonshot-v1-128k"),     # 超长上下文
-    "Kimi-32K":          (lambda: KIMI_KEY, _KIMI, "moonshot-v1-32k"),      # 均衡
-    "Kimi-8K":           (lambda: KIMI_KEY, _KIMI, "moonshot-v1-8k"),       # 经济
-
-    # ── 智谱 GLM 直连（open.bigmodel.cn）─────────────────────────────────
-    "GLM-4.6":           (lambda: GLM_KEY, _GLM, "glm-4.6"),                # 最新旗舰
-    "GLM-4-Plus":        (lambda: GLM_KEY, _GLM, "glm-4-plus"),             # 高性能
-    "GLM-4-Air":         (lambda: GLM_KEY, _GLM, "glm-4-air"),              # 高性价比
-    "GLM-4-Flash":       (lambda: GLM_KEY, _GLM, "glm-4-flash"),            # 免费/最快
-
-    # ── 小米 MiMo 直连（OpenAI 兼容）──────────────────────────────────────
-    "MiMo-7B":           (lambda: MIMO_KEY, _MIMO, "mimo-7b-rl"),           # 推理强化
-    "MiMo-VL":           (lambda: MIMO_KEY, _MIMO, "mimo-vl-7b-rl"),        # 多模态
-
-    # ── GPT（via 中转，需配置 OpenRouter Key）────────────────────────────
-    "GPT-5.5":            (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.5"),                  # 旗舰
-    "GPT-5.5-Compact":    (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.5-openai-compact"),   # 快速
-    "GPT-5.4":            (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.4"),                  # 均衡
-
-    # ── Claude（via 中转，需配置 OpenRouter Key）─────────────────────────
-    "Claude-Opus-4.6":       (lambda: OPENROUTER_KEY, _RELAY, "claude-opus-4.6"),          # 最强
-    "Claude-Opus-4.6-Think": (lambda: OPENROUTER_KEY, _RELAY, "claude-opus-4-6-thinking"), # 深度推理
-    "Claude-Sonnet-4.6":     (lambda: OPENROUTER_KEY, _RELAY, "claude-sonnet-4.6"),        # 均衡
-    "Claude-Haiku-4.5":      (lambda: OPENROUTER_KEY, _RELAY, "claude-haiku-4-5-20251001"),# 最快
+    "DeepSeek-V4-Pro":   (lambda: DEEPSEEK_KEY, _DS, "deepseek-v4-pro"),
+    "DeepSeek-V4-Flash": (lambda: DEEPSEEK_KEY, _DS, "deepseek-v4-flash"),
+    "DeepSeek-R1":       (lambda: DEEPSEEK_KEY, _DS, "deepseek-reasoner"),
+    "DeepSeek-V3":       (lambda: DEEPSEEK_KEY, _DS, "deepseek-chat"),
+    "Qwen3.7-Max":       (lambda: QWEN_KEY, _QWEN, "qwen3.7-max"),
+    "Qwen3.6-Plus":      (lambda: QWEN_KEY, _QWEN, "qwen3.6-plus"),
+    "Qwen3.6-Flash":     (lambda: QWEN_KEY, _QWEN, "qwen3.6-flash"),
+    "Qwen3.5-Plus":      (lambda: QWEN_KEY, _QWEN, "qwen3.5-plus"),
+    "Qwen3-Max":         (lambda: QWEN_KEY, _QWEN, "qwen3-max"),
+    "QwQ-Plus":          (lambda: QWEN_KEY, _QWEN, "qwq-plus"),
+    "Qwen-Long":         (lambda: QWEN_KEY, _QWEN, "qwen-long"),
+    "Kimi-K2.6":         (lambda: KIMI_KEY, _KIMI, "kimi-k2.6"),
+    "Kimi-K2.5":         (lambda: KIMI_KEY, _KIMI, "kimi-k2.5"),
+    "Kimi-Auto":         (lambda: KIMI_KEY, _KIMI, "moonshot-v1-auto"),
+    "Kimi-128K":         (lambda: KIMI_KEY, _KIMI, "moonshot-v1-128k"),
+    "Kimi-32K":          (lambda: KIMI_KEY, _KIMI, "moonshot-v1-32k"),
+    "Kimi-8K":           (lambda: KIMI_KEY, _KIMI, "moonshot-v1-8k"),
+    "GLM-4.6":           (lambda: GLM_KEY, _GLM, "glm-4.6"),
+    "GLM-4-Plus":        (lambda: GLM_KEY, _GLM, "glm-4-plus"),
+    "GLM-4-Air":         (lambda: GLM_KEY, _GLM, "glm-4-air"),
+    "GLM-4-Flash":       (lambda: GLM_KEY, _GLM, "glm-4-flash"),
+    "MiMo-7B":           (lambda: MIMO_KEY, _MIMO, "mimo-7b-rl"),
+    "MiMo-VL":           (lambda: MIMO_KEY, _MIMO, "mimo-vl-7b-rl"),
+    "GPT-5.5":            (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.5"),
+    "GPT-5.5-Compact":    (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.5-openai-compact"),
+    "GPT-5.4":            (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.4"),
+    "Claude-Opus-4.6":       (lambda: OPENROUTER_KEY, _RELAY, "claude-opus-4.6"),
+    "Claude-Opus-4.6-Think": (lambda: OPENROUTER_KEY, _RELAY, "claude-opus-4-6-thinking"),
+    "Claude-Sonnet-4.6":     (lambda: OPENROUTER_KEY, _RELAY, "claude-sonnet-4.6"),
+    "Claude-Haiku-4.5":      (lambda: OPENROUTER_KEY, _RELAY, "claude-haiku-4-5-20251001"),
 }
 
-# 单 key 即可用全功能：任何模型/agent 拿不到 key 时，落到「首个已配 provider」的稳健默认模型。
-# 优先级：DeepSeek > Kimi > Qwen > 中转(GPT/Claude)。
 _FALLBACK_CHAIN = [
     (lambda: DEEPSEEK_KEY,   _DS,   "deepseek-chat"),
     (lambda: KIMI_KEY,       _KIMI, "kimi-k2.5"),
@@ -116,6 +103,7 @@ _FALLBACK_CHAIN = [
     (lambda: MIMO_KEY,       _MIMO, "mimo-7b-rl"),
     (lambda: OPENROUTER_KEY, _RELAY, "claude-sonnet-4.6"),
 ]
+
 def first_available_model() -> tuple[str, str, str]:
     """返回首个已配置 provider 的 (api_key, base_url, model_id)；都没配则返回空。"""
     for key_fn, base_url, model_id in _FALLBACK_CHAIN:
@@ -125,7 +113,7 @@ def first_available_model() -> tuple[str, str, str]:
     return "", "", ""
 
 
-class AgentBase:
+class AgentBase(AgentCompressMixin, AgentLoggingMixin):
     """所有数字员工的基类。提供 ReAct 循环、三层压缩、日志。"""
 
     def __init__(self, name: str, api_key: str, model: str, base_url: str,
@@ -559,153 +547,8 @@ class AgentBase:
         cap = self.tool_result_cap
         return text[:cap] + f"…[截断,原长{len(text)}字符]" if len(text) > cap else text
 
-    def _compress_history(self, messages: list[dict]) -> list[dict]:
-        if len(messages) <= 10:
-            return messages
-        sys_msgs = [m for m in messages if m["role"] == "system"]
-        rest = [m for m in messages if m["role"] != "system"]
-        first_user = next((m for m in rest if m["role"] == "user"), None)
-        tail = rest[-6:] if len(rest) > 6 else rest
-        # 防止 tail 从工具调用序列中间切断：若开头是孤儿 tool 消息（其对应的
-        # assistant.tool_calls 已被压缩掉），供应商会报 400
-        # "tool must be a response to a preceding message with tool_calls"。
-        # 剥掉开头所有悬空的 tool 消息。
-        while tail and tail[0].get("role") == "tool":
-            tail = tail[1:]
-        result = sys_msgs[:]
-        if first_user and first_user not in tail:
-            result.append(first_user)
-            placeholder = "[中间对话已压缩]"
-            if self.coding_compress:
-                dropped = [m for m in rest if m is not first_user and m not in tail]
-                digest = self._coding_digest(dropped)
-                if digest:
-                    placeholder = placeholder + "\n\n" + digest
-            result.append({"role": "assistant", "content": placeholder})
-        return result + tail
+    # ── _compress_history / _coding_digest / _async_compress / _scan_previous_summary
+    # 已移入 AgentCompressMixin（agent_compress.py）
+    # ──────────────────────────────────────────────────────────────────────────────
 
-    def _coding_digest(self, dropped: list[dict]) -> str:
-        """从被压缩掉的中间消息里提炼"已改文件 + 关键命令/退出码"摘要，
-        让编程 agent 在长会话里不会忘记前面已经动过什么、测试通没通过。"""
-        files: list[str] = []           # 保序去重
-        seen_files: set[str] = set()
-        commands: list[str] = []        # (command, exit_code?) 文本，保留最近若干条
-        pending_cmd: str | None = None  # 上一条 assistant 发起的 shell_run，等其结果配退出码
-
-        for m in dropped:
-            role = m.get("role")
-            if role == "assistant":
-                for tc in (m.get("tool_calls") or []):
-                    fn = tc.get("function", {})
-                    name = fn.get("name", "")
-                    try:
-                        args = json.loads(fn.get("arguments") or "{}")
-                    except Exception:
-                        args = {}
-                    if name in ("file_write", "file_edit") and args.get("path"):
-                        p = args["path"]
-                        if p not in seen_files:
-                            seen_files.add(p)
-                            files.append(p)
-                    elif name == "shell_run" and args.get("command"):
-                        pending_cmd = str(args["command"])[:80]
-            elif role == "tool":
-                if pending_cmd is not None:
-                    code = ""
-                    try:
-                        d = json.loads(m.get("content") or "{}")
-                        if isinstance(d, dict) and "exit_code" in d:
-                            code = f" → exit={d['exit_code']}"
-                    except Exception:
-                        pass
-                    commands.append(pending_cmd + code)
-                    pending_cmd = None
-
-        parts: list[str] = []
-        if files:
-            shown = files[-20:]
-            parts.append("## 期间已改文件\n" + "\n".join(f"- {p}" for p in shown))
-        if commands:
-            shown = commands[-8:]
-            parts.append("## 期间关键命令\n" + "\n".join(f"- {c}" for c in shown))
-        return "\n\n".join(parts)
-
-    async def _async_compress(self, session_id, messages, summary, files_changed, turns):
-        async with self._compress_semaphore:
-            for attempt in range(1, 4):
-                try:
-                    key_msgs = []
-                    for m in messages[-15:]:
-                        c = m.get("content", "") or ""
-                        if len(c) > 600:
-                            c = c[:600] + "…"
-                        key_msgs.append(f"[{m['role']}] {c}")
-                    prompt = (
-                        f"请生成9段式任务摘要（每段2-3句，总计800字内）。\n"
-                        f"任务: {summary[:500]}\n轮数: {turns}\n文件: {', '.join(files_changed) or '无'}\n"
-                        f"历史:\n{'  '.join(key_msgs)}\n\n"
-                        "输出格式: 1.会话目标 2.已完成 3.未完成 4.关键决策 5.代码变更 6.发现问题 7.待验证 8.用户偏好 9.上下文"
-                    )
-                    resp = await self._call_api([{"role": "user", "content": prompt}],
-                                                tools=None, stream=False)
-                    if "error" in resp or not resp.get("content", "").strip():
-                        raise RuntimeError(resp.get("error", "空摘要"))
-                    out_path = self._notes_dir / f"{datetime.now().strftime('%Y-%m-%d')}_{session_id}.md"
-                    header = (f"# {self.name} · {session_id}\n"
-                              f"- 时间: {datetime.now().isoformat()}\n"
-                              f"- 轮数: {turns}\n"
-                              f"- 文件: {', '.join(files_changed) or '无'}\n\n")
-                    out_path.write_text(header + resp["content"], encoding="utf-8")
-                    self._log(session_id, "compress_ok", {"path": str(out_path)})
-                    return
-                except Exception:
-                    await asyncio.sleep(2 ** attempt)
-            self._log(session_id, "compress_failed", {})
-
-    def _scan_previous_summary(self) -> str:
-        try:
-            files = sorted(self._notes_dir.glob(f"*_{self.name}-*.md"),
-                           key=lambda f: f.stat().st_mtime, reverse=True)
-            if not files:
-                return ""
-            content = files[0].read_text(encoding="utf-8")
-            segs = re.findall(r"\d+\.[会已未关代发待用上].*?(?=\n\d+\.|$)", content, re.DOTALL)
-            head4 = "\n".join(segs[:4])[:500]
-            return f"\n\n## 上次任务回顾\n{head4}" if head4 else ""
-        except Exception:
-            return ""
-
-    def _log(self, session_id: str, event: str, data: dict):
-        log_file = self.log_dir / f"{self.name}-{datetime.now().strftime('%Y%m%d')}.jsonl"
-        record = {"session_id": session_id, "timestamp": datetime.now().isoformat(),
-                  "event": event, "agent": self.name, **data}
-        try:
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(record, ensure_ascii=False) + "\n")
-        except Exception:
-            pass
-
-    async def _notify_feishu(self, session_id, status, turns, files_changed):
-        if not self._feishu_app_id or not self._feishu_app_secret:
-            return
-        try:
-            async with aiohttp.ClientSession() as s:
-                r = await s.post(
-                    "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
-                    json={"app_id": self._feishu_app_id, "app_secret": self._feishu_app_secret},
-                    timeout=aiohttp.ClientTimeout(total=10))
-                token = (await r.json()).get("tenant_access_token", "")
-                if not token:
-                    return
-                emoji = "✅" if status == "completed" else "⚠️"
-                text = (f"{emoji} {self.name} {status}\n"
-                        f"会话: {session_id}\n轮数: {turns}\n"
-                        f"文件:\n" + "\n".join(f"• {f}" for f in files_changed[:5]))
-                await s.post(
-                    "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
-                    headers={"Authorization": f"Bearer {token}"},
-                    json={"receive_id": self._feishu_chat_id, "msg_type": "text",
-                          "content": json.dumps({"text": text})},
-                    timeout=aiohttp.ClientTimeout(total=10))
-        except Exception:
-            pass
+    # ── _log / _notify_feishu 已移入 AgentLoggingMixin（agent_logging.py）──────
