@@ -262,7 +262,8 @@ body[data-agent] [id^="messages-"] {
   background: var(--color-bg);
 }
 
-/* 入场：emil 强 ease-out，translateY 浮起（永不 scale(0)） */
+/* 入场：emil 强 ease-out，translateY 浮起（永不 scale(0)）
+   GSAP ON 时 anim.js 接管并改为 back.out(1.15) 微弹；CSS 动画作降级备用。 */
 .msg { animation: anima-msg-in var(--dur-base) var(--ease-out) both; }
 @keyframes anima-msg-in {
   from { opacity: 0; transform: translateY(8px); }
@@ -270,6 +271,104 @@ body[data-agent] [id^="messages-"] {
 }
 @media (prefers-reduced-motion: reduce) {
   .msg { animation: none; }
+}
+
+/* ── 气泡内排版（Anima 是生产力伙伴，内容排版直接影响体验）─────── */
+
+/* 内联 code：mono font + 暖色主色调底（与人格色呼应） */
+.msg-bubble code {
+  font-family: var(--font-mono);
+  font-size: .88em;
+  background: color-mix(in srgb, var(--color-accent) 9%, var(--color-surface-2));
+  color: var(--color-accent);
+  padding: .1em .38em;
+  border-radius: 4px;
+  word-break: break-all;
+}
+/* 用户气泡里的 code 底色跟用户气泡一家 */
+.msg.user .msg-bubble code {
+  background: color-mix(in srgb, var(--color-accent) 11%, var(--color-surface-2));
+}
+
+/* 列表（markdownToHtml 生成 ul/li） */
+.msg-bubble ul, .msg-bubble ol {
+  padding-left: var(--space-5);
+  margin: var(--space-1) 0;
+}
+.msg-bubble li { line-height: var(--leading-base); }
+.msg-bubble li + li { margin-top: var(--space-1); }
+
+/* 段落（markdownToHtml 用 </p><p> 分隔） */
+.msg-bubble p { margin: var(--space-2) 0; }
+.msg-bubble p:first-child { margin-top: 0; }
+.msg-bubble p:last-child  { margin-bottom: 0; }
+
+/* 标题（markdownToHtml 生成 h1/h2/h3） */
+.msg-bubble h1, .msg-bubble h2, .msg-bubble h3 {
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  margin: var(--space-3) 0 var(--space-1);
+  color: var(--color-text);
+}
+.msg-bubble h1 { font-size: var(--text-xl); }
+.msg-bubble h2 { font-size: var(--text-lg); }
+.msg-bubble h3 { font-size: var(--text-base); }
+
+/* 文字选中：跟随人格主色调（细节体感） */
+.msg-bubble ::selection {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: inherit;
+}
+
+/* ── 消息操作行（复制按钮）：hover 浮现，不喧宾夺主 ──────────────
+   anim.js 的 initMsgActions() 注入 .msg-actions > .msg-action-btn[data-action=copy]
+   DOM 位置：.msg-body 内，.msg-bubble 与 .msg-meta 之间。 */
+.msg-actions {
+  display: flex;
+  gap: var(--space-1);
+  padding: 0 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+/* 鼠标悬停或键盘焦点时显现 */
+.msg:hover .msg-actions,
+.msg:focus-within .msg-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.msg.user      .msg-actions { justify-content: flex-end; }
+.msg.assistant .msg-actions { justify-content: flex-start; }
+
+/* 操作按钮：22px 图标区，无边无底，极克制 */
+.msg-action-btn {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: none; padding: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: 11px; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast),
+              transform var(--dur-fast) var(--ease-out);
+}
+.msg-action-btn:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+}
+.msg-action-btn:active { transform: scale(.94); }
+/* 复制成功态：短暂变人格主色（触感反馈） */
+.msg-action-btn.copied { color: var(--color-accent); }
+
+/* ── 助手头像悬停："她在"微信号 ────────────────────────────────── */
+.msg.assistant .msg-avatar {
+  transition: box-shadow var(--dur-base) var(--ease-out),
+              transform var(--dur-base) var(--ease-out);
+}
+.msg.assistant:hover .msg-avatar {
+  transform: scale(1.06);
+  box-shadow: var(--shadow-sm),
+    0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 /* 已决议：整卡降饱和 + 结果条 */

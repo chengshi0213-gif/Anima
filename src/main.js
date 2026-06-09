@@ -15,7 +15,7 @@ import './workflow.js?v=1.2.1';
 import './settings.js?v=1.2.1';
 import './mcp-panel.js?v=1.2.1';
 import './economy.js?v=1.2.1';
-import './anim.js?v=1.2.1';   // GSAP 编排层（必须最后 import：包装其它模块已注册的 window.* 函数）
+import './anim.js?v=1.2.2';   // GSAP 编排层（必须最后 import：包装其它模块已注册的 window.* 函数）
 
 // ══════════════════════════════════════════════════
 //  命令面板 (Ctrl+K)
