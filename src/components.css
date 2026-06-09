@@ -443,12 +443,8 @@ body[data-agent] .model-btn:hover {
 }
 /* 人格上下文：双层光环（与 msg-avatar 头像光环同工艺）*/
 body[data-agent] #companionOrb {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent) 40%, transparent),
-              0 0 0 8px var(--agent-glow),
-              0 8px 32px var(--agent-glow);
+  box-shadow: 0 8px 32px var(--agent-glow);
 }
 body[data-agent] #companionOrb:hover {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--agent) 60%, transparent),
-              0 0 0 12px var(--agent-glow),
-              0 12px 40px var(--agent-glow);
+  box-shadow: 0 12px 40px var(--agent-glow);
 }
