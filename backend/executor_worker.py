@@ -18,7 +18,11 @@ from persona import _VOICE_CORE
 from xi_worker import (
     _list_dir, _read_file, _write_file,
     _edit_file, _search_code, _shell_run,
+    _glob_files, _map_project,
 )
+from native_tools import _http_request, _read_pdf, _read_image, _install_pkg
+from git_tools import GIT_TOOL_DEFS, build_git_dispatch
+from task_runner import TASK_TOOL_DEFS, build_task_dispatch
 from orchestrator import lead_delegate_tool_defs, build_orchestration_dispatch
 from git_safety import GIT_SAFETY_TOOL_DEFS, build_git_safety_dispatch
 from computer_tools import TOOL_DEFS as COMPUTER_TOOL_DEFS, build_dispatch as build_computer_dispatch
@@ -125,6 +129,53 @@ class ExecutorWorker(AgentBase):
                         "cwd":     {"type": "string"},
                     }, "required": ["command"]},
             }},
+            # v1.2.1 T1: 文件查找 + 项目全景
+            {"type": "function", "function": {
+                "name": "glob_files",
+                "description": "按 glob 模式查找文件（支持 ** 递归）。找文件用它，搜内容用 search_code。",
+                "parameters": {"type": "object", "properties": {
+                    "pattern": {"type": "string"}, "path": {"type": "string"},
+                    "limit": {"type": "integer"},
+                }, "required": ["pattern"]}}},
+            {"type": "function", "function": {
+                "name": "map_project",
+                "description": "项目全景目录树（自动跳 node_modules/.git 等噪声），进陌生项目先调它。",
+                "parameters": {"type": "object", "properties": {
+                    "root": {"type": "string"}, "max_depth": {"type": "integer"},
+                }, "required": []}}},
+            # v1.2.1 T4/T5/T6: 读图片/PDF/HTTP
+            {"type": "function", "function": {
+                "name": "read_image",
+                "description": "读取图片文件供视觉分析（png/jpg/gif/webp/bmp/svg，>5MB 拒绝）",
+                "parameters": {"type": "object", "properties": {
+                    "path": {"type": "string"},
+                }, "required": ["path"]}}},
+            {"type": "function", "function": {
+                "name": "read_pdf",
+                "description": "读 PDF 文本（需求文档/论文/合同）。>100 页须指定 start_page/end_page。",
+                "parameters": {"type": "object", "properties": {
+                    "path": {"type": "string"},
+                    "start_page": {"type": "integer"}, "end_page": {"type": "integer"},
+                }, "required": ["path"]}}},
+            {"type": "function", "function": {
+                "name": "http_request",
+                "description": "直调 REST API（GET/POST/PUT/PATCH/DELETE）。拦截内网 URL（防 SSRF）。",
+                "parameters": {"type": "object", "properties": {
+                    "method": {"type": "string"}, "url": {"type": "string"},
+                    "body": {}, "headers": {"type": "object"},
+                    "timeout": {"type": "integer"},
+                }, "required": ["url"]}}},
+            # v1.2.1 T3: 包安装
+            {"type": "function", "function": {
+                "name": "install_pkg",
+                "description": "安装 pip/npm 包（仅官方源，禁自定义 --index-url）",
+                "parameters": {"type": "object", "properties": {
+                    "package": {"type": "string"},
+                    "manager": {"type": "string", "enum": ["pip", "npm"]},
+                }, "required": ["package"]}}},
+            # v1.2.1 T2: 后台长命令 + T7: git 工具
+            *TASK_TOOL_DEFS,
+            *GIT_TOOL_DEFS,
             # 受限 delegate（仅 executor/reader/critic）
             *lead_delegate_tool_defs(_LEAD_ROLES),
             # 安全网：改动前打快照 / 改崩了回滚（商用底线）
@@ -148,6 +199,16 @@ class ExecutorWorker(AgentBase):
                 "file_edit":   lambda **kw: _edit_file(kw["path"], kw["old_string"], kw["new_string"], kw.get("replace_all", False)),
                 "search_code": lambda **kw: _search_code(kw["pattern"], kw.get("path", "."), kw.get("file_glob", "*"), kw.get("limit", 60)),
                 "shell_run":   lambda **kw: _shell_run(kw["command"], kw.get("timeout", 120), kw.get("cwd")),
+                # v1.2.1 新工具 dispatch
+                "glob_files":  lambda **kw: _glob_files(kw["pattern"], kw.get("path", "."), kw.get("limit", 100)),
+                "map_project": lambda **kw: _map_project(kw.get("root", "."), kw.get("max_depth", 3)),
+                "read_image":  lambda **kw: _read_image(kw["path"]),
+                "read_pdf":    lambda **kw: _read_pdf(kw["path"], kw.get("start_page"), kw.get("end_page")),
+                "http_request": lambda **kw: _http_request(kw.get("method", "GET"), kw["url"],
+                                                           kw.get("body"), kw.get("headers"), kw.get("timeout", 30)),
+                "install_pkg": lambda **kw: _install_pkg(kw["package"], kw.get("manager", "pip")),
+                **build_task_dispatch(),
+                **build_git_dispatch(),
                 # 受限 delegate dispatch（白名单 = _LEAD_ROLES）
                 **build_orchestration_dispatch(allowed_roles=_LEAD_ROLES),
                 # 安全网工具 dispatch
