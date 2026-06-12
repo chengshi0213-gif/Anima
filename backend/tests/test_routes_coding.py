@@ -193,11 +193,88 @@ def test_register_adds_route():
     class FakeApp:
         def __init__(self):
             self.router = self
+            self.posts = []
+            self.gets = []
 
         def add_post(self, path, handler):
-            self.added = (path, handler)
+            self.posts.append((path, handler))
+
+        def add_get(self, path, handler):
+            self.gets.append((path, handler))
 
     app = FakeApp()
     rc.register(app)
-    assert app.added[0] == "/agent/executor/init"
-    assert app.added[1] is rc.init_project
+    assert ("/agent/executor/init", rc.init_project) in app.posts
+    assert ("/agent/executor/anima_md", rc.anima_md_get) in app.gets
+    assert ("/agent/executor/anima_md", rc.anima_md_save) in app.posts
+
+
+# ════════════════════════════════════════════════════════════════════
+#  A6 — 读取/保存 ANIMA.md
+# ════════════════════════════════════════════════════════════════════
+
+def test_get_anima_md_missing_dir(tmp_path):
+    result = rc._get_anima_md(str(tmp_path / "nope"))
+    assert "error" in result
+
+
+def test_get_anima_md_not_exists(tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    result = rc._get_anima_md(str(proj))
+    assert result["exists"] is False
+    assert result["content"] == ""
+
+
+def test_get_anima_md_finds_anima(tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "ANIMA.md").write_text("# 项目规范", encoding="utf-8")
+    result = rc._get_anima_md(str(proj))
+    assert result["exists"] is True
+    assert result["filename"] == "ANIMA.md"
+    assert "# 项目规范" in result["content"]
+
+
+def test_get_anima_md_compat_fallback(tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "CLAUDE.md").write_text("CLAUDE 内容", encoding="utf-8")
+    result = rc._get_anima_md(str(proj))
+    assert result["exists"] is True
+    assert result["filename"] == "CLAUDE.md"
+    assert "CLAUDE 内容" in result["content"]
+
+
+def test_save_anima_md_missing_dir(tmp_path):
+    result = rc._save_anima_md(str(tmp_path / "nope"), "内容")
+    assert "error" in result
+
+
+def test_save_anima_md_writes_file(tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    result = rc._save_anima_md(str(proj), "# 编辑后的内容")
+    assert result["ok"] is True
+    assert (proj / "ANIMA.md").read_text(encoding="utf-8") == "# 编辑后的内容"
+
+
+def test_anima_md_get_handler_requires_work_dir():
+    req = make_mocked_request("GET", "/agent/executor/anima_md")
+    resp = asyncio.run(rc.anima_md_get(req))
+    assert resp.status == 400
+
+
+def test_anima_md_get_handler_reads_query(tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "ANIMA.md").write_text("内容X", encoding="utf-8")
+    req = make_mocked_request("GET", f"/agent/executor/anima_md?work_dir={proj}")
+    resp = asyncio.run(rc.anima_md_get(req))
+    assert resp.status == 200
+
+
+def test_anima_md_save_handler_requires_work_dir():
+    req = make_mocked_request("POST", "/agent/executor/anima_md")
+    resp = asyncio.run(rc.anima_md_save(req))
+    assert resp.status == 400

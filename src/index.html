@@ -853,6 +853,9 @@
           <input id="workspaceInput" type="text" placeholder="如 D:\Projects 或 ~/projects" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--bg-main);color:var(--text-main)">
           <button class="settings-btn" onclick="workspaceSave()">保存</button>
         </div>
+        <div style="margin-top:10px">
+          <button class="settings-btn" onclick="animaMdOpen()" title="查看/编辑该项目的 ANIMA.md（项目记忆，A1 自动加载）">📄 项目记忆（ANIMA.md）</button>
+        </div>
       </div>
 
       <details class="settings-section" id="mcpSection" ontoggle="if(this.open)mcpPanelLoad()">

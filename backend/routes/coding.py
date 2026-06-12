@@ -18,6 +18,7 @@ from aiohttp import web
 
 from .auth import CORS_HEADERS
 from xi_worker import _map_project, _read_file, _write_file
+from project_memory import _find_project_memory_file
 
 _FRAMEWORK_BY_DEP = (
     ("next", "Next.js"), ("nuxt", "Nuxt"), ("react", "React"), ("vue", "Vue"),
@@ -208,5 +209,61 @@ async def init_project(request):
     return web.json_response(result, status=status, headers=CORS_HEADERS)
 
 
+def _get_anima_md(work_dir: str) -> dict:
+    """A6: 读取当前项目记忆文件供前端展示/编辑。
+    按 A1 兼容顺序找 ANIMA.md > CLAUDE.md > AGENTS.md > .cursorrules；不存在则 exists=False。"""
+    base = Path(work_dir)
+    if not base.is_dir():
+        return {"error": f"目录不存在: {work_dir}"}
+
+    found = _find_project_memory_file(base)
+    if not found:
+        return {"exists": False, "content": "", "filename": None, "path": None}
+
+    result = _read_file(str(found), limit=10000)
+    if "error" in result:
+        return result
+    return {"exists": True, "content": result.get("content", ""),
+            "filename": found.name, "path": str(found)}
+
+
+def _save_anima_md(work_dir: str, content: str) -> dict:
+    """A6: 保存编辑后的 ANIMA.md。
+    始终写入 <work_dir>/ANIMA.md（A1 优先级最高，覆盖式编辑落到这个文件最直观）。"""
+    base = Path(work_dir)
+    if not base.is_dir():
+        return {"error": f"目录不存在: {work_dir}"}
+
+    target = base / "ANIMA.md"
+    result = _write_file(str(target), content)
+    if "error" in result:
+        return result
+    return {"ok": True, "path": str(target)}
+
+
+async def anima_md_get(request):
+    work_dir = (request.query.get("work_dir") or "").strip()
+    if not work_dir:
+        return web.json_response({"error": "work_dir 不能为空"}, status=400, headers=CORS_HEADERS)
+    result = _get_anima_md(work_dir)
+    status = 400 if "error" in result else 200
+    return web.json_response(result, status=status, headers=CORS_HEADERS)
+
+
+async def anima_md_save(request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    work_dir = (body.get("work_dir") or "").strip()
+    if not work_dir:
+        return web.json_response({"error": "work_dir 不能为空"}, status=400, headers=CORS_HEADERS)
+    result = _save_anima_md(work_dir, body.get("content", ""))
+    status = 400 if "error" in result else 200
+    return web.json_response(result, status=status, headers=CORS_HEADERS)
+
+
 def register(app):
     app.router.add_post("/agent/executor/init", init_project)
+    app.router.add_get("/agent/executor/anima_md", anima_md_get)
+    app.router.add_post("/agent/executor/anima_md", anima_md_save)
