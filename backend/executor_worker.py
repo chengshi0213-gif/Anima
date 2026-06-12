@@ -90,6 +90,34 @@ def _parse_plan_prefix(task: str) -> tuple[bool, str]:
 
 
 # ── D2: Skills 接入 ──────────────────────────────────────────
+def _build_command_index(project_root: str | None = None) -> str:
+    if not project_root:
+        return ""
+    try:
+        from custom_commands import list_commands
+        cmds = list_commands(project_root)
+    except Exception:
+        cmds = []
+    if not cmds:
+        return ""
+    lines = [f"- /{c['name']}: {c['description']}" for c in cmds[:20]]
+    return "\n\n## 自定义命令（run_command 执行）\n" + "\n".join(lines)
+
+
+def _run_command(name: str, arguments: str = "",
+                 project_root: str | None = None) -> dict:
+    if not project_root:
+        return {"error": "无项目上下文，无法加载命令"}
+    try:
+        from custom_commands import load_command
+        body = load_command(name, project_root, arguments)
+    except Exception as e:
+        return {"error": str(e)}
+    if body is None:
+        return {"error": f"未找到命令: {name}"}
+    return {"command": name, "prompt": body[:8000]}
+
+
 def _build_skill_index(project_root: str | None = None) -> str:
     """构建紧凑技能索引（ID + 名称），供 agent 按需 use_skill 加载。"""
     try:
@@ -369,6 +397,14 @@ class ExecutorWorker(AgentBase):
                 "parameters": {"type": "object", "properties": {
                     "skill_id": {"type": "string", "description": "技能 ID"},
                 }, "required": ["skill_id"]}}},
+            # v1.2.2 D7: run_command（自定义快捷命令）
+            {"type": "function", "function": {
+                "name": "run_command",
+                "description": "执行项目自定义命令（.anima/commands/*.md）。先看可用命令列表再调用。",
+                "parameters": {"type": "object", "properties": {
+                    "name": {"type": "string", "description": "命令名"},
+                    "arguments": {"type": "string", "description": "传给命令的参数"},
+                }, "required": ["name"]}}},
         ]
 
         super().__init__(
@@ -409,6 +445,8 @@ class ExecutorWorker(AgentBase):
                 "ask_user": lambda **kw: self._ask_user(kw["question"], kw.get("choices")),
                 # D2: use_skill
                 "use_skill": lambda **kw: _use_skill(kw["skill_id"], self._current_project_root),
+                # D7: run_command
+                "run_command": lambda **kw: _run_command(kw["name"], kw.get("arguments", ""), self._current_project_root),
             },
         )
         # 中型项目档（M9 Part 4）：放宽轮数/预算，撑得住多文件多轮持续开发。
@@ -549,6 +587,9 @@ class ExecutorWorker(AgentBase):
                 skill_idx = _build_skill_index(project_root)
                 if skill_idx:
                     task = task + skill_idx
+                cmd_idx = _build_command_index(project_root)
+                if cmd_idx:
+                    task = task + cmd_idx
             except Exception:
                 pass
             if plan_mode:
