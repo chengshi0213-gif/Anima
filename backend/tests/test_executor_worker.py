@@ -222,3 +222,78 @@ def test_run_skips_auto_memory_when_no_project(worker, monkeypatch):
 
     asyncio.run(worker.run("task", project=None))
     assert len(created) == 0
+
+
+# ════════════════════════════════════════════════════════════════════
+#  C1 — ask_user 工具
+# ════════════════════════════════════════════════════════════════════
+
+def test_ask_user_no_ws(worker):
+    result = asyncio.run(worker._ask_user("选哪个？"))
+    assert result["answer"] is None
+    assert "error" in result
+
+
+def test_ask_user_receives_answer(worker):
+    sent = []
+    class FakeWS:
+        async def send_json(self, data):
+            sent.append(data)
+
+    worker._current_ws = FakeWS()
+
+    async def _test():
+        async def _answer_later():
+            await asyncio.sleep(0.05)
+            worker.receive_user_answer("选B")
+        asyncio.create_task(_answer_later())
+        return await worker._ask_user("选A还是B？", ["选A", "选B"])
+
+    result = asyncio.run(_test())
+    assert result["answer"] == "选B"
+    assert result["timed_out"] is False
+    assert sent[0]["type"] == "ask_user"
+    assert sent[0]["question"] == "选A还是B？"
+
+
+def test_ask_user_timeout_returns_first_choice(worker):
+    sent = []
+    class FakeWS:
+        async def send_json(self, data):
+            sent.append(data)
+
+    worker._current_ws = FakeWS()
+    result = asyncio.run(worker._ask_user("选？", ["默认选项"], timeout=0.1))
+    assert result["timed_out"] is True
+    assert result["answer"] == "默认选项"
+
+
+def test_ask_user_timeout_no_choices(worker):
+    class FakeWS:
+        async def send_json(self, data): pass
+
+    worker._current_ws = FakeWS()
+    result = asyncio.run(worker._ask_user("问？", timeout=0.1))
+    assert result["timed_out"] is True
+    assert result["answer"] is None
+
+
+def test_receive_user_answer_sets_event(worker):
+    worker._ask_event = asyncio.Event()
+    worker.receive_user_answer("hello")
+    assert worker._ask_answer == "hello"
+    assert worker._ask_event.is_set()
+
+
+def test_run_stores_ws(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        return {"status": "completed", "summary": "done",
+                "files_changed": [], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    fake_ws = object()
+    asyncio.run(worker.run("task", ws=fake_ws, project=str(proj)))
+    assert worker._current_ws is fake_ws

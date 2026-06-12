@@ -256,6 +256,15 @@ class ExecutorWorker(AgentBase):
             *GIT_SAFETY_TOOL_DEFS,
             # 桌面操作（截屏/鼠标/键盘）——默认关闭，受 computer_tools 安全闸门约束
             *COMPUTER_TOOL_DEFS,
+            # v1.2.2 C1: ask_user（暂停等用户回答）
+            {"type": "function", "function": {
+                "name": "ask_user",
+                "description": "暂停执行，向用户提问并等待回答。用于需要用户确认方案、选择方向或提供信息的场景。",
+                "parameters": {"type": "object", "properties": {
+                    "question": {"type": "string", "description": "要问用户的问题"},
+                    "choices": {"type": "array", "items": {"type": "string"},
+                                "description": "可选的快速选项（前端渲染为按钮）"},
+                }, "required": ["question"]}}},
         ]
 
         super().__init__(
@@ -292,6 +301,8 @@ class ExecutorWorker(AgentBase):
                 **build_git_safety_dispatch(),
                 # 桌面操作 dispatch（闸门在 computer_tools 内逐动作把关）
                 **build_computer_dispatch(),
+                # v1.2.2 C1: ask_user（返回协程，agent_base 的 iscoroutine 分支会 await）
+                "ask_user": lambda **kw: self._ask_user(kw["question"], kw.get("choices")),
             },
         )
         # 中型项目档（M9 Part 4）：放宽轮数/预算，撑得住多文件多轮持续开发。
@@ -304,6 +315,10 @@ class ExecutorWorker(AgentBase):
         self.coding_compress = True
         # A2: file_read/file_edit 按需查路径作用域规则用的当前项目根（run() 时刷新）
         self._current_project_root = "."
+        # C1: ask_user 挂起/恢复机制
+        self._current_ws = None
+        self._ask_event: asyncio.Event | None = None
+        self._ask_answer: str | None = None
 
     def _coding_model(self) -> str | None:
         """N1: relay 可用时升级到 Claude-Sonnet（agentic 编程最强可达模型）。"""
@@ -314,10 +329,45 @@ class ExecutorWorker(AgentBase):
                 return "Claude-Sonnet-4.6"
         return None
 
+    async def _ask_user(self, question: str, choices: list[str] | None = None,
+                        timeout: int = 120) -> dict:
+        """C1: Agent 暂停，向用户提问，等待回答。
+        通过 WS 推送 ask_user 事件，asyncio.Event 挂起协程，
+        前端/WS 回推 user_answer 后 receive_user_answer() set event 恢复。"""
+        ws = self._current_ws
+        if ws is None:
+            return {"answer": None, "timed_out": False, "error": "无活跃 WS 连接"}
+        self._ask_event = asyncio.Event()
+        self._ask_answer = None
+        try:
+            await ws.send_json({
+                "type": "ask_user",
+                "question": question,
+                "choices": choices or [],
+            })
+        except Exception:
+            self._ask_event = None
+            return {"answer": None, "timed_out": False, "error": "WS 推送失败"}
+        try:
+            await asyncio.wait_for(self._ask_event.wait(), timeout=timeout)
+            return {"answer": self._ask_answer, "timed_out": False}
+        except asyncio.TimeoutError:
+            default = choices[0] if choices else None
+            return {"answer": default, "timed_out": True}
+        finally:
+            self._ask_event = None
+
+    def receive_user_answer(self, answer: str) -> None:
+        """WS action handler 调用：用户回答后 set event 恢复 agent 协程。"""
+        self._ask_answer = answer
+        if self._ask_event:
+            self._ask_event.set()
+
     async def run(self, task: str, session_id=None, model=None, ws=None,
                   project: str | None = None) -> dict:
         if model is None:
             model = self._coding_model()
+        self._current_ws = ws
         project_root = project or "."
         self._current_project_root = project_root
         try:

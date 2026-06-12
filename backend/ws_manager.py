@@ -72,6 +72,8 @@ class WorkerServer:
                     "task_cancel":       self._handle_task_cancel,
                     # ── M14 内核3：危险操作确认答复 ──
                     "confirm_response":  self._handle_confirm_response,
+                    # ── C1 v1.2.2：用户回答 ask_user ──
+                    "user_answer":       self._handle_user_answer,
                 }
                 handler = handlers.get(action)
                 if handler:
@@ -279,3 +281,10 @@ class WorkerServer:
             bool(data.get("approved", False)),
             data.get("scope", "once"))
         await ws.send_json({"type": "response", "data": {"resolved": ok}})
+
+    async def _handle_user_answer(self, ws, data):
+        """C1: 用户回答 ask_user 提问——set event 恢复 agent 协程。"""
+        answer = data.get("answer", "")
+        if hasattr(self.worker, "receive_user_answer"):
+            self.worker.receive_user_answer(answer)
+        await ws.send_json({"type": "response", "data": {"received": True}})
