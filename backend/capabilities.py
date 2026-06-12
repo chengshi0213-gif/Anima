@@ -82,7 +82,7 @@ _MEMORY_FRAGMENT = """
 def _execution_cap(agent_id: str) -> Capability:
     from xi_worker import (_list_dir, _read_file, _write_file, _edit_file,
                            _search_code, _shell_run, _glob_files, _map_project)
-    from native_tools import _http_request
+    from native_tools import _http_request, _read_pdf
     from git_tools import GIT_TOOL_DEFS, build_git_dispatch
     defs = [
         {"type": "function", "function": {
@@ -147,6 +147,16 @@ def _execution_cap(agent_id: str) -> Capability:
                 "headers": {"type": "object", "description": "可选请求头"},
                 "timeout": {"type": "integer", "description": "秒，默认 30，上限 120"},
             }, "required": ["url"]}}},
+        {"type": "function", "function": {
+            "name": "read_pdf",
+            "description": "读取 PDF 文件的文本内容（需求文档/论文/合同等）。"
+                           "超 100 页时必须用 start_page/end_page 指定范围。"
+                           "纯扫描件/图片 PDF 无法提取文本。",
+            "parameters": {"type": "object", "properties": {
+                "path": {"type": "string", "description": "PDF 文件路径"},
+                "start_page": {"type": "integer", "description": "起始页码（从 1 开始）"},
+                "end_page": {"type": "integer", "description": "结束页码（含）"},
+            }, "required": ["path"]}}},
     ]
     dispatch = {
         "list_dir":    lambda **kw: _list_dir(kw["path"], kw.get("max_depth", 2)),
@@ -160,6 +170,8 @@ def _execution_cap(agent_id: str) -> Capability:
         "http_request": lambda **kw: _http_request(kw.get("method", "GET"), kw["url"],
                                                     kw.get("body"), kw.get("headers"),
                                                     kw.get("timeout", 30)),
+        "read_pdf": lambda **kw: _read_pdf(kw["path"], kw.get("start_page"),
+                                           kw.get("end_page")),
     }
     defs.extend(GIT_TOOL_DEFS)
     dispatch.update(build_git_dispatch())

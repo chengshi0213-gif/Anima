@@ -21,6 +21,7 @@ import json as _json
 import socket
 import urllib.error
 import urllib.request
+from pathlib import Path
 from urllib.parse import urlparse
 
 # ── T6: http_request（SSRF 安全版）────────────────────────────────────────────
@@ -121,3 +122,97 @@ def _http_request(method: str, url: str, body=None,
         return {"status": e.code, "error": f"HTTP {e.code}", "body": text}
     except Exception as e:
         return {"error": str(e)}
+
+
+# ── T5: read_pdf ─────────────────────────────────────────────────────────────
+
+_PDF_TEXT_CAP = 80_000
+_PDF_PAGE_WARN = 100
+
+
+def _read_pdf(path: str, start_page: int | None = None,
+              end_page: int | None = None) -> dict:
+    """读取 PDF 文本内容。>100 页时必须指定页范围，防 token 爆炸。
+    双 fallback：pdfminer.six（优先，排版更好）→ pypdf（兜底）。"""
+    p = Path(path)
+    if not p.exists():
+        return {"error": f"文件不存在: {path}"}
+    if not p.is_file():
+        return {"error": f"不是文件: {path}"}
+    suffix = p.suffix.lower()
+    if suffix != ".pdf":
+        return {"error": f"不是 PDF 文件（后缀 {suffix}）"}
+    try:
+        size_mb = p.stat().st_size / (1024 * 1024)
+    except Exception:
+        size_mb = 0
+    if size_mb > 100:
+        return {"error": f"文件过大（{size_mb:.1f}MB > 100MB），拒绝读取"}
+
+    total_pages = _pdf_page_count(path)
+    if total_pages is not None and total_pages > _PDF_PAGE_WARN:
+        if start_page is None and end_page is None:
+            return {"error": f"PDF 共 {total_pages} 页（> {_PDF_PAGE_WARN}），"
+                    "请用 start_page/end_page 指定范围（如 1-20）"}
+
+    text, method, error = _extract_pdfminer(path, start_page, end_page)
+    if text is None:
+        text, method, error = _extract_pypdf(path, start_page, end_page)
+    if text is None:
+        return {"error": f"PDF 解析失败: {error}。请确认文件未损坏且非纯扫描件。"}
+
+    truncated = len(text) > _PDF_TEXT_CAP
+    return {
+        "text": text[:_PDF_TEXT_CAP],
+        "truncated": truncated,
+        "total_pages": total_pages,
+        "method": method,
+        "path": str(p),
+    }
+
+
+def _pdf_page_count(path: str) -> int | None:
+    try:
+        from pypdf import PdfReader
+        return len(PdfReader(path).pages)
+    except Exception:
+        return None
+
+
+def _extract_pdfminer(path: str, start: int | None, end: int | None
+                      ) -> tuple[str | None, str, str]:
+    try:
+        from pdfminer.high_level import extract_text
+        if start is not None or end is not None:
+            s = max(0, (start or 1) - 1)
+            e = end
+            page_numbers = set(range(s, e)) if e else None
+            text = extract_text(path, page_numbers=page_numbers)
+        else:
+            text = extract_text(path)
+        if not text or not text.strip():
+            return None, "pdfminer", "提取文本为空（可能是扫描件/图片 PDF）"
+        return text, "pdfminer", ""
+    except Exception as exc:
+        return None, "pdfminer", str(exc)
+
+
+def _extract_pypdf(path: str, start: int | None, end: int | None
+                   ) -> tuple[str | None, str, str]:
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(path)
+        pages = reader.pages
+        s = max(0, (start or 1) - 1)
+        e = min(len(pages), end) if end else len(pages)
+        parts = []
+        for i in range(s, e):
+            t = pages[i].extract_text()
+            if t:
+                parts.append(t)
+        text = "\n".join(parts)
+        if not text.strip():
+            return None, "pypdf", "提取文本为空（可能是扫描件/图片 PDF）"
+        return text, "pypdf", ""
+    except Exception as exc:
+        return None, "pypdf", str(exc)

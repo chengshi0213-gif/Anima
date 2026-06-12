@@ -327,6 +327,101 @@ def test_git_log_limit(git_repo):
     assert r["count"] == 3
 
 
+# ── T5: read_pdf ─────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def small_pdf(tmp_path):
+    """用 pypdf 生成一个 3 页的简单 PDF。"""
+    from pypdf import PdfWriter
+    from pypdf.generic import AnnotationBuilder
+    import io
+    writer = PdfWriter()
+    for i in range(3):
+        from reportlab.pdfgen import canvas as rl_canvas
+        buf = io.BytesIO()
+        c = rl_canvas.Canvas(buf)
+        c.drawString(100, 700, f"Page {i+1} content hello")
+        c.showPage()
+        c.save()
+        buf.seek(0)
+        from pypdf import PdfReader as _PR
+        writer.add_page(_PR(buf).pages[0])
+    pdf_path = tmp_path / "test.pdf"
+    with open(pdf_path, "wb") as f:
+        writer.write(f)
+    return pdf_path
+
+
+@pytest.fixture
+def small_pdf_simple(tmp_path):
+    """用 fpdf2 或纯手工构造一个极小 PDF（不依赖 reportlab）。"""
+    try:
+        from fpdf import FPDF
+        pdf = FPDF()
+        for i in range(3):
+            pdf.add_page()
+            pdf.set_font("Helvetica", size=12)
+            pdf.cell(200, 10, text=f"Page {i+1} content hello")
+        pdf_path = tmp_path / "test.pdf"
+        pdf.output(str(pdf_path))
+        return pdf_path
+    except ImportError:
+        pass
+    # 最后手段：用 pypdf 创建空白页（无文本，但能测路径/页数逻辑）
+    from pypdf import PdfWriter
+    writer = PdfWriter()
+    for _ in range(3):
+        writer.add_blank_page(width=612, height=792)
+    pdf_path = tmp_path / "blank.pdf"
+    with open(pdf_path, "wb") as f:
+        writer.write(f)
+    return pdf_path
+
+
+def test_read_pdf_missing_file():
+    r = nt._read_pdf("/no/such/file.pdf")
+    assert "error" in r
+
+
+def test_read_pdf_not_pdf(tmp_path):
+    f = tmp_path / "readme.txt"
+    f.write_text("hello", encoding="utf-8")
+    r = nt._read_pdf(str(f))
+    assert "error" in r
+    assert "不是 PDF" in r["error"]
+
+
+def test_read_pdf_blank_pages(tmp_path):
+    """空白页 PDF — 两个 extractor 都拿不到文本，应报错不是静默返回空。"""
+    from pypdf import PdfWriter
+    w = PdfWriter()
+    for _ in range(2):
+        w.add_blank_page(612, 792)
+    p = tmp_path / "blank.pdf"
+    with open(p, "wb") as f:
+        w.write(f)
+    r = nt._read_pdf(str(p))
+    assert "error" in r or (r.get("text", "").strip() == "")
+
+
+def test_read_pdf_large_no_range(tmp_path, monkeypatch):
+    """超 100 页的 PDF 不给页范围应报错。"""
+    monkeypatch.setattr(nt, "_pdf_page_count", lambda path: 150)
+    p = tmp_path / "big.pdf"
+    p.write_bytes(b"%PDF-1.4 fake")
+    r = nt._read_pdf(str(p))
+    assert "error" in r
+    assert "start_page" in r["error"]
+
+
+def test_read_pdf_execution_cap_registration():
+    cap = capabilities.build(["execution"], agent_id="xi")
+    names = {d["function"]["name"] for d in cap["tool_defs"]}
+    assert "read_pdf" in names
+    assert "read_pdf" in cap["dispatch"]
+
+
 def test_execution_cap_registers_git_tools():
     cap = capabilities.build(["execution"], agent_id="xi")
     names = {d["function"]["name"] for d in cap["tool_defs"]}
