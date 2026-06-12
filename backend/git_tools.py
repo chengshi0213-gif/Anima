@@ -17,6 +17,7 @@ git_tools.py — v1.2.1 T7：Git 工作流六件套（原生工具）
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -165,6 +166,55 @@ def _git_create_branch(path: str = ".", name: str = "") -> dict:
         return {"error": str(e)}
 
 
+_REMOTE_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._\-]*[A-Za-z0-9_\-])?$")
+
+
+def _git_push(path: str = ".", remote: str = "origin", branch: str = "") -> dict:
+    err = _ensure_repo(path)
+    if err:
+        return err
+    remote = (remote or "origin").strip()
+    if not _REMOTE_RE.match(remote):
+        return {"error": f"非法 remote 名: {remote!r}"}
+    branch = (branch or "").strip()
+    if branch and not _BRANCH_RE.match(branch):
+        return {"error": f"非法分支名: {branch!r}"}
+    try:
+        if not branch:
+            br = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], path)
+            branch = br.stdout.strip()
+        r = _run_git(["push", remote, branch], path, timeout=60)
+        if r.returncode != 0:
+            return {"pushed": False, "error": (r.stderr or r.stdout).strip()[:500]}
+        return {"pushed": True, "remote": remote, "branch": branch}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def _create_pr(path: str = ".", title: str = "", body: str = "",
+               base: str = "main") -> dict:
+    err = _ensure_repo(path)
+    if err:
+        return err
+    if not title or not title.strip():
+        return {"error": "PR 标题不能为空"}
+    if not shutil.which("gh"):
+        return {"error": "未找到 gh CLI。请先安装 GitHub CLI (gh)，或手动到 GitHub/Gitee 网页创建 PR。"}
+    base = (base or "main").strip()
+    try:
+        args = ["pr", "create", "--title", title.strip(), "--base", base]
+        if body and body.strip():
+            args += ["--body", body.strip()]
+        r = subprocess.run(["gh", *args], cwd=path, capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=30)
+        if r.returncode != 0:
+            return {"created": False, "error": (r.stderr or r.stdout).strip()[:500]}
+        url = r.stdout.strip()
+        return {"created": True, "url": url, "title": title.strip(), "base": base}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ── 工具定义 + dispatch（供 capabilities._execution_cap 与 executor 共享）─────────
 
 GIT_TOOL_DEFS = [
@@ -205,6 +255,23 @@ GIT_TOOL_DEFS = [
             "path": {"type": "string"},
             "name": {"type": "string", "description": "新分支名（字母数字 ._/-）"},
         }, "required": ["name"]}}},
+    {"type": "function", "function": {
+        "name": "git_push",
+        "description": "推送本地提交到远端（需要用户确认）。不传 branch 则推当前分支。",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"},
+            "remote": {"type": "string", "description": "远端名，默认 origin"},
+            "branch": {"type": "string", "description": "分支名，默认当前分支"},
+        }, "required": []}}},
+    {"type": "function", "function": {
+        "name": "create_pr",
+        "description": "通过 gh CLI 创建 Pull Request（需要用户确认）。无 gh 时提示安装。",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"},
+            "title": {"type": "string", "description": "PR 标题（必填）"},
+            "body": {"type": "string", "description": "PR 描述"},
+            "base": {"type": "string", "description": "目标分支，默认 main"},
+        }, "required": ["title"]}}},
 ]
 
 
@@ -216,4 +283,6 @@ def build_git_dispatch() -> dict:
         "git_log":           lambda **kw: _git_log(kw.get("path", "."), kw.get("limit", 10)),
         "git_branch":        lambda **kw: _git_branch(kw.get("path", ".")),
         "git_create_branch": lambda **kw: _git_create_branch(kw.get("path", "."), kw.get("name", "")),
+        "git_push":          lambda **kw: _git_push(kw.get("path", "."), kw.get("remote", "origin"), kw.get("branch", "")),
+        "create_pr":         lambda **kw: _create_pr(kw.get("path", "."), kw.get("title", ""), kw.get("body", ""), kw.get("base", "main")),
     }

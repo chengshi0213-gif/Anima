@@ -17,6 +17,8 @@ _WRITE_TOOLS = frozenset({
 
 _EDIT_TOOLS = frozenset({"file_write", "file_edit", "apply_patch"})
 
+_ALWAYS_CONFIRM = frozenset({"git_push", "create_pr"})
+
 
 def _get_mode() -> str:
     try:
@@ -40,6 +42,9 @@ def check_tool_permission(name: str, args: dict) -> str | None:
     1. 先查自定义规则（deny/confirm 优先级最高）
     2. 再按 permission_mode 决定
     """
+    if name in _ALWAYS_CONFIRM:
+        return "confirm"
+
     for rule in _get_rules():
         if rule.get("tool") != name:
             continue
