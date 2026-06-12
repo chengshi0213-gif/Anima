@@ -150,7 +150,8 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
 
         # 运行时
         self.max_turns         = 60
-        self.compress_every    = 5
+        self.compress_every    = 5       # 已废弃，保留兼容；H2 改用阈值触发
+        self.compress_threshold = 0.7    # H2: 累计字符 > max_total_chars * 此值时才压缩
         self.context_cap_chars = 8000
         # 累计输入预算（字符）：每轮 API 调用都会重发整个 messages，
         # 累计成本 ≈ Σ(每轮 messages 大小)。超出则优雅收尾，
@@ -233,6 +234,7 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
 
     async def _handle_stream(self, resp, on_delta=None) -> dict:
         content = reasoning = ""
+        _usage = {}
         tool_calls: list[dict] = []
         async for line in resp.content:
             line_text = line.decode("utf-8", errors="replace").strip()
@@ -246,9 +248,11 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
             except json.JSONDecodeError:
                 continue
             # 某些供应商（DeepSeek/Qwen 等）会发 choices 为空的统计 chunk（仅含 usage），
-            # 此时 [0] 会越界——空 choices 直接跳过。
+            # 此时 [0] 会越界——空 choices 跳过，但先捕获 usage（H2 缓存命中率追踪）。
             choices = chunk.get("choices") or []
             if not choices:
+                if "usage" in chunk:
+                    _usage = chunk["usage"]
                 continue
             delta = choices[0].get("delta", {})
             if delta.get("reasoning_content"):
@@ -270,7 +274,7 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
                             tool_calls[idx]["function"]["name"] = tc["function"]["name"]
                         tool_calls[idx]["function"]["arguments"] += tc["function"].get("arguments", "")
         return {"content": content, "reasoning_content": reasoning,
-                "tool_calls": tool_calls or None}
+                "tool_calls": tool_calls or None, "usage": _usage or None}
 
     def _extract_response(self, data: dict) -> dict:
         msg = data.get("choices", [{}])[0].get("message", {})
@@ -340,11 +344,18 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
         tool_ctx = {"ws": ws, "session_id": session_id, "agent": self.name}
 
         for turn in range(1, self.max_turns + 1):
-            if turn > 1 and turn % self.compress_every == 0:
+            # H2: 阈值压缩——累计字符接近预算上限时才压缩（一次到位），
+            # 绝大多数任务全程零压缩，前缀始终稳定，prompt cache 持续命中。
+            msg_chars = sum(len(json.dumps(m, ensure_ascii=False)) for m in messages)
+            if msg_chars > self.max_total_chars * self.compress_threshold:
                 old = len(messages)
                 messages = self._compress_history(messages)
                 if len(messages) < old:
-                    self._log(session_id, "compress", {"turn": turn, "before": old, "after": len(messages)})
+                    self._log(session_id, "compress", {
+                        "turn": turn, "before": old, "after": len(messages),
+                        "trigger": "threshold",
+                        "chars": msg_chars,
+                    })
 
             # ── token 预算护栏：累计输入超限则优雅收尾 ──
             total_chars += sum(len(json.dumps(m, ensure_ascii=False)) for m in messages)
@@ -357,6 +368,14 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
                         "files_changed": files_changed, "turn_count": turn}
 
             resp = await self._call_api(messages, tools=self.tool_defs, override_model=model, on_delta=on_delta)
+            # H2: 记录缓存命中率（DeepSeek/Kimi 的 prompt_cache_hit_tokens）
+            usage = resp.get("usage") or {}
+            if usage.get("prompt_cache_hit_tokens"):
+                self._log(session_id, "cache_stats", {
+                    "turn": turn,
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "cache_hit": usage["prompt_cache_hit_tokens"],
+                })
             if "error" in resp:
                 self._log(session_id, "api_error", {"turn": turn, "error": resp["error"]})
                 return {"status": "error", "error": resp["error"], "turn_count": turn}
@@ -436,7 +455,8 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
                     tool_msg["content"] = self._trim_result(name, result, seen_hashes)
                 messages.append(tool_msg)
 
-            if sum(len(json.dumps(m, ensure_ascii=False)) for m in messages) > self.context_cap_chars * 3:
+            # H2: 紧急压缩保底（超硬上限时）
+            if sum(len(json.dumps(m, ensure_ascii=False)) for m in messages) > self.max_total_chars * 0.95:
                 messages = self._compress_history(messages)
 
         return {"status": "max_turns_reached",

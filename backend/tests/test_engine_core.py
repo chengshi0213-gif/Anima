@@ -323,6 +323,39 @@ def test_trim_result_caps_are_per_agent(tmp_path):
     assert "fingerprint" not in full_out
     assert "c" * 6000 in full_out
 
+
+# ════════════════════════════════════════════════════════════════════
+#  H2: 缓存友好压缩——阈值触发
+# ════════════════════════════════════════════════════════════════════
+
+def test_h2_compress_threshold_attr(tmp_path):
+    agent = _make_agent(tmp_path)
+    assert hasattr(agent, "compress_threshold")
+    assert agent.compress_threshold == 0.7
+
+
+def test_h2_compress_history_still_works(tmp_path):
+    """_compress_history 本身行为不变：>10 条就压缩。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"}]
+    for i in range(20):
+        msgs.append({"role": "assistant", "content": f"a{i}"})
+        msgs.append({"role": "user", "content": f"q{i}"})
+    out = agent._compress_history(msgs)
+    assert len(out) < len(msgs)
+
+
+def test_h2_short_history_no_compress(tmp_path):
+    """<= 10 条消息不压缩（旧行为保持）。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"},
+            {"role": "assistant", "content": "a"},
+            {"role": "user", "content": "q"}]
+    out = agent._compress_history(msgs)
+    assert len(out) == len(msgs)
+
     # 普通工具结果同样受 tool_result_cap 控制
     small = _make_agent(tmp_path / "b")
     long_text = {"results": "y" * 3000}
