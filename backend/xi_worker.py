@@ -241,8 +241,8 @@ def _shell_run(command: str, timeout: int = 60, cwd: str | None = None) -> dict:
         )
         return {
             "exit_code": result.returncode,
-            "stdout":    result.stdout[:3000],
-            "stderr":    result.stderr[:1000],
+            "stdout":    result.stdout[:8000],
+            "stderr":    result.stderr[:2000],
         }
     except subprocess.TimeoutExpired:
         return {"error": f"命令超时（{timeout}s）", "exit_code": -1}
