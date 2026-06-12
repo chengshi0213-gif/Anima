@@ -179,3 +179,49 @@ def test_scoped_rules_path_match(isolated_data_dir, tmp_path):
     # 这条规则在「全局规则」里不应出现（因为带 paths，不是全局规则）
     base_ctx = pm.load_project_memory(str(proj))
     assert "全局规则" not in base_ctx
+
+
+# ── Q1: compact 后记忆恢复 ──
+
+def test_compact_preserves_memory_in_first_user(isolated_data_dir, tmp_path):
+    """压缩后首条 user 消息（含项目记忆）被保留，记忆不丢。"""
+    from agent_compress import AgentCompressMixin
+
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (proj / "ANIMA.md").write_text("# 项目规范\n用 pytest 跑测试", encoding="utf-8")
+    memory = pm.load_project_memory(str(proj))
+
+    mixin = AgentCompressMixin()
+    mixin.coding_compress = False
+    msgs = [
+        {"role": "system", "content": "你是 AI"},
+        {"role": "user", "content": f"任务描述\n{memory}"},
+    ]
+    for i in range(20):
+        msgs.append({"role": "assistant", "content": f"回复{i}"})
+        msgs.append({"role": "user", "content": f"追问{i}"})
+
+    compressed = mixin._compress_history(msgs)
+    user_msgs = [m for m in compressed if m["role"] == "user"]
+    assert any("用 pytest 跑测试" in m["content"] for m in user_msgs)
+
+
+def test_multi_level_all_layers(isolated_data_dir, tmp_path):
+    """Q1 验收：全局 + 项目 + 个人 + 自动记忆 + 全局规则 一次性加载。"""
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (pm.DATA_DIR / "ANIMA.md").write_text("全局偏好", encoding="utf-8")
+    (proj / "ANIMA.md").write_text("项目构建：npm run build", encoding="utf-8")
+    (proj / "ANIMA.local.md").write_text("本地端口 3000", encoding="utf-8")
+    rules = proj / ".anima" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "lint.md").write_text("# Lint\n用 ruff 检查", encoding="utf-8")
+    pm.append_auto_memory(str(proj), "调试经验：先看日志")
+
+    ctx = pm.load_project_memory(str(proj))
+    assert "全局偏好" in ctx
+    assert "npm run build" in ctx
+    assert "本地端口 3000" in ctx
+    assert "用 ruff 检查" in ctx
+    assert "先看日志" in ctx
