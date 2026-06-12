@@ -482,6 +482,21 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
                 return veto
         except Exception:
             pass
+        # D3: 权限分级（readonly/confirm/acceptEdits/auto + 自定义规则）
+        try:
+            from permission import check_tool_permission
+            verdict = check_tool_permission(name, args)
+            if verdict and verdict.startswith("deny:"):
+                return {"error": verdict[5:], "cancelled": True}
+            if verdict == "confirm":
+                from confirm import get_broker
+                if not await get_broker().guard("permission_rule", name, args, ctx):
+                    return {"error": f"操作被拒绝: {name}", "cancelled": True}
+                return None
+        except PermissionRequest:
+            raise
+        except Exception:
+            pass
         try:
             from confirm import get_broker, classify
             kind = classify(name, args)
