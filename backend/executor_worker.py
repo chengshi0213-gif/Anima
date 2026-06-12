@@ -21,6 +21,7 @@ from xi_worker import (
     _glob_files, _map_project, _update_plan,
 )
 from native_tools import _http_request, _read_pdf, _read_image, _install_pkg
+from project_memory import load_project_memory, get_scoped_rules
 from git_tools import GIT_TOOL_DEFS, build_git_dispatch
 from task_runner import TASK_TOOL_DEFS, build_task_dispatch
 from orchestrator import lead_delegate_tool_defs, build_orchestration_dispatch
@@ -29,6 +30,27 @@ from computer_tools import TOOL_DEFS as COMPUTER_TOOL_DEFS, build_dispatch as bu
 
 # executor 作为"技术负责人"可派的下属（受 _MAX_DEPTH/_MAX_TREE_DELEGATIONS 约束）
 _LEAD_ROLES = {"executor", "reader", "critic"}
+
+
+# ── A2: file_read/file_edit 接路径作用域规则（.anima/rules/*.md，按需追加）──
+
+def _read_file_scoped(worker: "ExecutorWorker", path: str, offset: int = 0, limit: int = 600) -> dict:
+    result = _read_file(path, offset, limit)
+    if "error" not in result:
+        rule = get_scoped_rules(worker._current_project_root, path)
+        if rule:
+            result["scoped_rule"] = rule
+    return result
+
+
+def _edit_file_scoped(worker: "ExecutorWorker", path: str, old_string: str,
+                      new_string: str, replace_all: bool = False) -> dict:
+    result = _edit_file(path, old_string, new_string, replace_all)
+    if "error" not in result:
+        rule = get_scoped_rules(worker._current_project_root, path)
+        if rule:
+            result["scoped_rule"] = rule
+    return result
 
 EXECUTOR_SYSTEM_PROMPT = """你是工程师，陶朱公司的工程交付专员，由陶朱 CEO 调度。你写的是要上线的商业级代码，不是演示玩具。
 
@@ -242,9 +264,10 @@ class ExecutorWorker(AgentBase):
             tool_dispatch={
                 "list_dir":    lambda **kw: _list_dir(kw["path"], kw.get("max_depth", 2)),
                 # grounding：默认多读一些行，真看得见上下文
-                "file_read":   lambda **kw: _read_file(kw["path"], kw.get("offset", 0), kw.get("limit", 600)),
+                # A2: 命中 .anima/rules/*.md 路径规则时随结果附带 scoped_rule
+                "file_read":   lambda **kw: _read_file_scoped(self, kw["path"], kw.get("offset", 0), kw.get("limit", 600)),
                 "file_write":  lambda **kw: _write_file(kw["path"], kw["content"]),
-                "file_edit":   lambda **kw: _edit_file(kw["path"], kw["old_string"], kw["new_string"], kw.get("replace_all", False)),
+                "file_edit":   lambda **kw: _edit_file_scoped(self, kw["path"], kw["old_string"], kw["new_string"], kw.get("replace_all", False)),
                 "search_code": lambda **kw: _search_code(kw["pattern"], kw.get("path", "."), kw.get("file_glob", "*"), kw.get("limit", 60)),
                 "shell_run":   lambda **kw: _shell_run(kw["command"], kw.get("timeout", 120), kw.get("cwd")),
                 # v1.2.1 新工具 dispatch
@@ -274,6 +297,8 @@ class ExecutorWorker(AgentBase):
         self.file_read_cap   = 24000
         # 编程向历史压缩：长会话里保留"改过哪些文件、跑过哪些测试"的记忆
         self.coding_compress = True
+        # A2: file_read/file_edit 按需查路径作用域规则用的当前项目根（run() 时刷新）
+        self._current_project_root = "."
 
     def _coding_model(self) -> str | None:
         """N1: relay 可用时升级到 Claude-Sonnet（agentic 编程最强可达模型）。"""
@@ -289,6 +314,7 @@ class ExecutorWorker(AgentBase):
         if model is None:
             model = self._coding_model()
         project_root = project or "."
+        self._current_project_root = project_root
         try:
             tree_info = _map_project(project_root, max_depth=2)
             if "error" not in tree_info and tree_info.get("tree"):
@@ -296,6 +322,15 @@ class ExecutorWorker(AgentBase):
                        f"```\n{tree_info['tree'][:3000]}\n```\n"
                        f"目录 {tree_info['dirs']} 个，文件 {tree_info['files']} 个\n")
                 task = task + ctx
+        except Exception:
+            pass
+        # A2: 注入项目记忆（ANIMA.md/CLAUDE.md/AGENTS.md/.cursorrules/MEMORY.md/全局规则）
+        # 拼进首条 user 消息——_compress_history 始终保留 system 消息和首条 user
+        # 消息（A3：compact 后项目记忆不丢，无需额外重注入逻辑）。
+        try:
+            mem_ctx = load_project_memory(project_root)
+            if mem_ctx:
+                task = task + mem_ctx
         except Exception:
             pass
         return await super().run(task, session_id, model, ws, project)
