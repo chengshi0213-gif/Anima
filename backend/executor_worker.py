@@ -9,6 +9,7 @@ M8 升级：从"省钱档快手"升级为自主的测试驱动工程 agent。
   - 受控递归：可把可隔离的子任务派给 executor/reader/critic（深度≤2，全树预算封顶）
 """
 import asyncio
+import re
 import sys
 from pathlib import Path
 
@@ -32,6 +33,31 @@ from computer_tools import TOOL_DEFS as COMPUTER_TOOL_DEFS, build_dispatch as bu
 
 # executor 作为"技术负责人"可派的下属（受 _MAX_DEPTH/_MAX_TREE_DELEGATIONS 约束）
 _LEAD_ROLES = {"executor", "reader", "critic"}
+
+# ── C3: Effort 档位（quick/normal/deep）──────────────────────────────────
+# "normal" = 不在字典里 = 不覆盖任何默认值（executor 自身 __init__ 配置即为 normal）
+EFFORT_LEVELS: dict[str, dict] = {
+    "quick": {
+        "max_turns": 20,
+        "model": "DeepSeek-V4-Flash",
+        "tool_result_cap": 2000,
+        "file_read_cap": 1000,
+    },
+    "deep": {
+        "max_turns": 120,
+        "compress_every": 8,
+    },
+}
+
+_EFFORT_RE = re.compile(r"^(quick|normal|deep)\s*[:：]\s*", re.IGNORECASE)
+
+
+def _parse_effort(task: str) -> tuple[str | None, str]:
+    """从任务前缀解析 effort 档位，返回 (effort_name, 去掉前缀的任务)。"""
+    m = _EFFORT_RE.match(task)
+    if m:
+        return m.group(1).lower(), task[m.end():]
+    return None, task
 
 
 # ── A2: file_read/file_edit 接路径作用域规则（.anima/rules/*.md，按需追加）──
@@ -365,35 +391,47 @@ class ExecutorWorker(AgentBase):
 
     async def run(self, task: str, session_id=None, model=None, ws=None,
                   project: str | None = None) -> dict:
+        # C3: 解析 effort 前缀并临时覆盖参数
+        effort_name, task = _parse_effort(task)
+        effort = EFFORT_LEVELS.get(effort_name, {})
+        _saved: dict[str, object] = {}
+        for attr in ("max_turns", "tool_result_cap", "file_read_cap", "compress_every"):
+            if attr in effort:
+                _saved[attr] = getattr(self, attr)
+                setattr(self, attr, effort[attr])
+        # 模型优先级：显式参数 > effort > relay > 默认
         if model is None:
-            model = self._coding_model()
+            effort_model = effort.get("model")
+            if effort_model:
+                model = effort_model
+            else:
+                model = self._coding_model()
         self._current_ws = ws
         project_root = project or "."
         self._current_project_root = project_root
         try:
-            tree_info = _map_project(project_root, max_depth=2)
-            if "error" not in tree_info and tree_info.get("tree"):
-                ctx = (f"\n\n## 项目结构（自动注入，省去你手动 map_project）\n"
-                       f"```\n{tree_info['tree'][:3000]}\n```\n"
-                       f"目录 {tree_info['dirs']} 个，文件 {tree_info['files']} 个\n")
-                task = task + ctx
-        except Exception:
-            pass
-        # A2: 注入项目记忆（ANIMA.md/CLAUDE.md/AGENTS.md/.cursorrules/MEMORY.md/全局规则）
-        # 拼进首条 user 消息——_compress_history 始终保留 system 消息和首条 user
-        # 消息（A3：compact 后项目记忆不丢，无需额外重注入逻辑）。
-        try:
-            mem_ctx = load_project_memory(project_root)
-            if mem_ctx:
-                task = task + mem_ctx
-        except Exception:
-            pass
-        result = await super().run(task, session_id, model, ws, project)
-        # A4 Auto Memory：会话成功完成且确有文件改动时，问一句"有什么值得记住的"，
-        # 有内容才写入下次自动加载的 MEMORY.md（绑定项目时才有意义）。
-        if project and result.get("status") == "completed" and result.get("files_changed"):
-            asyncio.create_task(self._save_auto_memory(session_id, task, result, project_root))
-        return result
+            try:
+                tree_info = _map_project(project_root, max_depth=2)
+                if "error" not in tree_info and tree_info.get("tree"):
+                    ctx = (f"\n\n## 项目结构（自动注入，省去你手动 map_project）\n"
+                           f"```\n{tree_info['tree'][:3000]}\n```\n"
+                           f"目录 {tree_info['dirs']} 个，文件 {tree_info['files']} 个\n")
+                    task = task + ctx
+            except Exception:
+                pass
+            try:
+                mem_ctx = load_project_memory(project_root)
+                if mem_ctx:
+                    task = task + mem_ctx
+            except Exception:
+                pass
+            result = await super().run(task, session_id, model, ws, project)
+            if project and result.get("status") == "completed" and result.get("files_changed"):
+                asyncio.create_task(self._save_auto_memory(session_id, task, result, project_root))
+            return result
+        finally:
+            for attr, val in _saved.items():
+                setattr(self, attr, val)
 
     async def _save_auto_memory(self, session_id, task: str, result: dict, project_root: str) -> None:
         try:

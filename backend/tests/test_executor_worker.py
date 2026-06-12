@@ -297,3 +297,150 @@ def test_run_stores_ws(worker, monkeypatch, tmp_path):
     fake_ws = object()
     asyncio.run(worker.run("task", ws=fake_ws, project=str(proj)))
     assert worker._current_ws is fake_ws
+
+
+# ════════════════════════════════════════════════════════════════════
+#  C3 — Effort 档位
+# ════════════════════════════════════════════════════════════════════
+
+def test_parse_effort_quick():
+    name, task = ew._parse_effort("quick: 修个 typo")
+    assert name == "quick"
+    assert task == "修个 typo"
+
+
+def test_parse_effort_deep_chinese_colon():
+    name, task = ew._parse_effort("Deep：重构认证模块")
+    assert name == "deep"
+    assert task == "重构认证模块"
+
+
+def test_parse_effort_normal():
+    name, task = ew._parse_effort("normal: 普通任务")
+    assert name == "normal"
+    assert task == "普通任务"
+
+
+def test_parse_effort_no_prefix():
+    name, task = ew._parse_effort("修个 bug")
+    assert name is None
+    assert task == "修个 bug"
+
+
+def test_quick_effort_overrides_caps(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    captured: dict = {}
+    caps_during_run: dict = {}
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        caps_during_run["max_turns"] = self.max_turns
+        caps_during_run["tool_result_cap"] = self.tool_result_cap
+        caps_during_run["file_read_cap"] = self.file_read_cap
+        caps_during_run["model"] = model
+        captured["task"] = task
+        return {"status": "completed", "summary": "ok",
+                "files_changed": [], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    asyncio.run(worker.run("quick: 修个 typo", project=str(proj)))
+
+    assert caps_during_run["max_turns"] == 20
+    assert caps_during_run["tool_result_cap"] == 2000
+    assert caps_during_run["file_read_cap"] == 1000
+    assert caps_during_run["model"] == "DeepSeek-V4-Flash"
+    assert "quick:" not in captured["task"]
+
+
+def test_deep_effort_overrides_turns(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    caps_during_run: dict = {}
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        caps_during_run["max_turns"] = self.max_turns
+        caps_during_run["compress_every"] = self.compress_every
+        return {"status": "completed", "summary": "ok",
+                "files_changed": [], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    asyncio.run(worker.run("deep: 重构整个模块", project=str(proj)))
+
+    assert caps_during_run["max_turns"] == 120
+    assert caps_during_run["compress_every"] == 8
+
+
+def test_effort_restored_after_run(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    orig_max_turns = worker.max_turns
+    orig_cap = worker.tool_result_cap
+    orig_read = worker.file_read_cap
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        return {"status": "completed", "summary": "ok",
+                "files_changed": [], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    asyncio.run(worker.run("quick: 小任务", project=str(proj)))
+
+    assert worker.max_turns == orig_max_turns
+    assert worker.tool_result_cap == orig_cap
+    assert worker.file_read_cap == orig_read
+
+
+def test_effort_restored_on_error(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    orig_max_turns = worker.max_turns
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(worker.run("quick: 会爆炸", project=str(proj)))
+
+    assert worker.max_turns == orig_max_turns
+
+
+def test_explicit_model_overrides_effort(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    captured_model = {}
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        captured_model["model"] = model
+        return {"status": "completed", "summary": "ok",
+                "files_changed": [], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    asyncio.run(worker.run("quick: typo", model="my-model", project=str(proj)))
+
+    assert captured_model["model"] == "my-model"
+
+
+def test_no_effort_keeps_defaults(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    orig_max_turns = worker.max_turns
+    orig_cap = worker.tool_result_cap
+    caps_during_run: dict = {}
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        caps_during_run["max_turns"] = self.max_turns
+        caps_during_run["tool_result_cap"] = self.tool_result_cap
+        return {"status": "completed", "summary": "ok",
+                "files_changed": [], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    asyncio.run(worker.run("修个 bug", project=str(proj)))
+
+    assert caps_during_run["max_turns"] == orig_max_turns
+    assert caps_during_run["tool_result_cap"] == orig_cap
