@@ -38,7 +38,7 @@ from skill_manager import init_builtin_skills
 
 from ws_manager import WorkerServer
 from routes.auth import auth_middleware, CORS_HEADERS
-from routes import core, knowledge, workflow, config as config_routes, services, data, login, economy, invite, tasks, mcp as mcp_routes
+from routes import core, knowledge, workflow, config as config_routes, services, data, login, economy, invite, tasks, mcp as mcp_routes, coding
 
 
 async def main():
@@ -119,6 +119,7 @@ async def main():
     login.register(app)
     tasks.register(app)
     mcp_routes.register(app)
+    coding.register(app)
 
     # ── OpenAPI docs ──
     from openapi_spec import get_spec_json, SWAGGER_UI_HTML
