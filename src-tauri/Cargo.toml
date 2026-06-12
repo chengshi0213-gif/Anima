@@ -1,6 +1,6 @@
 [package]
 name = "anima"
-version = "1.2.1"
+version = "1.2.2"
 description = "Anima — 从你的渴望里凝成形的灵魂伴侣"
 authors = ["Anima Team"]
 edition = "2021"

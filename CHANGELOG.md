@@ -8,6 +8,46 @@
 
 ---
 
+## [1.2.2] - 2026-06-12
+
+### 新增 (Added)
+
+**Claude Code 功能对标 — 项目记忆 · 代码智能 · 工作流层**
+
+- **项目记忆系统 (A1-A6)**：
+  ANIMA.md 多层级加载（全局/项目/个人/自动记忆/路径作用域规则）；
+  兼容 CLAUDE.md/AGENTS.md/.cursorrules 自动检测；
+  compact 后记忆自动恢复；/init 命令自动生成项目分析。
+- **代码智能工具 (B1-B5)**：
+  find_symbol（AST 感知符号定义查找 Python/JS/TS/Go/Rust）；
+  find_usages（调用方搜索）；search_code_ctx（带 -A/-B/-C 上下文行）；
+  apply_patch（多 hunk 补丁一次应用）。
+- **ask_user 交互 (C1-C2)**：
+  Agent 遇到歧义暂停提问（WS 挂起/恢复），前端渲染问题卡片 + 快速选项按钮。
+- **Effort 档位 (C3)**：
+  quick:/normal:/deep: 前缀控制模型、轮数、上下文上限。
+- **Plan Mode (D1)**：
+  高风险改动先只读研究出方案→用户审批→再执行，复用 ask_user 通道。
+- **Skills 接线 (D2)**：
+  技能索引自动注入 + use_skill 按需加载 + .anima/skills/ 项目级技能。
+- **权限分级 (D3)**：
+  readonly/confirm/acceptEdits/auto 四档 + 逐工具 deny/confirm 规则。
+- **Diff 审查 UX (D4)**：
+  file_write/file_edit 工具完成事件带 unified diff，前端可展开红绿视图。
+- **自定义子代理 (D5)**：
+  .anima/agents/*.md 用 YAML frontmatter 定义角色，orchestrator 自动识别。
+- **PR 工作流 (D6)**：
+  git_push + create_pr（gh CLI），永远需要用户确认。
+- **自定义命令 (D7)**：
+  .anima/commands/*.md 定义快捷指令，$ARGUMENTS 占位符自动替换。
+- **房间感知 (D8)**：
+  resolve_room 根据 work_dir 自动切换 companion/focused register + worker 路由。
+
+### 测试
+- 610 项单元测试全通过，覆盖全部新增功能。
+
+---
+
 ## [未发布]
 
 （暂无）
