@@ -422,6 +422,78 @@ def test_read_pdf_execution_cap_registration():
     assert "read_pdf" in cap["dispatch"]
 
 
+# ── T4: read_image ───────────────────────────────────────────────────────────
+
+
+def test_read_image_missing_file():
+    r = nt._read_image("/no/such/image.png")
+    assert "error" in r
+
+
+def test_read_image_wrong_extension(tmp_path):
+    f = tmp_path / "data.csv"
+    f.write_text("a,b,c", encoding="utf-8")
+    r = nt._read_image(str(f))
+    assert "error" in r
+    assert "不支持" in r["error"]
+
+
+def test_read_image_too_large(tmp_path, monkeypatch):
+    f = tmp_path / "huge.png"
+    f.write_bytes(b"\x89PNG" + b"\x00" * 100)
+    monkeypatch.setattr(Path, "stat", lambda self: type("S", (), {"st_size": 6_000_000})())
+    r = nt._read_image(str(f))
+    assert "error" in r
+    assert "5MB" in r["error"]
+
+
+def test_read_image_empty_file(tmp_path):
+    f = tmp_path / "empty.png"
+    f.write_bytes(b"")
+    r = nt._read_image(str(f))
+    assert "error" in r
+
+
+def test_read_image_success(tmp_path):
+    # 1x1 red pixel PNG (smallest valid PNG)
+    import struct, zlib
+    def _minimal_png():
+        sig = b"\x89PNG\r\n\x1a\n"
+        ihdr_data = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+        ihdr = _png_chunk(b"IHDR", ihdr_data)
+        raw_row = b"\x00\xff\x00\x00"  # filter=None, R=255 G=0 B=0
+        idat = _png_chunk(b"IDAT", zlib.compress(raw_row))
+        iend = _png_chunk(b"IEND", b"")
+        return sig + ihdr + idat + iend
+    def _png_chunk(ctype, data):
+        c = ctype + data
+        return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xffffffff)
+    f = tmp_path / "red.png"
+    f.write_bytes(_minimal_png())
+    r = nt._read_image(str(f))
+    assert "error" not in r
+    assert r["media_type"] == "image/png"
+    assert "_vision_block" in r
+    assert len(r["_vision_block"]) == 2
+    assert r["_vision_block"][1]["type"] == "image_url"
+    assert r["_vision_block"][1]["image_url"]["url"].startswith("data:image/png;base64,")
+
+
+def test_read_image_jpeg(tmp_path):
+    f = tmp_path / "test.jpg"
+    f.write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 20)
+    r = nt._read_image(str(f))
+    assert "error" not in r
+    assert r["media_type"] == "image/jpeg"
+
+
+def test_execution_cap_registers_read_image():
+    cap = capabilities.build(["execution"], agent_id="xi")
+    names = {d["function"]["name"] for d in cap["tool_defs"]}
+    assert "read_image" in names
+    assert "read_image" in cap["dispatch"]
+
+
 def test_execution_cap_registers_git_tools():
     cap = capabilities.build(["execution"], agent_id="xi")
     names = {d["function"]["name"] for d in cap["tool_defs"]}

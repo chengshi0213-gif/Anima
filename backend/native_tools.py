@@ -16,6 +16,7 @@ capabilities.py（xi）与 executor_worker.py（executor）共享 import：
 """
 from __future__ import annotations
 
+import base64
 import ipaddress
 import json as _json
 import socket
@@ -216,3 +217,48 @@ def _extract_pypdf(path: str, start: int | None, end: int | None
         return text, "pypdf", ""
     except Exception as exc:
         return None, "pypdf", str(exc)
+
+
+# ── T4: read_image ───────────────────────────────────────────────────────────
+
+_IMAGE_SIZE_CAP = 5 * 1024 * 1024  # 5MB
+_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"}
+_MEDIA_TYPES = {
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp",
+    ".svg": "image/svg+xml",
+}
+
+
+def _read_image(path: str) -> dict:
+    """读取图片文件，返回 base64 编码 + vision content block。
+    超 5MB 拒绝。返回的 _vision_block 字段供 agent_base 注入多模态消息。"""
+    p = Path(path)
+    if not p.exists():
+        return {"error": f"文件不存在: {path}"}
+    if not p.is_file():
+        return {"error": f"不是文件: {path}"}
+    ext = p.suffix.lower()
+    if ext not in _IMAGE_EXTS:
+        return {"error": f"不支持的图片格式: {ext}（支持 {', '.join(sorted(_IMAGE_EXTS))}）"}
+    size = p.stat().st_size
+    if size > _IMAGE_SIZE_CAP:
+        return {"error": f"图片过大（{size / 1024 / 1024:.1f}MB > 5MB），拒绝读取"}
+    if size == 0:
+        return {"error": "文件为空"}
+    try:
+        raw = p.read_bytes()
+        b64 = base64.b64encode(raw).decode("ascii")
+        media_type = _MEDIA_TYPES.get(ext, "image/png")
+        data_url = f"data:{media_type};base64,{b64}"
+        return {
+            "path": str(p),
+            "size_bytes": size,
+            "media_type": media_type,
+            "_vision_block": [
+                {"type": "text", "text": f"[图片: {p.name}, {size}B, {media_type}]"},
+                {"type": "image_url", "image_url": {"url": data_url}},
+            ],
+        }
+    except Exception as e:
+        return {"error": f"读取图片失败: {e}"}

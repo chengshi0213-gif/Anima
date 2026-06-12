@@ -419,11 +419,15 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
                 self._log(session_id, "tool_call", {
                     "turn": turn, "tool": name, "success": "error" not in result,
                 })
-                messages.append({
+                tool_msg = {
                     "role": "tool",
                     "tool_call_id": tc.get("id", f"call_{turn}"),
-                    "content": self._trim_result(name, result, seen_hashes),
-                })
+                }
+                if isinstance(result, dict) and "_vision_block" in result:
+                    tool_msg["content"] = result["_vision_block"]
+                else:
+                    tool_msg["content"] = self._trim_result(name, result, seen_hashes)
+                messages.append(tool_msg)
 
             if sum(len(json.dumps(m, ensure_ascii=False)) for m in messages) > self.context_cap_chars * 3:
                 messages = self._compress_history(messages)

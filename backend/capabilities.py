@@ -82,7 +82,7 @@ _MEMORY_FRAGMENT = """
 def _execution_cap(agent_id: str) -> Capability:
     from xi_worker import (_list_dir, _read_file, _write_file, _edit_file,
                            _search_code, _shell_run, _glob_files, _map_project)
-    from native_tools import _http_request, _read_pdf
+    from native_tools import _http_request, _read_pdf, _read_image
     from git_tools import GIT_TOOL_DEFS, build_git_dispatch
     defs = [
         {"type": "function", "function": {
@@ -157,6 +157,13 @@ def _execution_cap(agent_id: str) -> Capability:
                 "start_page": {"type": "integer", "description": "起始页码（从 1 开始）"},
                 "end_page": {"type": "integer", "description": "结束页码（含）"},
             }, "required": ["path"]}}},
+        {"type": "function", "function": {
+            "name": "read_image",
+            "description": "读取图片文件（截图/设计稿/图表/照片）供视觉分析。"
+                           "支持 png/jpg/gif/webp/bmp/svg，超 5MB 拒绝。",
+            "parameters": {"type": "object", "properties": {
+                "path": {"type": "string", "description": "图片文件路径"},
+            }, "required": ["path"]}}},
     ]
     dispatch = {
         "list_dir":    lambda **kw: _list_dir(kw["path"], kw.get("max_depth", 2)),
@@ -172,6 +179,7 @@ def _execution_cap(agent_id: str) -> Capability:
                                                     kw.get("timeout", 30)),
         "read_pdf": lambda **kw: _read_pdf(kw["path"], kw.get("start_page"),
                                            kw.get("end_page")),
+        "read_image": lambda **kw: _read_image(kw["path"]),
     }
     defs.extend(GIT_TOOL_DEFS)
     dispatch.update(build_git_dispatch())
