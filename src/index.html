@@ -834,6 +834,27 @@
       </details>
 
       <!-- ══ MCP 外部工具（#22）══ -->
+      <!-- ══ 区域 + 工作目录 ══ -->
+      <div class="settings-section" id="regionSection">
+        <h3>🌏 区域 & 工作目录</h3>
+        <div class="setting-row">
+          <label>服务区域</label>
+          <select id="regionSelect" onchange="regionSave(this.value)" style="border:1px solid var(--border);border-radius:6px;padding:4px 8px;background:var(--bg-main);color:var(--text-main);font-size:13px">
+            <option value="cn">中国大陆</option>
+            <option value="global">全球</option>
+          </select>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:4px 0 12px">影响 MCP 服务推荐和搜索路由。国内用户选「中国大陆」可获得更稳定的服务。</p>
+        <div class="setting-row">
+          <label>编程工作目录</label>
+          <span id="workspaceCurrent" style="font-size:13px;color:var(--muted)">加载中…</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input id="workspaceInput" type="text" placeholder="如 D:\Projects 或 ~/projects" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--bg-main);color:var(--text-main)">
+          <button class="settings-btn" onclick="workspaceSave()">保存</button>
+        </div>
+      </div>
+
       <details class="settings-section" id="mcpSection" ontoggle="if(this.open)mcpPanelLoad()">
         <summary style="cursor:pointer;font-weight:600;font-size:15px">🔌 MCP 外部工具 <span style="font-size:12px;color:var(--muted);font-weight:400">（Model Context Protocol · 一个协议接入无限工具）</span></summary>
         <div id="mcpPanelBody" style="margin-top:14px">

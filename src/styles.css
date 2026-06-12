@@ -654,6 +654,11 @@ svg.nav-icon { display: inline-block; vertical-align: middle; color: var(--muted
 .thinking-step-item.fail    { background: #FEF2F2; border-color: #FECACA; }
 .thinking-step-item.fail .ts-spin { color: #DC2626; }
 .thinking-step-item .ts-err { font-size:10px; color: var(--error); margin-left:4px; flex-shrink:0; }
+.thinking-step-item .ts-file-tag {
+  font-size:10px; color: var(--color-text-muted, #94a3b8); margin-left:auto;
+  font-family: var(--font-mono, monospace); opacity:.8; max-width:180px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
 
 /* M-P2：delegate 步骤——"她正在调用 XX 能力"角标，沿用该能力主题色 */
 .thinking-step-item.delegate-step { max-width: 380px; }

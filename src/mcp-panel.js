@@ -1,10 +1,22 @@
 /**
  * Anima — mcp-panel.js
- * 设置页「MCP 外部工具」面板（#22）：调用只读路由 /mcp/status|servers|tools 渲染状态。
- * 懒加载：设置页该 <details> 展开时由 ontoggle 调 window.mcpPanelLoad()。
- * 启停/增删 server 走编辑 config.yaml 的 mcp.servers（本面板只读展示 + 指引）。
+ * 设置页「MCP 外部工具」面板：调用只读路由 /mcp/status|servers|tools 渲染状态。
+ * v1.2.1: CN/Global 分栏展示，状态指示（已连/未连/需配置）。
  */
 import { CONFIG, escHtml } from './state.js';
+
+const REGION_GROUPS = {
+  universal: { label: '通用', servers: new Set(['context7', 'mcp-video', 'playwright']) },
+  cn:        { label: '国内', servers: new Set(['gitee', 'jina', 'kling', 'feishu', 'dingtalk', 'yuque']) },
+  global:    { label: '国际', servers: new Set(['github', 'exa', 'slack', 'heygen', 'penpot']) },
+};
+
+function classifyServer(name) {
+  for (const [region, { servers }] of Object.entries(REGION_GROUPS)) {
+    if (servers.has(name)) return region;
+  }
+  return 'universal';
+}
 
 window.mcpPanelLoad = async function () {
   const body = document.getElementById('mcpPanelBody');
@@ -37,35 +49,25 @@ export function renderPanel(status, servers, tools) {
     return head + `
       <div class="mcp-empty">
         还没有配置 MCP server。<br>
-        一个协议接入无限外部工具（GitHub / 文件系统 / Notion…），无需手写集成。<br>
         在 <code>~/.anima/config.yaml</code> 的 <code>mcp.servers</code> 下添加并设 <code>enabled: true</code>，重启后端即生效。
       </div>`;
   }
 
-  const rows = servers.map(s => {
-    const state = s.connected
-      ? '<span class="mcp-badge ok">● 已连接</span>'
-      : s.enabled
-        ? (s.error ? `<span class="mcp-badge err" title="${escHtml(s.error)}">● 失败</span>` : '<span class="mcp-badge off">○ 未连接</span>')
-        : '<span class="mcp-badge off">○ 已禁用</span>';
-    const meta = s.transport === 'stdio'
-      ? `${escHtml(s.command || '')} ${escHtml((s.args || []).join(' '))}`.trim()
-      : escHtml(s.url || '');
-    const envHint = (s.env_keys || []).length
-      ? `<span class="mcp-env" title="环境变量（仅显示名，值不外泄）">env: ${s.env_keys.map(escHtml).join(', ')}</span>`
-      : '';
-    return `
-      <div class="mcp-srv">
-        <div class="mcp-srv-top">
-          <span class="mcp-srv-name">${escHtml(s.name)}</span>
-          ${state}
-          <span class="mcp-srv-count">${s.tool_count || 0} 工具</span>
-        </div>
-        <div class="mcp-srv-meta"><code>${meta}</code></div>
-        ${s.error ? `<div class="mcp-srv-err">${escHtml(s.error)}</div>` : ''}
-        ${envHint}
-      </div>`;
-  }).join('');
+  const grouped = { universal: [], cn: [], global: [] };
+  for (const s of servers) {
+    const region = classifyServer(s.name);
+    (grouped[region] || grouped.universal).push(s);
+  }
+
+  let sections = '';
+  for (const [region, { label }] of Object.entries(REGION_GROUPS)) {
+    const list = grouped[region];
+    if (!list || !list.length) continue;
+    sections += `<div class="mcp-region-section">
+      <div class="mcp-region-label">${label}</div>
+      <div class="mcp-srv-list">${list.map(renderServer).join('')}</div>
+    </div>`;
+  }
 
   const toolList = tools.length ? `
     <details class="mcp-tools">
@@ -75,5 +77,30 @@ export function renderPanel(status, servers, tools) {
       </div>
     </details>` : '';
 
-  return head + `<div class="mcp-srv-list">${rows}</div>` + toolList;
+  return head + sections + toolList;
+}
+
+function renderServer(s) {
+  const state = s.connected
+    ? '<span class="mcp-badge ok">● 已连接</span>'
+    : s.enabled
+      ? (s.error ? `<span class="mcp-badge err" title="${escHtml(s.error)}">● 失败</span>` : '<span class="mcp-badge off">○ 未连接</span>')
+      : '<span class="mcp-badge off">○ 已禁用</span>';
+  const meta = s.transport === 'stdio'
+    ? `${escHtml(s.command || '')} ${escHtml((s.args || []).join(' '))}`.trim()
+    : escHtml(s.url || '');
+  const envHint = (s.env_keys || []).length
+    ? `<span class="mcp-env" title="环境变量（仅显示名，值不外泄）">env: ${s.env_keys.map(escHtml).join(', ')}</span>`
+    : '';
+  return `
+    <div class="mcp-srv">
+      <div class="mcp-srv-top">
+        <span class="mcp-srv-name">${escHtml(s.name)}</span>
+        ${state}
+        <span class="mcp-srv-count">${s.tool_count || 0} 工具</span>
+      </div>
+      <div class="mcp-srv-meta"><code>${meta}</code></div>
+      ${s.error ? `<div class="mcp-srv-err">${escHtml(s.error)}</div>` : ''}
+      ${envHint}
+    </div>`;
 }

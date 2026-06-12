@@ -1,4 +1,4 @@
-﻿# Anima — 配置文件
+# Anima — 配置文件
 # 首次安装后，Onboarding 向导会自动填写此文件
 # 也可以手动编辑（位于 ~/.anima/config.yaml）
 
@@ -9,6 +9,14 @@ api:
   qwen_key:      ""      # 通义千问（知识库 Embedding）https://dashscope.aliyun.com
   openai_key:    ""      # OpenAI（可选）https://platform.openai.com
   anthropic_key: ""      # Anthropic Claude（可选）
+  # MCP 外部服务 token（按需填写，启用对应 MCP server 时才用到）
+  gitee_token:   ""      # Gitee（国内代码托管）https://gitee.com/personal_access_tokens
+  github_token:  ""      # GitHub https://github.com/settings/tokens
+  exa_key:       ""      # Exa 语义搜索 https://exa.ai
+  jina_key:      ""      # Jina AI 搜索/网页读取 https://jina.ai
+
+# ── 区域（影响 MCP 默认开关和搜索路由）──
+region: cn   # cn | global
 
 # ── 端口配置 ──
 port:
@@ -22,39 +30,74 @@ lang: "zh"   # zh | en
 # data_dir: "/custom/path/to/data"
 
 # ── 工作区 ──
-# Agent 执行代码操作的目录
-# workspace: "~/anima-workspace"
+# Agent 执行代码操作的目录（编程模式默认工作目录）
+# workspace: "~/projects"
 
-# ── MCP 外部工具（Model Context Protocol，M11）──
-# 一个协议接入无限外部工具，无需手写集成。默认无 server（功能关闭）。
+# ── MCP 外部工具（Model Context Protocol）──
+# 一个协议接入无限外部工具，无需手写集成。默认全 disabled（功能关闭）。
 # 安全：只有 enabled=true 且你显式配置的 server 才会启动；stdio server 会运行命令，
 #       启用前请确认命令可信。env 可用 ${api.xxx} 复用上面的 Key，无需重复填写。
 # 需要安装 SDK：pip install "mcp>=1.0"（未安装则自动跳过，不影响其它功能）
-# mcp:
-#   servers:
-#     - name: github
-#       transport: stdio
-#       command: npx
-#       args: ["-y", "@modelcontextprotocol/server-github"]
-#       env: { GITHUB_TOKEN: "${api.github_token}" }   # 复用已配置的 token
-#       enabled: false
-#     - name: filesystem
-#       transport: stdio
-#       command: npx
-#       args: ["-y", "@modelcontextprotocol/server-filesystem", "~/anima-workspace"]
-#       enabled: false
-#     - name: remote_example
-#       transport: sse
-#       url: "http://localhost:3001/sse"
-#       enabled: false
+mcp:
+  servers:
+    # ═══ UNIVERSAL（CN + Global 均可用）═══
+    - name: context7
+      transport: stdio
+      command: npx
+      args: ["-y", "@upstash/context7-mcp"]
+      enabled: false          # 无需 token，启用即用（实时查库文档）
 
-# ── 安全：危险操作确认 + 工具钩子（M14 内核3）──
+    - name: mcp-video
+      transport: stdio
+      command: npx
+      args: ["-y", "kyanitelabs-mcp-video"]
+      enabled: false          # 需要本机装 ffmpeg
+
+    - name: playwright
+      transport: stdio
+      command: npx
+      args: ["-y", "@playwright/mcp"]
+      enabled: false          # 浏览器自动化（爬取/截图/表单）
+
+    # ═══ CN 优先（国内无障碍）═══
+    - name: gitee
+      transport: stdio
+      command: mcp-gitee
+      env:
+        GITEE_TOKEN: "${api.gitee_token}"
+      enabled: false          # 国内代码托管
+
+    - name: jina
+      transport: stdio
+      command: npx
+      args: ["-y", "@jina-ai/mcp-server-jina"]
+      env:
+        JINA_API_KEY: "${api.jina_key}"
+      enabled: false          # 搜索 + 网页内容读取（CN 团队，国内稳定）
+
+    # ═══ Global（国际用户）═══
+    - name: github
+      transport: stdio
+      command: npx
+      args: ["-y", "@modelcontextprotocol/server-github"]
+      env:
+        GITHUB_PERSONAL_ACCESS_TOKEN: "${api.github_token}"
+      enabled: false
+
+    - name: exa
+      transport: stdio
+      command: npx
+      args: ["-y", "exa-mcp-server"]
+      env:
+        EXA_API_KEY: "${api.exa_key}"
+      enabled: false          # 语义搜索
+
+    # 更多 MCP server 可自行添加，格式同上。
+    # 完整列表参见 docs/v1.2.1-codex-plan.md §四 Phase 2。
+
+# ── 安全：危险操作确认 + 工具钩子（内核3）──
 # 默认全关——机制就位但不打扰。需要时再 opt-in 打开。
 # confirm 策略值：off(默认放行) | ask(问你) | allow(永远放行) | deny(永远拒)。
-#   ask 时危险工具会弹确认卡片；"本次会话允许 / 永久允许" 由卡片选择。
-#   无人值守（子员工 / 定时任务 / 无界面）默认拒 ask 类；可设 unattended: allow 放开。
-# hooks：在每次工具调用前后插自定义动作。python 形态 "模块:函数"（返回
-#   {"block":"原因"} 可在 pre_tool 否决工具）；shell 形态把 payload 以 JSON 喂 stdin。
 # security:
 #   confirm:
 #     shell: ask                      # 执行 shell 命令前确认
@@ -66,4 +109,4 @@ lang: "zh"   # zh | en
 #     pre_tool:
 #       - {match: file_write, python: "myhooks:guard_sensitive_path"}
 #     post_tool:
-#       - {match: file_write, shell: "echo formatted"}   # 钩子自行解析 stdin 的 JSON payload
+#       - {match: file_write, shell: "echo formatted"}

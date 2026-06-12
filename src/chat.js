@@ -422,7 +422,7 @@ export function addThinkingStep(agentId, tool, args, turn) {
 }
 window.addThinkingStep = addThinkingStep;
 
-export function markThinkingStep(agentId, tool, ok, hint) {
+export function markThinkingStep(agentId, tool, ok, hint, data) {
   const box = document.getElementById(`messages-${agentId}`);
   if (!box) return;
   const items = [...box.querySelectorAll(`.thinking-live-steps .thinking-step-item[data-tool="${tool}"].running`)];
@@ -437,6 +437,23 @@ export function markThinkingStep(agentId, tool, ok, hint) {
     err.className = 'ts-err';
     err.textContent = hint;
     item.appendChild(err);
+  }
+  if (ok && data) {
+    let detail = '';
+    if (data.file) {
+      const short = String(data.file).split(/[/\\]/).slice(-2).join('/');
+      detail = short;
+    } else if (data.files_committed) {
+      detail = `${data.files_committed} 个文件`;
+    } else if (data.task_status) {
+      detail = data.task_status;
+    }
+    if (detail) {
+      const tag = document.createElement('span');
+      tag.className = 'ts-file-tag';
+      tag.textContent = detail;
+      item.appendChild(tag);
+    }
   }
   scrollBottom(agentId);
 }

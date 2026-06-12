@@ -344,6 +344,36 @@ def _mcp_cap(agent_id: str) -> Capability:
                       dynamic_prompt=lambda: _compose_mcp_fragment(MCPManager._tools))
 
 
+# ── N5: 安全分级（v1.2.1）──────────────────────────────────
+# Anima 跑在用户真机上（非沙箱），不追求 Codex 式无确认全自动。
+# 等级越高越谨慎。confirm 机制（M14）据此决定是否弹卡片。
+SAFETY_READ = "read"           # 只读，无确认，全自动
+SAFETY_WRITE = "write"         # 写操作，默认自动；多文件改动前强制 checkpoint
+SAFETY_DANGEROUS = "dangerous" # 高危（删除/覆盖大文件/危险 shell），走 confirm 卡片
+SAFETY_IRREVERSIBLE = "irreversible"  # 不可逆（push/发布），永远需用户确认
+
+TOOL_SAFETY: dict[str, str] = {
+    # read
+    "list_dir": SAFETY_READ, "glob_files": SAFETY_READ, "map_project": SAFETY_READ,
+    "file_read": SAFETY_READ, "search_code": SAFETY_READ, "read_pdf": SAFETY_READ,
+    "read_image": SAFETY_READ, "git_status": SAFETY_READ, "git_diff": SAFETY_READ,
+    "git_log": SAFETY_READ, "git_branch": SAFETY_READ,
+    "web_search": SAFETY_READ, "fetch_url": SAFETY_READ,
+    "recall": SAFETY_READ, "list_subagents": SAFETY_READ,
+    "task_poll": SAFETY_READ, "update_plan": SAFETY_READ,
+    "http_request": SAFETY_READ,
+    # write
+    "file_write": SAFETY_WRITE, "file_edit": SAFETY_WRITE,
+    "git_commit": SAFETY_WRITE, "git_create_branch": SAFETY_WRITE,
+    "remember": SAFETY_WRITE, "forget": SAFETY_WRITE,
+    "install_pkg": SAFETY_WRITE,
+    # dangerous
+    "shell_run": SAFETY_DANGEROUS, "long_run": SAFETY_DANGEROUS,
+    "task_kill": SAFETY_DANGEROUS,
+    "delegate": SAFETY_DANGEROUS, "delegate_parallel": SAFETY_DANGEROUS,
+}
+
+
 _FACTORIES: dict[str, Callable[[str], Capability]] = {
     "execution":     _execution_cap,
     "web":           _web_cap,

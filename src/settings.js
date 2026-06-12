@@ -342,7 +342,54 @@ window.exportDiagnostics = async function() {
   }
 };
 
-// 切换到设置 tab 时加载记忆后端状态 + 诊断状态
+// ── 区域 + 工作目录（C1/C3）──
+window.regionLoad = async function() {
+  try {
+    const d = await fetch(`${CONFIG.api}/config/region`).then(r => r.json());
+    const sel = document.getElementById('regionSelect');
+    if (sel) sel.value = d.region || 'cn';
+  } catch (_) {}
+};
+
+window.regionSave = async function(region) {
+  try {
+    await fetch(`${CONFIG.api}/config/region`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ region }),
+    });
+    toast(`区域已切换到${region === 'cn' ? '中国大陆' : '全球'}`, 'success');
+  } catch (e) { toast('保存失败: ' + e.message, 'error'); }
+};
+
+window.workspaceLoad = async function() {
+  try {
+    const d = await fetch(`${CONFIG.api}/config/workspace`).then(r => r.json());
+    const el = document.getElementById('workspaceCurrent');
+    if (el) el.textContent = d.workspace || '（默认）';
+  } catch (_) {
+    const el = document.getElementById('workspaceCurrent');
+    if (el) el.textContent = '读取失败';
+  }
+};
+
+window.workspaceSave = async function() {
+  const path = document.getElementById('workspaceInput')?.value.trim();
+  if (!path) { toast('请填写工作目录路径', 'error'); return; }
+  try {
+    const d = await fetch(`${CONFIG.api}/config/workspace`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    }).then(r => r.json());
+    if (d.ok) {
+      toast('工作目录已更新', 'success');
+      workspaceLoad();
+    } else {
+      toast(d.error || '保存失败', 'error');
+    }
+  } catch (e) { toast('保存失败: ' + e.message, 'error'); }
+};
+
+// 切换到设置 tab 时加载记忆后端状态 + 诊断状态 + 区域/工作目录
 (function() {
   const _prevSwitch = window.switchTab;
   window.switchTab = function(tabId, el) {
@@ -350,6 +397,8 @@ window.exportDiagnostics = async function() {
     if (tabId === 'settings') {
       setTimeout(memLoadStatus, 100);
       setTimeout(window.diagLoadStatus, 120);
+      setTimeout(window.regionLoad, 130);
+      setTimeout(window.workspaceLoad, 140);
     }
   };
 })();

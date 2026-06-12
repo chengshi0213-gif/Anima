@@ -406,15 +406,19 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
                         files_changed.append(p)
 
                 # 推送 tool_done 事件
-                await _ws_send({
-                    "type": "tool_done",
-                    "data": {
-                        "tool": name,
-                        "ok":   "error" not in result,
-                        "turn": turn,
-                        "hint": str(result.get("error", ""))[:80] if "error" in result else "",
-                    },
-                })
+                td = {
+                    "tool": name,
+                    "ok":   "error" not in result,
+                    "turn": turn,
+                    "hint": str(result.get("error", ""))[:80] if "error" in result else "",
+                }
+                if name in ("file_write", "file_edit") and td["ok"]:
+                    td["file"] = str(result.get("path", ""))
+                elif name == "git_commit" and td["ok"]:
+                    td["files_committed"] = result.get("files_committed", 0)
+                elif name == "task_poll" and td["ok"]:
+                    td["task_status"] = result.get("status", "")
+                await _ws_send({"type": "tool_done", "data": td})
 
                 self._log(session_id, "tool_call", {
                     "turn": turn, "tool": name, "success": "error" not in result,

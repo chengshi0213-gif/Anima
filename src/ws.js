@@ -133,7 +133,7 @@ function handleAgentMessage(agentId, msg) {
     return;
   }
   if (msg.type === 'tool_done') {
-    window.markThinkingStep?.(agentId, msg.data?.tool, msg.data?.ok, msg.data?.hint);
+    window.markThinkingStep?.(agentId, msg.data?.tool, msg.data?.ok, msg.data?.hint, msg.data);
     return;
   }
   if (msg.type === 'confirm_request') {
