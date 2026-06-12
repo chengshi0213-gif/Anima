@@ -260,3 +260,18 @@ class ExecutorWorker(AgentBase):
         self.file_read_cap   = 24000
         # 编程向历史压缩：长会话里保留"改过哪些文件、跑过哪些测试"的记忆
         self.coding_compress = True
+
+    async def run(self, task: str, session_id=None, model=None, ws=None,
+                  project: str | None = None) -> dict:
+        """T11: 启动时自动注入 map_project，省去前 3-5 轮探索。"""
+        project_root = project or "."
+        try:
+            tree_info = _map_project(project_root, max_depth=2)
+            if "error" not in tree_info and tree_info.get("tree"):
+                ctx = (f"\n\n## 项目结构（自动注入，省去你手动 map_project）\n"
+                       f"```\n{tree_info['tree'][:3000]}\n```\n"
+                       f"目录 {tree_info['dirs']} 个，文件 {tree_info['files']} 个\n")
+                task = task + ctx
+        except Exception:
+            pass
+        return await super().run(task, session_id, model, ws, project)
