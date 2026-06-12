@@ -61,13 +61,22 @@ def _get_ctx() -> Optional[dict]:
     return getattr(_local, "ctx", None)
 
 
-def _get_subagent(role: str):
-    """懒加载并缓存子员工实例。"""
-    if role not in _instances:
+def _get_subagent(role: str, project: str | None = None):
+    """懒加载并缓存子员工实例。D5: 内置角色找不到时查 .anima/agents/*.md。"""
+    if role in _instances:
+        return _instances[role]
+    if role in SUBAGENT_FACTORIES:
         mod_name, cls_name, _ = SUBAGENT_FACTORIES[role]
         module = importlib.import_module(mod_name)
         _instances[role] = getattr(module, cls_name)()
-    return _instances[role]
+        return _instances[role]
+    if project:
+        from custom_agent import load_custom_agent
+        agent = load_custom_agent(role, project)
+        if agent:
+            _instances[role] = agent
+            return agent
+    raise ValueError(f"未知角色: {role}")
 
 
 def list_subagents() -> dict:
@@ -97,7 +106,13 @@ def delegate(role: str, task: str,
     """
     role = (role or "").strip().lower()
     if role not in SUBAGENT_FACTORIES:
-        return {"error": f"未知子员工: {role!r}，可选: {list(SUBAGENT_FACTORIES)}"}
+        # D5: 查自定义角色再报错
+        if project:
+            from custom_agent import load_custom_agent
+            if load_custom_agent(role, project) is None:
+                return {"error": f"未知子员工: {role!r}，可选: {list(SUBAGENT_FACTORIES)}"}
+        else:
+            return {"error": f"未知子员工: {role!r}，可选: {list(SUBAGENT_FACTORIES)}"}
     if allowed_roles is not None and role not in allowed_roles:
         return {"error": f"你无权把任务派给 {role!r}，可派: {sorted(allowed_roles)}"}
     if not task or not task.strip():
@@ -132,7 +147,7 @@ def delegate(role: str, task: str,
     full_task = task if not context.strip() else f"## 背景\n{context}\n\n## 任务\n{task}"
 
     try:
-        agent = _get_subagent(role)
+        agent = _get_subagent(role, project=project)
     except Exception as e:
         return {"error": f"子员工 {role} 实例化失败: {e}"}
 
