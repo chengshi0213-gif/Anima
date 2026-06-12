@@ -89,6 +89,48 @@ def _parse_plan_prefix(task: str) -> tuple[bool, str]:
     return False, task
 
 
+# ── D2: Skills 接入 ──────────────────────────────────────────
+def _build_skill_index(project_root: str | None = None) -> str:
+    """构建紧凑技能索引（ID + 名称），供 agent 按需 use_skill 加载。"""
+    try:
+        from skill_manager import list_skills
+        skills = list_skills(agent_id="executor")
+    except Exception:
+        skills = []
+    if project_root:
+        proj_dir = Path(project_root) / ".anima" / "skills"
+        if proj_dir.is_dir():
+            known = {s.get("id") for s in skills}
+            for md in proj_dir.glob("*/SKILL.md"):
+                sid = md.parent.name
+                if sid not in known:
+                    skills.append({"id": sid, "name": f"[项目] {sid}"})
+    if not skills:
+        return ""
+    lines = [f"- {s['id']}: {s.get('name', s['id'])}" for s in skills[:30]]
+    return "\n\n## 可用技能（use_skill 按需加载）\n" + "\n".join(lines)
+
+
+def _use_skill(skill_id: str, project_root: str | None = None) -> dict:
+    """加载技能完整 prompt——先查项目级，再查全局。"""
+    if project_root:
+        proj_path = Path(project_root) / ".anima" / "skills" / skill_id / "SKILL.md"
+        if proj_path.is_file():
+            try:
+                return {"skill_id": skill_id,
+                        "prompt": proj_path.read_text("utf-8")[:8000]}
+            except Exception:
+                pass
+    try:
+        from skill_manager import get_skill_prompt
+        prompt = get_skill_prompt(skill_id, agent_id="executor")
+        if prompt:
+            return {"skill_id": skill_id, "prompt": prompt}
+    except Exception:
+        pass
+    return {"error": f"技能 {skill_id} 不可用或未授权"}
+
+
 # ── A2: file_read/file_edit 接路径作用域规则（.anima/rules/*.md，按需追加）──
 
 def _read_file_scoped(worker: "ExecutorWorker", path: str, offset: int = 0, limit: int = 600) -> dict:
@@ -320,6 +362,13 @@ class ExecutorWorker(AgentBase):
                     "choices": {"type": "array", "items": {"type": "string"},
                                 "description": "可选的快速选项（前端渲染为按钮）"},
                 }, "required": ["question"]}}},
+            # v1.2.2 D2: use_skill（按需加载技能 prompt）
+            {"type": "function", "function": {
+                "name": "use_skill",
+                "description": "加载某个技能的完整指南注入当前上下文。调用前先看可用技能列表。",
+                "parameters": {"type": "object", "properties": {
+                    "skill_id": {"type": "string", "description": "技能 ID"},
+                }, "required": ["skill_id"]}}},
         ]
 
         super().__init__(
@@ -358,6 +407,8 @@ class ExecutorWorker(AgentBase):
                 **build_computer_dispatch(),
                 # v1.2.2 C1: ask_user（返回协程，agent_base 的 iscoroutine 分支会 await）
                 "ask_user": lambda **kw: self._ask_user(kw["question"], kw.get("choices")),
+                # D2: use_skill
+                "use_skill": lambda **kw: _use_skill(kw["skill_id"], self._current_project_root),
             },
         )
         # 中型项目档（M9 Part 4）：放宽轮数/预算，撑得住多文件多轮持续开发。
@@ -491,6 +542,13 @@ class ExecutorWorker(AgentBase):
                 mem_ctx = load_project_memory(project_root)
                 if mem_ctx:
                     task = task + mem_ctx
+            except Exception:
+                pass
+            # D2: 注入可用技能索引（仅 ID + 名称，按需 use_skill 加载正文）
+            try:
+                skill_idx = _build_skill_index(project_root)
+                if skill_idx:
+                    task = task + skill_idx
             except Exception:
                 pass
             if plan_mode:

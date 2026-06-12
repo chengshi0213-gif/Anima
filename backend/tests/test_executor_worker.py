@@ -592,3 +592,67 @@ def test_plan_prefix_with_effort_combo(worker, monkeypatch, tmp_path):
 
     asyncio.run(worker.run("plan: deep: 重构", project=str(proj)))
     assert caps_seen["max_turns"] == 120
+
+
+# ════════════════════════════════════════════════════════════════════
+#  D2 — Skills 接入
+# ════════════════════════════════════════════════════════════════════
+
+def test_build_skill_index_with_project_skills(tmp_path, monkeypatch):
+    proj = tmp_path / "proj"
+    skill_dir = proj / ".anima" / "skills" / "my_tool"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("---\nname: 自定义工具\n---\n说明", encoding="utf-8")
+
+    monkeypatch.setattr("builtins.__import__", lambda *a, **k: (_ for _ in ()).throw(ImportError),
+                        raising=False)
+    idx = ew._build_skill_index(str(proj))
+    assert "my_tool" in idx
+    assert "项目" in idx
+
+
+def test_build_skill_index_empty(tmp_path, monkeypatch):
+    monkeypatch.setattr("builtins.__import__", lambda *a, **k: (_ for _ in ()).throw(ImportError),
+                        raising=False)
+    idx = ew._build_skill_index(str(tmp_path))
+    assert idx == ""
+
+
+def test_use_skill_project_level(tmp_path):
+    proj = tmp_path / "proj"
+    skill_dir = proj / ".anima" / "skills" / "my_lint"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("Lint 规则全文", encoding="utf-8")
+
+    result = ew._use_skill("my_lint", str(proj))
+    assert result["skill_id"] == "my_lint"
+    assert "Lint 规则全文" in result["prompt"]
+
+
+def test_use_skill_not_found(tmp_path):
+    result = ew._use_skill("nonexistent", str(tmp_path))
+    assert "error" in result
+
+
+def test_use_skill_tool_registered(worker):
+    assert "use_skill" in worker.tool_dispatch
+    names = [d["function"]["name"] for d in worker.tool_defs]
+    assert "use_skill" in names
+
+
+def test_skill_index_injected_into_task(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    skill_dir = proj / ".anima" / "skills" / "checker"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("---\nname: Checker\n---\n内容", encoding="utf-8")
+
+    captured: dict = {}
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        captured["task"] = task
+        return {"status": "completed", "summary": "ok",
+                "files_changed": [], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    asyncio.run(worker.run("做点事", project=str(proj)))
+    assert "checker" in captured["task"]
+    assert "可用技能" in captured["task"]
