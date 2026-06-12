@@ -12,13 +12,13 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from agent_base import AgentBase
-from config import DEEPSEEK_KEY
+from agent_base import AgentBase, MODEL_REGISTRY
+from config import DEEPSEEK_KEY, OPENROUTER_KEY
 from persona import _VOICE_CORE
 from xi_worker import (
     _list_dir, _read_file, _write_file,
     _edit_file, _search_code, _shell_run,
-    _glob_files, _map_project,
+    _glob_files, _map_project, _update_plan,
 )
 from native_tools import _http_request, _read_pdf, _read_image, _install_pkg
 from git_tools import GIT_TOOL_DEFS, build_git_dispatch
@@ -48,6 +48,10 @@ EXECUTOR_SYSTEM_PROMPT = """你是工程师，陶朱公司的工程交付专员�
 - reader：让阅读者先吃透一大块陌生代码库再回报
 - critic：让评审专挑你这版改动的问题
 不确定就别拆——单人能干利索的活不要为拆而拆。受深度和预算限制，滥用会被拒。
+
+## 计划可见性
+3 步以上的任务，动手前先 `update_plan` 列出步骤，每完成一步更新状态（pending→doing→done）。
+用户能看到你的计划进度——这是建立信任的关键。
 
 ## 禁止
 - 不跑验证就声称完成；不忽视报错继续往下；不做超出任务范围的破坏性操作。
@@ -208,6 +212,15 @@ class ExecutorWorker(AgentBase):
                     "package": {"type": "string"},
                     "manager": {"type": "string", "enum": ["pip", "npm"]},
                 }, "required": ["package"]}}},
+            # v1.2.1 N2: 执行计划可见性
+            {"type": "function", "function": {
+                "name": "update_plan",
+                "description": "维护执行计划（用户可见 todo 清单）。3步以上任务先调它，每完成一步更新状态。",
+                "parameters": {"type": "object", "properties": {
+                    "steps": {"type": "array", "items": {"type": "object", "properties": {
+                        "text": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "doing", "done"]},
+                    }}},
+                }, "required": ["steps"]}}},
             # v1.2.1 T2: 后台长命令 + T7: git 工具
             *TASK_TOOL_DEFS,
             *GIT_TOOL_DEFS,
@@ -242,6 +255,7 @@ class ExecutorWorker(AgentBase):
                 "http_request": lambda **kw: _http_request(kw.get("method", "GET"), kw["url"],
                                                            kw.get("body"), kw.get("headers"), kw.get("timeout", 30)),
                 "install_pkg": lambda **kw: _install_pkg(kw["package"], kw.get("manager", "pip")),
+                "update_plan": lambda **kw: _update_plan(kw["steps"], kw.get("session_id", "")),
                 **build_task_dispatch(),
                 **build_git_dispatch(),
                 # 受限 delegate dispatch（白名单 = _LEAD_ROLES）
@@ -261,9 +275,19 @@ class ExecutorWorker(AgentBase):
         # 编程向历史压缩：长会话里保留"改过哪些文件、跑过哪些测试"的记忆
         self.coding_compress = True
 
+    def _coding_model(self) -> str | None:
+        """N1: relay 可用时升级到 Claude-Sonnet（agentic 编程最强可达模型）。"""
+        entry = MODEL_REGISTRY.get("Claude-Sonnet-4.6")
+        if entry:
+            key_fn, base_url, _ = entry
+            if key_fn() and base_url:
+                return "Claude-Sonnet-4.6"
+        return None
+
     async def run(self, task: str, session_id=None, model=None, ws=None,
                   project: str | None = None) -> dict:
-        """T11: 启动时自动注入 map_project，省去前 3-5 轮探索。"""
+        if model is None:
+            model = self._coding_model()
         project_root = project or "."
         try:
             tree_info = _map_project(project_root, max_depth=2)

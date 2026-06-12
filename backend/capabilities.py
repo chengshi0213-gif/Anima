@@ -81,7 +81,8 @@ _MEMORY_FRAGMENT = """
 # ── 能力工厂（惰性 import 真实实现）──────────────────────
 def _execution_cap(agent_id: str) -> Capability:
     from xi_worker import (_list_dir, _read_file, _write_file, _edit_file,
-                           _search_code, _shell_run, _glob_files, _map_project)
+                           _search_code, _shell_run, _glob_files, _map_project,
+                           _update_plan)
     from native_tools import _http_request, _read_pdf, _read_image, _install_pkg
     from git_tools import GIT_TOOL_DEFS, build_git_dispatch
     from task_runner import TASK_TOOL_DEFS, build_task_dispatch
@@ -174,6 +175,15 @@ def _execution_cap(agent_id: str) -> Capability:
                 "manager": {"type": "string", "enum": ["pip", "npm"],
                             "description": "包管理器，默认 pip"},
             }, "required": ["package"]}}},
+        {"type": "function", "function": {
+            "name": "update_plan",
+            "description": "维护执行计划（用户可见的 todo 清单）。3 步以上的任务，动手前先调它；"
+                           "每完成一步更新状态。steps 数组里每项 {text, status: pending/doing/done}。",
+            "parameters": {"type": "object", "properties": {
+                "steps": {"type": "array", "items": {"type": "object", "properties": {
+                    "text": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "doing", "done"]},
+                }}, "description": "计划步骤列表"},
+            }, "required": ["steps"]}}},
     ]
     dispatch = {
         "list_dir":    lambda **kw: _list_dir(kw["path"], kw.get("max_depth", 2)),
@@ -191,6 +201,7 @@ def _execution_cap(agent_id: str) -> Capability:
                                            kw.get("end_page")),
         "read_image": lambda **kw: _read_image(kw["path"]),
         "install_pkg": lambda **kw: _install_pkg(kw["package"], kw.get("manager", "pip")),
+        "update_plan": lambda **kw: _update_plan(kw["steps"], kw.get("session_id", "")),
     }
     defs.extend(GIT_TOOL_DEFS)
     dispatch.update(build_git_dispatch())

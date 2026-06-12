@@ -252,6 +252,28 @@ def _shell_run(command: str, timeout: int = 60, cwd: str | None = None) -> dict:
 
 # 联网检索已抽到共享模块 websearch.py（统一配额 + 缓存）。
 # 这里保留同名别名，兼容历史 `from xi_worker import _web_search, _fetch_url`。
+# ── N2: update_plan（计划可见性工具）──────────────────────────────────────────
+
+_session_plans: dict[str, list] = {}
+
+def _update_plan(steps: list, session_id: str = "") -> dict:
+    """Agent 维护自己的执行计划。每个 step: {text, status: pending/doing/done}
+    调用即覆盖整个计划（全量重报），通过 WS 推送给前端渲染清单卡片。"""
+    if not steps or not isinstance(steps, list):
+        return {"error": "steps 必须是非空列表"}
+    normalized = []
+    for s in steps:
+        if isinstance(s, str):
+            normalized.append({"text": s, "status": "pending"})
+        elif isinstance(s, dict):
+            normalized.append({
+                "text": str(s.get("text", "")),
+                "status": s.get("status", "pending"),
+            })
+    _session_plans[session_id] = normalized
+    return {"ok": True, "steps": normalized, "count": len(normalized)}
+
+
 from websearch import web_search as _web_search, fetch_url as _fetch_url  # noqa: E402
 
 
