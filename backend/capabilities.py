@@ -82,6 +82,7 @@ _MEMORY_FRAGMENT = """
 def _execution_cap(agent_id: str) -> Capability:
     from xi_worker import (_list_dir, _read_file, _write_file, _edit_file,
                            _search_code, _shell_run, _glob_files, _map_project)
+    from native_tools import _http_request
     defs = [
         {"type": "function", "function": {
             "name": "list_dir", "description": "列出目录内容（递归，可指定深度）",
@@ -133,6 +134,18 @@ def _execution_cap(agent_id: str) -> Capability:
             "parameters": {"type": "object", "properties": {
                 "command": {"type": "string"}, "timeout": {"type": "integer"}, "cwd": {"type": "string"},
             }, "required": ["command"]}}},
+        {"type": "function", "function": {
+            "name": "http_request",
+            "description": "直调任意 REST API（GET/POST/PUT/PATCH/DELETE）。安全版：只允许 "
+                           "http/https，自动拦截解析到内网/环回地址的 URL（防 SSRF）。"
+                           "body 传 dict 时按 JSON 发送。访问本机服务请改用 shell_run + curl。",
+            "parameters": {"type": "object", "properties": {
+                "method": {"type": "string", "description": "GET/POST/PUT/PATCH/DELETE，默认 GET"},
+                "url": {"type": "string"},
+                "body": {"description": "请求体；dict/list 自动按 JSON 发送，字符串原样发送"},
+                "headers": {"type": "object", "description": "可选请求头"},
+                "timeout": {"type": "integer", "description": "秒，默认 30，上限 120"},
+            }, "required": ["url"]}}},
     ]
     dispatch = {
         "list_dir":    lambda **kw: _list_dir(kw["path"], kw.get("max_depth", 2)),
@@ -143,6 +156,9 @@ def _execution_cap(agent_id: str) -> Capability:
         "file_edit":   lambda **kw: _edit_file(kw["path"], kw["old_string"], kw["new_string"], kw.get("replace_all", False)),
         "search_code": lambda **kw: _search_code(kw["pattern"], kw.get("path", "."), kw.get("file_glob", "*"), kw.get("limit", 30)),
         "shell_run":   lambda **kw: _shell_run(kw["command"], kw.get("timeout", 60), kw.get("cwd")),
+        "http_request": lambda **kw: _http_request(kw.get("method", "GET"), kw["url"],
+                                                    kw.get("body"), kw.get("headers"),
+                                                    kw.get("timeout", 30)),
     }
     return Capability("execution", defs, dispatch, _EXEC_FRAGMENT)
 

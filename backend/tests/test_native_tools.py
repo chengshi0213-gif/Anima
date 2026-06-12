@@ -129,3 +129,78 @@ def test_execution_cap_dispatch_runs(sample_tree):
     assert {Path(f).name for f in out["files"]} == {"README.md"}
     out2 = cap["dispatch"]["map_project"](root=str(sample_tree))
     assert "node_modules" not in out2["tree"]
+
+
+# ── T6: http_request（SSRF 安全闸门）──────────────────────────────────────────
+
+import native_tools as nt  # noqa: E402
+
+
+@pytest.mark.parametrize("host", [
+    "localhost", "127.0.0.1", "10.0.0.5", "192.168.1.1",
+    "172.16.0.1", "169.254.1.1", "0.0.0.0",
+])
+def test_host_is_internal_blocks_private(host):
+    internal, reason = nt._host_is_internal(host)
+    assert internal is True
+    assert reason
+
+
+def test_host_is_internal_allows_public_ip():
+    internal, _ = nt._host_is_internal("8.8.8.8")
+    assert internal is False
+
+
+def test_http_request_blocks_internal_url():
+    r = nt._http_request("GET", "http://127.0.0.1:9100/health")
+    assert "error" in r
+    assert "SSRF" in r["error"] or "拦截" in r["error"]
+
+
+def test_http_request_blocks_localhost():
+    r = nt._http_request("GET", "http://localhost/admin")
+    assert "error" in r and "status" not in r
+
+
+def test_http_request_rejects_non_http_scheme():
+    assert "error" in nt._http_request("GET", "file:///etc/passwd")
+    assert "error" in nt._http_request("GET", "ftp://8.8.8.8/x")
+
+
+def test_http_request_rejects_bad_method():
+    assert "error" in nt._http_request("FETCH", "http://8.8.8.8/x")
+
+
+def test_http_request_success_path(monkeypatch):
+    """公网 IP（8.8.8.8 字面量，离线即可判定非内网）走通；monkeypatch opener 避免真连。"""
+    class _FakeResp:
+        status = 200
+        headers = {"Content-Type": "application/json"}
+        def read(self, n=-1):
+            return b'{"ok": true}'
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    class _FakeOpener:
+        def open(self, req, timeout=None):
+            # 断言 JSON body 已被正确序列化 + 自动补 Content-Type
+            assert req.get_header("Content-type") == "application/json"
+            return _FakeResp()
+
+    monkeypatch.setattr(nt, "_OPENER", _FakeOpener())
+    r = nt._http_request("POST", "http://8.8.8.8/api", body={"q": "你好"})
+    assert r["status"] == 200
+    assert r["body"] == '{"ok": true}'
+    assert r["truncated"] is False
+
+
+def test_execution_cap_registers_http_request():
+    cap = capabilities.build(["execution"], agent_id="xi")
+    names = {d["function"]["name"] for d in cap["tool_defs"]}
+    assert "http_request" in names
+    assert "http_request" in cap["dispatch"]
+    # dispatch 默认 method=GET，内网 URL 应被拦
+    out = cap["dispatch"]["http_request"](url="http://10.0.0.1/x")
+    assert "error" in out
