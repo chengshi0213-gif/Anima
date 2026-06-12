@@ -414,6 +414,9 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
                 }
                 if name in ("file_write", "file_edit") and td["ok"]:
                     td["file"] = str(result.get("path", ""))
+                    diff = result.pop("diff", None)
+                    if diff:
+                        td["diff"] = diff
                 elif name == "git_commit" and td["ok"]:
                     td["files_committed"] = result.get("files_committed", 0)
                 elif name == "task_poll" and td["ok"]:

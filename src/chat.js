@@ -497,10 +497,35 @@ export function markThinkingStep(agentId, tool, ok, hint, data) {
       tag.textContent = detail;
       item.appendChild(tag);
     }
+    if (data.diff) {
+      const toggle = document.createElement('span');
+      toggle.className = 'ts-diff-toggle';
+      toggle.textContent = '▸ diff';
+      const diffBlock = document.createElement('pre');
+      diffBlock.className = 'ts-diff-block hidden';
+      diffBlock.innerHTML = _renderDiff(data.diff);
+      toggle.onclick = () => {
+        diffBlock.classList.toggle('hidden');
+        toggle.textContent = diffBlock.classList.contains('hidden') ? '▸ diff' : '▾ diff';
+      };
+      item.appendChild(toggle);
+      item.appendChild(diffBlock);
+    }
   }
   scrollBottom(agentId);
 }
 window.markThinkingStep = markThinkingStep;
+
+function _renderDiff(text) {
+  return text.split('\n').map(line => {
+    const esc = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (line.startsWith('+++') || line.startsWith('---')) return `<span class="diff-meta">${esc}</span>`;
+    if (line.startsWith('+')) return `<span class="diff-add">${esc}</span>`;
+    if (line.startsWith('-')) return `<span class="diff-del">${esc}</span>`;
+    if (line.startsWith('@@')) return `<span class="diff-hunk">${esc}</span>`;
+    return esc;
+  }).join('\n');
+}
 
 export function removeThinking(agentId) {
   document.querySelector(`#messages-${agentId} .thinking-msg`)?.remove();

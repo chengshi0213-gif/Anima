@@ -660,6 +660,21 @@ svg.nav-icon { display: inline-block; vertical-align: middle; color: var(--muted
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 
+/* D4: diff 审查视图 */
+.ts-diff-toggle { cursor:pointer; color:var(--link,#60a5fa); margin-left:8px; font-size:12px; user-select:none; }
+.ts-diff-toggle:hover { text-decoration:underline; }
+.ts-diff-block {
+  margin:4px 0 0; font-size:11px; line-height:1.4; overflow-x:auto;
+  max-height:400px; overflow-y:auto; padding:8px; border-radius:6px;
+  background:var(--surface-2,#1e1e2e); font-family:var(--font-mono,monospace);
+  width:100%;
+}
+.ts-diff-block.hidden { display:none; }
+.diff-add  { color:#22c55e; }
+.diff-del  { color:#ef4444; }
+.diff-hunk { color:#60a5fa; opacity:.8; }
+.diff-meta { color:#94a3b8; }
+
 /* M-P2：delegate 步骤——"她正在调用 XX 能力"角标，沿用该能力主题色 */
 .thinking-step-item.delegate-step { max-width: 380px; }
 .thinking-step-item.delegate-step .ts-name { white-space: normal; }

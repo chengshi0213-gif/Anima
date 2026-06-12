@@ -4,6 +4,7 @@
 Anima Worker — 私人助理（核心 Agent）
 继承 AgentBase，带完整编程工具集
 """
+import difflib
 import sys, subprocess, json
 from pathlib import Path
 
@@ -13,6 +14,19 @@ from config import DEEPSEEK_KEY, WORKSPACE_DIR, get_user_address
 from persona import compose_base_prompt
 
 # ── 工具实现 ──────────────────────────────────────────────────────────────────
+
+_DIFF_MAX_LINES = 200
+
+def _make_diff(old: str, new: str, path: str) -> str:
+    """D4: 生成截断到 200 行的 unified diff，供 tool_done WS 事件推送。"""
+    lines = list(difflib.unified_diff(
+        old.splitlines(keepends=True), new.splitlines(keepends=True),
+        fromfile=f"a/{Path(path).name}", tofile=f"b/{Path(path).name}",
+    ))
+    if len(lines) > _DIFF_MAX_LINES:
+        lines = lines[:_DIFF_MAX_LINES]
+        lines.append(f"\n... 截断（共 {len(lines)} 行）\n")
+    return "".join(lines)
 
 def _sandbox(path: str, write: bool = False):
     """文件访问护栏：拦截凭证/系统路径。返回拒绝原因 dict，放行返回 None。"""
@@ -66,9 +80,11 @@ def _write_file(path: str, content: str) -> dict:
         return _blk
     try:
         p = Path(path)
+        old = p.read_text(encoding="utf-8") if p.exists() else ""
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
-        return {"path": path, "bytes": len(content.encode())}
+        return {"path": path, "bytes": len(content.encode()),
+                "diff": _make_diff(old, content, path)}
     except Exception as e:
         return {"error": str(e)}
 
@@ -88,7 +104,8 @@ def _edit_file(path: str, old_string: str, new_string: str, replace_all: bool = 
             new_content = content.replace(old_string, new_string, 1)
             count = 1
         p.write_text(new_content, encoding="utf-8")
-        return {"path": path, "replaced": count}
+        return {"path": path, "replaced": count,
+                "diff": _make_diff(content, new_content, path)}
     except Exception as e:
         return {"error": str(e)}
 
