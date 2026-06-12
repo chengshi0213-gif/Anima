@@ -387,14 +387,19 @@ _FACTORIES: dict[str, Callable[[str], Capability]] = {
 }
 
 
-def build(cap_ids: list[str], *, agent_id: str = "xi") -> dict:
+def build(cap_ids: list[str], *, agent_id: str = "xi",
+          register: str | None = None) -> dict:
     """把一组能力积木组装成 worker 需要的零件。
     返回 {tool_defs, dispatch, fragments:[str], dynamic:[callable]}。
+    register: D8 房间语气片段 key（"companion"/"focused"），会置于 fragments 最前面。
     未知能力 id 跳过（容错）。"""
+    from room import REGISTER_FRAGMENTS
     tool_defs: list = []
     dispatch: dict = {}
     fragments: list[str] = []
     dynamic: list[Callable[[], str]] = []
+    if register and register in REGISTER_FRAGMENTS:
+        fragments.append(REGISTER_FRAGMENTS[register])
     for cid in cap_ids:
         factory = _FACTORIES.get(cid)
         if not factory:
