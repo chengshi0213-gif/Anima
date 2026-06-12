@@ -86,6 +86,7 @@ def _execution_cap(agent_id: str) -> Capability:
     from native_tools import _http_request, _read_pdf, _read_image, _install_pkg
     from git_tools import GIT_TOOL_DEFS, build_git_dispatch
     from task_runner import TASK_TOOL_DEFS, build_task_dispatch
+    from code_intel import CODE_INTEL_TOOL_DEFS, CODE_INTEL_DISPATCH
     defs = [
         {"type": "function", "function": {
             "name": "list_dir", "description": "列出目录内容（递归，可指定深度）",
@@ -207,6 +208,8 @@ def _execution_cap(agent_id: str) -> Capability:
     dispatch.update(build_git_dispatch())
     defs.extend(TASK_TOOL_DEFS)
     dispatch.update(build_task_dispatch())
+    defs.extend(CODE_INTEL_TOOL_DEFS)
+    dispatch.update(CODE_INTEL_DISPATCH)
     return Capability("execution", defs, dispatch, _EXEC_FRAGMENT)
 
 
