@@ -353,6 +353,49 @@ window.resolveConfirm = function(agentId, confirmId, approved, scope, btn) {
   }
 };
 
+// ── C2: ask_user 问题卡片 ────────────────────────
+export function showAskUserCard(agentId, msg) {
+  const box = document.getElementById(`messages-${agentId}`);
+  if (!box) return;
+  const question = msg.question || '（问题）';
+  const choices = msg.choices || [];
+
+  const div = document.createElement('div');
+  div.className = 'ask-user-card';
+  const choicesBtns = choices.length
+    ? choices.map(c => `<button class="au-choice-btn" onclick="answerAskUser('${agentId}',this,'${escHtml(c)}')">${escHtml(c)}</button>`).join('')
+    : '';
+  div.innerHTML = `
+    <div class="au-hdr">💬 Anima 想问你</div>
+    <div class="au-question">${escHtml(question)}</div>
+    ${choicesBtns ? `<div class="au-choices">${choicesBtns}</div>` : ''}
+    <div class="au-input-row">
+      <input class="au-input" type="text" placeholder="输入回答…" onkeydown="if(event.key==='Enter')answerAskUser('${agentId}',this)">
+      <button class="au-send-btn" onclick="answerAskUser('${agentId}',this.previousElementSibling)">发送</button>
+    </div>
+    <div class="au-result"></div>`;
+  box.appendChild(div);
+  scrollBottom(agentId);
+  div.querySelector('.au-input')?.focus();
+}
+window.showAskUserCard = showAskUserCard;
+
+window.answerAskUser = function(agentId, el, choiceText) {
+  const card = el?.closest('.ask-user-card');
+  const answer = choiceText || card?.querySelector('.au-input')?.value?.trim() || '';
+  if (!answer) { toast('请输入回答', 'error'); return; }
+  const sent = wsSend(agentId, { action: 'user_answer', answer });
+  if (!sent) { toast('未连接后端', 'error'); return; }
+  if (card) {
+    card.classList.add('au-answered');
+    card.querySelectorAll('.au-choice-btn, .au-send-btn').forEach(b => { b.disabled = true; });
+    const input = card.querySelector('.au-input');
+    if (input) input.disabled = true;
+    const res = card.querySelector('.au-result');
+    if (res) { res.textContent = `✓ 已回答：${answer}`; res.className = 'au-result au-done'; }
+  }
+};
+
 export function showThinking(agentId) {
   const box = document.getElementById(`messages-${agentId}`);
   if (!box || box.querySelector('.thinking-msg')) return;

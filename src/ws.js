@@ -142,6 +142,10 @@ function handleAgentMessage(agentId, msg) {
     window.showConfirmRequest?.(agentId, msg.data);
     return;
   }
+  if (msg.type === 'ask_user') {
+    window.showAskUserCard?.(agentId, msg);
+    return;
+  }
   if (msg.type === 'permission_request') {
     window.removeThinking?.(agentId);
     window.removeStreamingMsg?.(agentId);

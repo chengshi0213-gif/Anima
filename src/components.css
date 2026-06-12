@@ -175,6 +175,97 @@
 }
 
 /* ───────────────────────────────────────────────────────────────
+   2.5  ask_user 问题卡片（C2, v1.2.2）—— Agent 暂停等用户回答
+   ─────────────────────────────────────────────────────────────── */
+.ask-user-card {
+  align-self: stretch;
+  max-width: min(480px, 92%);
+  margin: var(--space-2) 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: anima-confirm-in var(--dur-base) var(--ease-out) both;
+}
+.au-hdr {
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.au-question {
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.au-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: 0 var(--space-4) var(--space-2);
+}
+.au-choice-btn {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: none;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.au-choice-btn:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border-color: var(--color-text-muted);
+}
+.au-choice-btn:disabled { opacity: .5; cursor: default; }
+.au-input-row {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-4);
+}
+.au-input {
+  flex: 1;
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.au-input:disabled { opacity: .5; }
+.au-send-btn {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius);
+  border: none;
+  background: var(--color-accent, #A85C13);
+  color: #fff;
+  cursor: pointer;
+}
+.au-send-btn:hover { opacity: .85; }
+.au-send-btn:disabled { opacity: .5; cursor: default; }
+.au-result {
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  display: none;
+}
+.au-result.au-done {
+  display: block;
+  color: var(--color-success, #4CAF50);
+}
+.ask-user-card.au-answered .au-choices,
+.ask-user-card.au-answered .au-input-row {
+  opacity: .5;
+  pointer-events: none;
+}
+
+/* ───────────────────────────────────────────────────────────────
    3. MCP 管理面板（#22）—— 设置页只读状态展示，工艺与 ConfirmCard 同源
    ─────────────────────────────────────────────────────────────── */
 .mcp-summary {
