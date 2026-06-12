@@ -494,6 +494,88 @@ def test_execution_cap_registers_read_image():
     assert "read_image" in cap["dispatch"]
 
 
+# ── T2: long_run / task_poll / task_kill ──────────────────────────────────────
+
+import task_runner as tr  # noqa: E402
+import time as _time  # noqa: E402
+
+
+def test_long_run_and_poll():
+    r = tr._long_run("echo hello_from_long_run")
+    assert "task_id" in r
+    assert r["status"] == "running"
+    tid = r["task_id"]
+    for _ in range(30):
+        p = tr._task_poll(tid)
+        if p["status"] != "running":
+            break
+        _time.sleep(0.1)
+    assert p["status"] == "completed"
+    assert p["exit_code"] == 0
+    assert "hello_from_long_run" in p["stdout"]
+
+
+def test_long_run_failed_command():
+    r = tr._long_run("exit 42")
+    tid = r["task_id"]
+    for _ in range(30):
+        p = tr._task_poll(tid)
+        if p["status"] != "running":
+            break
+        _time.sleep(0.1)
+    assert p["status"] == "failed"
+    assert p["exit_code"] == 42
+
+
+def test_long_run_empty_command():
+    r = tr._long_run("")
+    assert "error" in r
+
+
+def test_task_poll_unknown_id():
+    r = tr._task_poll("nonexistent_id")
+    assert "error" in r
+
+
+def test_task_kill():
+    if sys.platform == "win32":
+        r = tr._long_run("ping -n 100 127.0.0.1")
+    else:
+        r = tr._long_run("sleep 100")
+    tid = r["task_id"]
+    _time.sleep(0.3)
+    k = tr._task_kill(tid)
+    assert k["killed"] is True
+    _time.sleep(0.3)
+    p = tr._task_poll(tid)
+    assert p["status"] == "killed"
+
+
+def test_task_kill_unknown_id():
+    r = tr._task_kill("nonexistent_id")
+    assert "error" in r
+
+
+def test_task_kill_already_done():
+    r = tr._long_run("echo done")
+    tid = r["task_id"]
+    for _ in range(30):
+        p = tr._task_poll(tid)
+        if p["status"] != "running":
+            break
+        _time.sleep(0.1)
+    k = tr._task_kill(tid)
+    assert k["killed"] is False
+
+
+def test_execution_cap_registers_task_tools():
+    cap = capabilities.build(["execution"], agent_id="xi")
+    names = {d["function"]["name"] for d in cap["tool_defs"]}
+    for name in ["long_run", "task_poll", "task_kill"]:
+        assert name in names
+        assert name in cap["dispatch"]
+
+
 def test_execution_cap_registers_git_tools():
     cap = capabilities.build(["execution"], agent_id="xi")
     names = {d["function"]["name"] for d in cap["tool_defs"]}
