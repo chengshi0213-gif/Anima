@@ -204,3 +204,133 @@ def test_execution_cap_registers_http_request():
     # dispatch 默认 method=GET，内网 URL 应被拦
     out = cap["dispatch"]["http_request"](url="http://10.0.0.1/x")
     assert "error" in out
+
+
+# ── T7: git_tools 六件套 ─────────────────────────────────────────────────────
+
+import subprocess  # noqa: E402
+import git_tools as gt  # noqa: E402
+
+
+@pytest.fixture
+def git_repo(tmp_path):
+    """在 tmp_path 创建一个干净的 git 仓库并提交一个文件。"""
+    subprocess.run(["git", "init"], cwd=str(tmp_path), capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@test.com"],
+                   cwd=str(tmp_path), capture_output=True)
+    subprocess.run(["git", "config", "user.name", "Test"],
+                   cwd=str(tmp_path), capture_output=True)
+    (tmp_path / "hello.txt").write_text("hello", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=str(tmp_path), capture_output=True)
+    subprocess.run(["git", "commit", "-m", "init"],
+                   cwd=str(tmp_path), capture_output=True)
+    return tmp_path
+
+
+def test_git_status_clean(git_repo):
+    r = gt._git_status(str(git_repo))
+    assert "error" not in r
+    assert r["clean"] is True
+    assert r["branch"]
+
+
+def test_git_status_dirty(git_repo):
+    (git_repo / "new.txt").write_text("x", encoding="utf-8")
+    r = gt._git_status(str(git_repo))
+    assert r["clean"] is False
+    assert any(c["file"] == "new.txt" for c in r["changes"])
+
+
+def test_git_status_not_a_repo(tmp_path):
+    r = gt._git_status(str(tmp_path))
+    assert "error" in r
+
+
+def test_git_diff_shows_changes(git_repo):
+    (git_repo / "hello.txt").write_text("hello world", encoding="utf-8")
+    r = gt._git_diff(str(git_repo))
+    assert "error" not in r
+    assert "hello world" in r["diff"]
+
+
+def test_git_diff_staged(git_repo):
+    (git_repo / "hello.txt").write_text("staged change", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=str(git_repo), capture_output=True)
+    r = gt._git_diff(str(git_repo), staged=True)
+    assert "staged change" in r["diff"]
+
+
+def test_git_commit_success(git_repo):
+    (git_repo / "feat.py").write_text("print(1)", encoding="utf-8")
+    r = gt._git_commit(str(git_repo), "add feat")
+    assert r["committed"] is True
+    assert r["hash"]
+    assert r["message"] == "add feat"
+
+
+def test_git_commit_empty_message(git_repo):
+    r = gt._git_commit(str(git_repo), "")
+    assert "error" in r
+    assert "空" in r["error"]
+
+
+def test_git_commit_excludes_sensitive(git_repo):
+    (git_repo / ".env").write_text("SECRET=abc", encoding="utf-8")
+    (git_repo / "ok.txt").write_text("safe", encoding="utf-8")
+    r = gt._git_commit(str(git_repo), "mixed commit")
+    assert r["committed"] is True
+    assert ".env" in r["excluded_sensitive"]
+
+
+def test_git_commit_only_sensitive(git_repo):
+    (git_repo / ".env").write_text("SECRET=abc", encoding="utf-8")
+    r = gt._git_commit(str(git_repo), "only sensitive")
+    assert r["committed"] is False
+    assert "敏感" in r.get("reason", "")
+
+
+def test_git_log(git_repo):
+    r = gt._git_log(str(git_repo))
+    assert "error" not in r
+    assert r["count"] >= 1
+    assert "init" in r["commits"][0]
+
+
+def test_git_branch(git_repo):
+    r = gt._git_branch(str(git_repo))
+    assert "error" not in r
+    assert r["current"] in r["branches"]
+
+
+def test_git_create_branch(git_repo):
+    r = gt._git_create_branch(str(git_repo), "feat/test-branch")
+    assert r["created"] is True
+    assert r["branch"] == "feat/test-branch"
+    cur = gt._git_branch(str(git_repo))
+    assert cur["current"] == "feat/test-branch"
+
+
+def test_git_create_branch_invalid_name(git_repo):
+    r = gt._git_create_branch(str(git_repo), "")
+    assert "error" in r
+    r2 = gt._git_create_branch(str(git_repo), "bad name with spaces")
+    assert "error" in r2
+
+
+def test_git_log_limit(git_repo):
+    for i in range(5):
+        (git_repo / f"f{i}.txt").write_text(str(i), encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=str(git_repo), capture_output=True)
+        subprocess.run(["git", "commit", "-m", f"commit {i}"],
+                       cwd=str(git_repo), capture_output=True)
+    r = gt._git_log(str(git_repo), limit=3)
+    assert r["count"] == 3
+
+
+def test_execution_cap_registers_git_tools():
+    cap = capabilities.build(["execution"], agent_id="xi")
+    names = {d["function"]["name"] for d in cap["tool_defs"]}
+    for name in ["git_status", "git_diff", "git_commit", "git_log",
+                 "git_branch", "git_create_branch"]:
+        assert name in names, f"{name} missing from tool_defs"
+        assert name in cap["dispatch"], f"{name} missing from dispatch"
