@@ -8,6 +8,7 @@ M8 升级：从"省钱档快手"升级为自主的测试驱动工程 agent。
   - grounding：放大 file_read/search 读取量 + 调大工具结果截断上限（真看得见代码）
   - 受控递归：可把可隔离的子任务派给 executor/reader/critic（深度≤2，全树预算封顶）
 """
+import asyncio
 import sys
 from pathlib import Path
 
@@ -21,7 +22,7 @@ from xi_worker import (
     _glob_files, _map_project, _update_plan,
 )
 from native_tools import _http_request, _read_pdf, _read_image, _install_pkg
-from project_memory import load_project_memory, get_scoped_rules
+from project_memory import load_project_memory, get_scoped_rules, append_auto_memory, auto_memory_path
 from git_tools import GIT_TOOL_DEFS, build_git_dispatch
 from task_runner import TASK_TOOL_DEFS, build_task_dispatch
 from orchestrator import lead_delegate_tool_defs, build_orchestration_dispatch
@@ -333,4 +334,36 @@ class ExecutorWorker(AgentBase):
                 task = task + mem_ctx
         except Exception:
             pass
-        return await super().run(task, session_id, model, ws, project)
+        result = await super().run(task, session_id, model, ws, project)
+        # A4 Auto Memory：会话成功完成且确有文件改动时，问一句"有什么值得记住的"，
+        # 有内容才写入下次自动加载的 MEMORY.md（绑定项目时才有意义）。
+        if project and result.get("status") == "completed" and result.get("files_changed"):
+            asyncio.create_task(self._save_auto_memory(session_id, task, result, project_root))
+        return result
+
+    async def _save_auto_memory(self, session_id, task: str, result: dict, project_root: str) -> None:
+        try:
+            summary = result.get("summary", "")
+            files_changed = result.get("files_changed", [])
+            prompt = (
+                "刚完成一个编程任务，判断有没有值得记住的项目知识"
+                "（构建/测试命令、易错点、用户偏好、架构约定等），方便下次进这个项目时直接用上。\n\n"
+                f"任务: {task[:300]}\n"
+                f"结果摘要: {summary[:500]}\n"
+                f"改动文件: {', '.join(files_changed[:10])}\n\n"
+                "有价值就输出几行 Markdown 要点；没有新增价值（信息已知/任务太琐碎）只输出"
+                "\"无\"。不要输出\"无\"以外的解释性文字。"
+            )
+            resp = await self._call_api(
+                [{"role": "user", "content": prompt}], tools=None, stream=False,
+                override_model="DeepSeek-V4-Flash",
+            )
+            if "error" in resp:
+                return
+            content = (resp.get("content") or "").strip()
+            if not content or content.strip("。") in ("无", "没有", "N/A"):
+                return
+            append_auto_memory(project_root, content)
+            self._log(session_id, "auto_memory_saved", {"path": str(auto_memory_path(project_root))})
+        except Exception:
+            pass

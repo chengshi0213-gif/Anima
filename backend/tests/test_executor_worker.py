@@ -25,6 +25,7 @@ _BACKEND = Path(__file__).parent.parent
 sys.path.insert(0, str(_BACKEND))
 
 import executor_worker as ew  # noqa: E402
+import project_memory as pm  # noqa: E402
 from agent_base import AgentBase  # noqa: E402
 
 
@@ -118,3 +119,106 @@ def test_no_scoped_rule_for_unmatched_file(worker, tmp_path):
 
     read_result = worker.tool_dispatch["file_read"](path=str(target))
     assert "scoped_rule" not in read_result
+
+
+# ════════════════════════════════════════════════════════════════════
+#  A4 — Auto Memory
+# ════════════════════════════════════════════════════════════════════
+
+def test_save_auto_memory_writes_when_useful(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    async def fake_call_api(messages, tools=None, stream=False, override_model=None, on_delta=None):
+        return {"content": "测试命令：pytest -x --tb=short"}
+    monkeypatch.setattr(worker, "_call_api", fake_call_api)
+
+    asyncio.run(worker._save_auto_memory(
+        "sess1", "修个bug", {"summary": "修好了", "files_changed": ["a.py"]}, str(proj)))
+
+    assert "测试命令：pytest -x --tb=short" in pm.read_auto_memory(str(proj))
+
+
+def test_save_auto_memory_skips_when_no_value(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    async def fake_call_api(messages, tools=None, stream=False, override_model=None, on_delta=None):
+        return {"content": "无"}
+    monkeypatch.setattr(worker, "_call_api", fake_call_api)
+
+    asyncio.run(worker._save_auto_memory(
+        "sess1", "修个bug", {"summary": "修好了", "files_changed": ["a.py"]}, str(proj)))
+
+    assert pm.read_auto_memory(str(proj)) == ""
+
+
+def test_save_auto_memory_skips_on_api_error(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    async def fake_call_api(*a, **k):
+        return {"error": "boom"}
+    monkeypatch.setattr(worker, "_call_api", fake_call_api)
+
+    asyncio.run(worker._save_auto_memory(
+        "sess1", "修个bug", {"summary": "x", "files_changed": ["a.py"]}, str(proj)))
+
+    assert pm.read_auto_memory(str(proj)) == ""
+
+
+def test_run_triggers_auto_memory_when_completed_with_files(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        return {"status": "completed", "summary": "done",
+                "files_changed": ["a.py"], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    created = []
+    def fake_create_task(coro):
+        created.append(coro)
+        coro.close()
+        return None
+    monkeypatch.setattr(ew.asyncio, "create_task", fake_create_task)
+
+    asyncio.run(worker.run("task", project=str(proj)))
+    assert len(created) == 1
+
+
+def test_run_skips_auto_memory_when_no_files_changed(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        return {"status": "completed", "summary": "done",
+                "files_changed": [], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    created = []
+    def fake_create_task(coro):
+        created.append(coro)
+        coro.close()
+        return None
+    monkeypatch.setattr(ew.asyncio, "create_task", fake_create_task)
+
+    asyncio.run(worker.run("task", project=str(proj)))
+    assert len(created) == 0
+
+
+def test_run_skips_auto_memory_when_no_project(worker, monkeypatch):
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        return {"status": "completed", "summary": "done",
+                "files_changed": ["a.py"], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    created = []
+    def fake_create_task(coro):
+        created.append(coro)
+        coro.close()
+        return None
+    monkeypatch.setattr(ew.asyncio, "create_task", fake_create_task)
+
+    asyncio.run(worker.run("task", project=None))
+    assert len(created) == 0
