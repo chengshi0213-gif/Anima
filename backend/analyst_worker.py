@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from agent_base import AgentBase
 from config import DEEPSEEK_KEY
+from persona import _VOICE_CORE
 from xi_worker import _read_file, _write_file, _shell_run
 
 ANALYST_SYSTEM_PROMPT = """你是数据分析师，陶朱公司的测算专员，由陶朱 CEO 调度。
@@ -29,7 +30,7 @@ ANALYST_SYSTEM_PROMPT = """你是数据分析师，陶朱公司的测算专员�
 
 ## 收尾
 给：核心结论(数字) → 关键假设 → 敏感区间 → 一句话判断。
-"""
+""" + _VOICE_CORE
 
 
 class AnalystWorker(AgentBase):

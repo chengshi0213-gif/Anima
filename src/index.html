@@ -51,6 +51,10 @@
       <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><polyline points="2,14 7,9 11,13 18,5"/><line x1="2" y1="18" x2="18" y2="18"/></svg>
       仪表盘
     </div>
+    <div class="nav-item" data-tab="lingxi" onclick="switchTab('lingxi',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 17c5-1 8-4 9-9 3 1 5 4 5 7-4 1-8 2-14 2z"/><path d="M3 17c2-4 5-7 9-9"/></svg>
+      今日灵犀
+    </div>
 
     <div class="nav-section-label">对话</div>
 
@@ -107,6 +111,10 @@
 
   <!-- 底部：设置 + 状态 -->
   <div class="sidebar-footer">
+    <div class="nav-item" data-tab="soulspace" onclick="switchTab('soulspace',this)">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2c-1.2 3.3-3.6 5.7-6.9 6.9 3.3 1.2 5.7 3.6 6.9 6.9 1.2-3.3 3.6-5.7 6.9-6.9-3.3-1.2-5.7-3.6-6.9-6.9z"/></svg>
+      灵魂空间
+    </div>
     <div class="nav-item" data-tab="settings" onclick="switchTab('settings',this)">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v1.5M10 16.5V18M2 10h1.5M16.5 10H18M4.1 4.1l1.1 1.1M14.8 14.8l1.1 1.1M15.9 4.1l-1.1 1.1M5.2 14.8l-1.1 1.1"/></svg>
       设置
@@ -193,6 +201,20 @@
             <div class="kanban-col-hdr done">✅ 已完成</div>
             <div class="kanban-cards" id="kanban-done"></div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 今日灵犀 ── -->
+  <div class="tab-panel" id="tab-lingxi">
+    <div class="lingxi-wrap">
+      <div class="lingxi-page">
+        <span class="lingxi-leaf lingxi-leaf-1">🍃</span>
+        <span class="lingxi-leaf lingxi-leaf-2">🌿</span>
+        <div class="lingxi-date" id="lingxiDate"></div>
+        <div class="lingxi-content" id="lingxiContent">
+          <div class="lingxi-loading">翻开今天这一页…</div>
         </div>
       </div>
     </div>
@@ -1172,6 +1194,76 @@
         <p class="about-text">Anima v1.0.0 · Apache 2.0</p>
         <p class="about-text"><a href="#" id="ghLink">GitHub →</a></p>
         <button class="settings-btn" onclick="showOnboarding()" style="margin-top:8px">重新运行设置向导</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       M6 灵魂空间：密码门 + 三室
+       （我的命盘 / 她记得的我 / 我们的时刻）
+  ══════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-soulspace">
+    <!-- 密码门（二次验证，复用 /auth/login） -->
+    <div class="soul-gate" id="soulGate">
+      <div class="ob-card soul-gate-card" style="width:440px">
+        <div class="ob-page active" style="padding-top:40px">
+          <div class="ob-hero">🔮</div>
+          <h2 class="ob-title">灵魂空间</h2>
+          <p class="ob-desc">这里存着她记得的关于你的一切。<br>再验证一次密码，进去看看。</p>
+          <input type="password" id="soulGatePwd" class="ob-input" style="width:100%;margin-bottom:6px"
+                 placeholder="密码" onkeydown="if(event.key==='Enter')soulUnlock()">
+          <div class="auth-err" id="soulGateErr"></div>
+          <div class="ob-actions">
+            <button class="ob-btn-primary" onclick="soulUnlock()" style="width:100%">解锁 →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 三室内容（解锁后显示） -->
+    <div class="soul-content hidden" id="soulContent">
+      <div class="settings-page">
+        <h2>灵魂空间</h2>
+
+        <div class="soul-rooms">
+          <div class="soul-room-tab active" data-room="chart" onclick="soulShowRoom('chart',this)">🔮 我的命盘</div>
+          <div class="soul-room-tab" data-room="profile" onclick="soulShowRoom('profile',this)">📖 她记得的我</div>
+          <div class="soul-room-tab" data-room="moments" onclick="soulShowRoom('moments',this)">💞 我们的时刻</div>
+        </div>
+
+        <!-- 室一：我的命盘 -->
+        <div class="soul-room active" id="soulRoom-chart">
+          <div class="settings-section">
+            <h3>出生信息</h3>
+            <div id="soulBirthInfo" class="soul-birth-info">加载中…</div>
+          </div>
+          <div class="settings-section">
+            <h3>排盘</h3>
+            <button class="settings-btn" onclick="soulPaipan()" id="soulPaipanBtn">🔮 重新排一次</button>
+            <div id="soulChartResult" class="soul-chart-result"></div>
+          </div>
+          <div class="settings-section">
+            <h3>历次解读记录</h3>
+            <div id="soulChartHistory">加载中…</div>
+          </div>
+        </div>
+
+        <!-- 室二：她记得的我 -->
+        <div class="soul-room" id="soulRoom-profile">
+          <div class="settings-section">
+            <h3>她对你的理解</h3>
+            <p class="soul-room-desc">每周从对话里提炼出的画像，标注了来源 —— 觉得不准就删掉，下周会重新生成。</p>
+            <div id="soulProfileList">加载中…</div>
+          </div>
+        </div>
+
+        <!-- 室三：我们的时刻 -->
+        <div class="soul-room" id="soulRoom-moments">
+          <div class="settings-section">
+            <h3>她记着的，关于"我们"</h3>
+            <div id="soulMomentsList">加载中…</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

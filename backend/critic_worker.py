@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from agent_base import AgentBase
 from config import DEEPSEEK_KEY
+from persona import _VOICE_CORE
 from xi_worker import _read_file, _search_code
 
 CRITIC_SYSTEM_PROMPT = """你是评审，陶朱公司的质量把关专员。你的职责是发现问题，由陶朱 CEO 调度。
@@ -24,7 +25,7 @@ CRITIC_SYSTEM_PROMPT = """你是评审，陶朱公司的质量把关专员。你
 - 方案设计：逻辑漏洞、边界条件、可行性、风险点
 - 文档完整性：缺失说明、歧义表述、错误信息
 - 一致性：命名规范、接口契约、数据流向
-"""
+""" + _VOICE_CORE
 
 
 class CriticWorker(AgentBase):

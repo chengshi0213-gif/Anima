@@ -27,9 +27,6 @@
 
   /* ── 人格色：现状映射（统一调性的"一家人"重塑留待 D2 评估，见设计文档 2.3）── */
   --persona-anima:    var(--xi);
-  --persona-yiyi:     var(--yiyi);
-  --persona-tianyuan: var(--tianyuan);
-  --persona-shoucang: var(--shoucang);
   --persona-executor: var(--executor);
   --persona-writer:   var(--writer);
   --persona-reader:   var(--reader);

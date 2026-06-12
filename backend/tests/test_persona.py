@@ -100,3 +100,10 @@ def test_workers_consume_persona():
     w = XiWorker()
     s = w._compose_system()
     assert s.startswith(persona.compose_base_prompt("xi"))
+
+
+def test_xi_memory_confirmation_demo_present():
+    """M1：「记下了」是记忆写入确认的口头禅，需有示范对话支撑（避免名实不符）。"""
+    p = persona.compose_base_prompt("xi")
+    assert "记下了" in p
+    assert "[用：记一下" in p

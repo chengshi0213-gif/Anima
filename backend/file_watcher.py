@@ -18,6 +18,7 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from config import DATA_DIR
+from scheduler import result_to_text
 
 WATCH_DIR  = DATA_DIR / "watcher"
 RULES_FILE = WATCH_DIR / "rules.json"
@@ -188,7 +189,7 @@ class FileWatcherManager:
             "event":     evt_type,
             "path":      src_path,
             "started":   started,
-            "output":    output[:1000],
+            "output":    result_to_text(output)[:1000],
             "ok":        ok,
         })
         self._save_events()

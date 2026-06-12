@@ -2,7 +2,7 @@
  * Anima — chat.js
  * Tab 切换、聊天 UI、模型选择器、文件上传、侧边栏历史
  */
-import { CONFIG, AGENTS, WORKER_DETAILS, wsStatus, chatState, pendingFiles, selectedModel, runtime, escHtml, markdownToHtml, formatTime, toast, agentAvatarHtml, scrollBottom } from './state.js';
+import { CONFIG, AGENTS, WORKER_DETAILS, DELEGATE_CAPS, wsStatus, chatState, pendingFiles, selectedModel, runtime, escHtml, markdownToHtml, formatTime, toast, agentAvatarHtml, scrollBottom } from './state.js';
 import { wsSend } from './ws.js';
 
 // ══════════════════════════════════════════════════
@@ -378,7 +378,27 @@ export function addThinkingStep(agentId, tool, args, turn) {
   if (!box) return;
   const stepsEl = box.querySelector('.thinking-msg .thinking-live-steps');
   if (!stepsEl) return;
-  stepsEl.style.display = 'none';
+  stepsEl.style.display = 'flex';
+
+  const item = document.createElement('div');
+  item.className = 'thinking-step-item running';
+  item.dataset.tool = tool;
+
+  // M-P2：delegate 不展示子员工独立身份，而是显示"她正在调用 XX 能力"
+  // 角标（沿用该能力的主题色），任务派给谁对用户透明但不割裂"她"的统一身份。
+  if (tool === 'delegate') {
+    const cap = DELEGATE_CAPS[args?.role] || { name: args?.role || '子员工', icon:'🤝', cls:'' };
+    const taskPreview = args?.task ? String(args.task).slice(0, 36) : '';
+    item.classList.add('delegate-step');
+    item.innerHTML = `
+      <span class="ts-icon">${cap.icon}</span>
+      <span class="ts-name">她正在调用<span class="delegate-badge ${cap.cls}">${escHtml(cap.name)}</span>能力</span>
+      ${taskPreview ? `<span class="ts-arg">${escHtml(taskPreview)}</span>` : ''}
+      <span class="ts-spin">⟳</span>`;
+    stepsEl.appendChild(item);
+    scrollBottom(agentId);
+    return;
+  }
 
   const TOOL_ICONS = {
     file_read:'📄', file_write:'💾', file_edit:'✏️', file_list:'📁',
@@ -392,9 +412,6 @@ export function addThinkingStep(agentId, tool, args, turn) {
     if (firstVal !== undefined) argSummary = String(firstVal).slice(0, 40);
   }
 
-  const item = document.createElement('div');
-  item.className = 'thinking-step-item running';
-  item.dataset.tool = tool;
   item.innerHTML = `
     <span class="ts-icon">${icon}</span>
     <span class="ts-name">${escHtml(tool)}</span>

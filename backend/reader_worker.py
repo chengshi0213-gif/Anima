@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from agent_base import AgentBase
 from config import KIMI_KEY
+from persona import _VOICE_CORE
 from xi_worker import _read_file, _search_code
 
 READER_SYSTEM_PROMPT = """你是阅读者，陶朱公司的文档分析专员。你能读懂任何长文，由陶朱 CEO 调度。
@@ -24,7 +25,7 @@ READER_SYSTEM_PROMPT = """你是阅读者，陶朱公司的文档分析专员。
 - 合同 / 商业文件要点提取
 - 大型 codebase 快速 onboarding
 - 多文档交叉比对
-"""
+""" + _VOICE_CORE
 
 
 class ReaderWorker(AgentBase):

@@ -18,7 +18,13 @@ from config import PORT_WS, LOG_DIR, SESSIONS_DB, WORKFLOWS_DIR
 from xi_worker import XiWorker
 from yiyi_worker import YiyiWorker
 from tianyuan_worker import TianyuanWorker
-from scholar_worker import ShoucangWorker
+from scholar_worker import (
+    ShoucangWorker,
+    DAILY_SOP_TASK_NAME, DAILY_SOP_TRIGGER, DAILY_SOP_CRON,
+    WEEKLY_PROMOTE_TASK_NAME, WEEKLY_PROMOTE_TRIGGER, WEEKLY_PROMOTE_CRON,
+    WEEKLY_PREF_TASK_NAME, WEEKLY_PREF_TRIGGER, WEEKLY_PREF_CRON,
+    WEEKLY_LANG_TASK_NAME, WEEKLY_LANG_TRIGGER, WEEKLY_LANG_CRON,
+)
 from executor_worker import ExecutorWorker
 from writer_worker import WriterWorker
 from reader_worker import ReaderWorker
@@ -134,14 +140,48 @@ async def main():
     app.router.add_options("/{tail:.*}", _options)
 
     # ── 启动调度器 & 文件监视器 ──
-    async def _run_agent(agent_id: str, prompt: str) -> str:
+    async def _run_agent(agent_id: str, prompt: str):
         srv = servers.get(agent_id)
         if not srv:
             return f"错误：未知 agent {agent_id}"
+        if agent_id == "shoucang" and prompt == DAILY_SOP_TRIGGER:
+            # 守藏每日 SOP：日期感知的多步流程 + 完成后自带 invalidate_cache，
+            # 走专用方法而非通用 run(prompt)；同步方法内部自建 event loop，
+            # 放线程池跑避免与当前事件循环冲突。
+            return await asyncio.to_thread(srv.worker.run_daily_sop)
+        if agent_id == "shoucang" and prompt == WEEKLY_PROMOTE_TRIGGER:
+            # 守藏每周升格 SOP（M2b）：同上，专用方法 + 线程池执行。
+            return await asyncio.to_thread(srv.worker.run_weekly_promotion)
+        if agent_id == "shoucang" and prompt == WEEKLY_PREF_TRIGGER:
+            # 守藏每周偏好学习 SOP（M10）：同上，专用方法 + 线程池执行。
+            return await asyncio.to_thread(srv.worker.run_weekly_pref_learning)
+        if agent_id == "shoucang" and prompt == WEEKLY_LANG_TRIGGER:
+            # 守藏每周语体复盘 SOP（G1）：同上，专用方法 + 线程池执行。
+            return await asyncio.to_thread(srv.worker.run_weekly_lang_review)
         return await srv.worker.run(prompt)
 
     _scheduler.set_run_fn(_run_agent)
     _scheduler.start()
+    # M2a：守藏每日记忆整理系统任务（每天 04:00），重启幂等不重复注册
+    _scheduler.add_task_if_missing(
+        name=DAILY_SOP_TASK_NAME, agent="shoucang", prompt=DAILY_SOP_TRIGGER,
+        trigger_type="cron", trigger_value=DAILY_SOP_CRON,
+    )
+    # M2b：守藏每周记忆升格系统任务（每周一 04:30），重启幂等不重复注册
+    _scheduler.add_task_if_missing(
+        name=WEEKLY_PROMOTE_TASK_NAME, agent="shoucang", prompt=WEEKLY_PROMOTE_TRIGGER,
+        trigger_type="cron", trigger_value=WEEKLY_PROMOTE_CRON,
+    )
+    # M10：守藏每周偏好学习系统任务（每周一 04:45，紧跟M2b的04:30），重启幂等不重复注册
+    _scheduler.add_task_if_missing(
+        name=WEEKLY_PREF_TASK_NAME, agent="shoucang", prompt=WEEKLY_PREF_TRIGGER,
+        trigger_type="cron", trigger_value=WEEKLY_PREF_CRON,
+    )
+    # G1：守藏每周语体复盘系统任务（每周一 05:00，紧跟M10的04:45），重启幂等不重复注册
+    _scheduler.add_task_if_missing(
+        name=WEEKLY_LANG_TASK_NAME, agent="shoucang", prompt=WEEKLY_LANG_TRIGGER,
+        trigger_type="cron", trigger_value=WEEKLY_LANG_CRON,
+    )
     _watcher.set_run_fn(_run_agent)
     _watcher.start()
 

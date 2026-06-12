@@ -8,7 +8,8 @@ cap_divination.py — 命理能力模块（八字 + 紫微）
 
 排盘走确定性引擎（divination.paipan），绝不心算。
 对外导出：
-  DIVINATION_TOOL_DEFS  — 三个工具定义（paipan / load_mingli_reference / search_knowledge）
+  DIVINATION_TOOL_DEFS  — 四个工具定义（paipan / load_mingli_reference / search_knowledge /
+                          record_chart_insight，M9：命盘→画像桥）
   divination_dispatch(agent_id) — 对应的 dispatch（按调用者归属 agent_id）
   ADAPTER_NOTE          — 完整适配说明（晞用，配合 skill 工作流全文）
   BRIEF                 — 精简版命理提示（Anima 用，作为能力片段挂上去）
@@ -102,12 +103,25 @@ def _make_search_knowledge(agent_id: str):
     return _tool_search_knowledge
 
 
+def _make_record_insight(agent_id: str):
+    def _tool_record_insight(trait=None, insight=None, **kw):
+        """M9：把命理解读里看出的稳定特质写成一条 L2 画像洞察（来源=命理，置信=待验证）。"""
+        if not trait or not insight:
+            return {"error": "trait / insight 不能为空"}
+        from memory_injector import write_l2_insight
+        result = write_l2_insight(key=trait, value=insight, agent_id=agent_id, importance=2)
+        result["category"] = "L2"
+        return result
+    return _tool_record_insight
+
+
 def divination_dispatch(agent_id: str = "xi") -> dict:
     """构造命理工具 dispatch，按调用者归属 agent_id（用于 skill/kb 归属）。"""
     return {
         "paipan":                _tool_paipan,
         "load_mingli_reference": _make_load_reference(agent_id),
         "search_knowledge":      _make_search_knowledge(agent_id),
+        "record_chart_insight":  _make_record_insight(agent_id),
     }
 
 
@@ -127,6 +141,12 @@ ADAPTER_NOTE = """
   **按文档口径解读，不要凭记忆编**；但要用你自己的话讲，带上你的语气。
 - 回忆用户过往 → `search_knowledge`。
 若 `time_unknown=true`：八字按三柱讲、紫微命宫不准，要明确告诉用户影响范围，别硬断。
+
+解读快收尾、对用户的性格倾向/决策风格/情感模式聊出了一个相对稳定的判断时，
+调一次 `record_chart_insight` 记一条画像洞察（trait=简短维度，insight=留有余地的一句话，
+结尾点出"这是从命盘上看出来的，我们处久了再验证"）。别为单次运势、流年细节调用——
+只记会反复起作用的"她是这样的人"判断。措辞守住"我猜你是……"而非"你命里就是这样"，
+相悖时以后会被她自己修正。
 """
 
 # Anima 用：精简命理能力提示（不加载 skill 全文，只点明她会、以及怎么用工具）
@@ -138,6 +158,8 @@ BRIEF = """
 - 讲命理知识 → `load_mingli_reference` 按需读文档，按文档口径解，用你自己的话说，别凭记忆编。
 - 回忆用户过往 → `search_knowledge`。
 - `time_unknown=true` 时紫微命宫不准，要说明，别硬断。
+- 解读中聊出稳定的性格/决策/情感判断时，顺手 `record_chart_insight` 记一条画像洞察
+  （留有余地的措辞，"我猜你是……我们处久了验证"），别为单次运势调用。
 """
 
 DIVINATION_TOOL_DEFS = [
@@ -169,6 +191,17 @@ DIVINATION_TOOL_DEFS = [
             "query": {"type": "string", "description": "检索关键词或问题"},
             "top_k": {"type": "integer", "description": "返回条数，默认4"},
         }, "required": ["query"]},
+    }},
+    {"type": "function", "function": {
+        "name": "record_chart_insight",
+        "description": "命理解读后，把解读中体现的、相对稳定的性格/决策风格/情感模式特质"
+                       "记成一条画像洞察（来源=命理，置信=待验证，后续真实互动会验证修正）。"
+                       "只记会反复起作用的稳定特质，不要为单次运势/流年细节调用。",
+        "parameters": {"type": "object", "properties": {
+            "trait":   {"type": "string", "description": "特质维度的简短标题，如'决策风格' '情感模式' '性格倾向'"},
+            "insight": {"type": "string", "description": "一句话洞察，留有余地的措辞（'我猜你是……我们处久了验证'），"
+                                                          "结尾点明这是从命盘上看出来的初步判断，不要说成定论"},
+        }, "required": ["trait", "insight"]},
     }},
 ]
 

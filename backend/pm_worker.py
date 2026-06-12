@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from agent_base import AgentBase
 from config import KIMI_KEY
+from persona import _VOICE_CORE
 from xi_worker import _read_file, _write_file
 
 PM_SYSTEM_PROMPT = """你是产品经理，陶朱公司的产品与计划专员，由陶朱 CEO 调度。
@@ -31,7 +32,7 @@ PM_SYSTEM_PROMPT = """你是产品经理，陶朱公司的产品与计划专员�
 
 ## 收尾
 给：目标与成功标准 → 优先级需求(P0先) → 里程碑排期 → 可分派任务清单。
-"""
+""" + _VOICE_CORE
 
 
 class ProductManagerWorker(AgentBase):

@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from agent_base import AgentBase
 from config import DEEPSEEK_KEY
+from persona import _VOICE_CORE
 from xi_worker import (
     _list_dir, _read_file, _write_file,
     _edit_file, _search_code, _shell_run,
@@ -58,7 +59,7 @@ EXECUTOR_SYSTEM_PROMPT = """你是工程师，陶朱公司的工程交付专员�
 
 ## 收尾
 给一句话总结：做了什么、测试结果如何（贴关键 exit_code/通过数）、改了哪些文件。
-"""
+""" + _VOICE_CORE
 
 
 class ExecutorWorker(AgentBase):

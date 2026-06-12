@@ -294,8 +294,12 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
             from memory_injector import (
                 get_memory_injection, get_project_context,
                 get_active_project_context, get_memory_self_description,
+                reset_session_writes,
             )
-            memory_ctx = get_memory_injection(self.name) + get_memory_self_description(self.name)
+            import pref_learning
+            reset_session_writes(self.name)   # M3：每次 run() 重置单会话写入计数
+            memory_ctx = get_memory_injection(self.name, query=task) + get_memory_self_description(self.name)
+            memory_ctx += pref_learning.get_work_room_injection(self.name)  # M10：E 程序层偏好规则（仅工作房间）
             # 优先：明确传入的 project 参数；其次：当前活跃项目；最后：无
             if project:
                 project_ctx = get_project_context(project)

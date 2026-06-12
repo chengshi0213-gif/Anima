@@ -178,9 +178,10 @@ class XiWorker(AgentBase):
       web         联网检索
       divination  命理排盘（八字 + 紫微）
       orchestration 调动子员工拆大活
-    记忆由 AgentBase 自动注入，不在此列。
+      memory      记忆积木（remember/recall/forget，写入分级见 §3.1）
+    记忆注入仍由 AgentBase 自动处理；此处的 memory 只是写入/检索工具。
     """
-    CAPS = ["execution", "web", "divination", "orchestration", "mcp"]
+    CAPS = ["execution", "web", "divination", "orchestration", "memory", "mcp"]
 
     def __init__(self):
         from capabilities import build as _build_caps

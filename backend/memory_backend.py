@@ -27,6 +27,8 @@ class MemoryEntry:
     importance: int = 3         # 1=低  3=中  5=高
     created_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
     updated_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
+    remind_at: Optional[str] = None   # M8 式④：到期提醒日期，"YYYY-MM-DD"，仅 C 层有意义
+    last_accessed: Optional[str] = None  # M7：最近一次被注入/检索的时间
 
     def to_dict(self) -> dict:
         return {
@@ -34,12 +36,17 @@ class MemoryEntry:
             "category": self.category, "key": self.key,
             "value": self.value, "importance": self.importance,
             "created_at": self.created_at, "updated_at": self.updated_at,
+            "remind_at": self.remind_at,
+            "last_accessed": self.last_accessed,
         }
 
 
 # ── 每个 Agent 关注的记忆分类 ─────────────────────────────────────
+# A/B/C/D 是 M1 起 remember 工具用的写入分级（见 memory-persona-system-plan.md §3.1），
+# 与下面的旧分类（user_profile/preference/...）并存：旧分类是早期手写记忆用的桶，
+# A/B/C/D 是 capabilities.memory 积木的标准分级，两者都需在白名单内才能被注入。
 AGENT_MEMORY_CATEGORIES: dict[str, list[str]] = {
-    "xi":   ["user_profile", "preference", "note", "general"],
+    "xi":   ["user_profile", "preference", "note", "general", "A", "B", "C", "D", "L2"],
     "yiyi":     ["user_profile", "emotional", "general"],
     "tianyuan": ["user_profile", "business", "project", "general"],
     "shoucang":  ["user_profile", "knowledge", "note", "general"],
@@ -59,6 +66,13 @@ CATEGORY_LABELS: dict[str, str] = {
     "project":       "项目上下文",
     "note":          "笔记",
     "general":       "其他记忆",
+    # M1 写入分级（§3.1）
+    "A": "身份恒定",
+    "B": "偏好习惯",
+    "C": "近期状态",
+    "D": "关系记忆",
+    # M2b 升格管线
+    "L2": "画像洞察",
 }
 
 # ── 注入模板（两个后端共用，保证质量一致）─────────────────────────
@@ -104,8 +118,10 @@ class MemoryBackend(ABC):
               value: str,
               category: str = "general",
               agent_id: Optional[str] = None,
-              importance: int = 3) -> str:
-        """写入一条记忆，返回 entry id（同 key 则更新）"""
+              importance: int = 3,
+              remind_at: Optional[str] = None) -> str:
+        """写入一条记忆，返回 entry id（同 key 则更新）。
+        remind_at（M8 式④）：可选的到期提醒日期 "YYYY-MM-DD"。"""
 
     @abstractmethod
     def search(self,

@@ -40,8 +40,8 @@ _tool_search_knowledge = _DISP["search_knowledge"]
 def test_tools_registered():
     w = yw.YiyiWorker()
     names = [t["function"]["name"] for t in w.tool_defs]
-    assert names == ["paipan", "load_mingli_reference", "search_knowledge"]
-    assert set(w.tool_dispatch) == {"paipan", "load_mingli_reference", "search_knowledge"}
+    assert names == ["paipan", "load_mingli_reference", "search_knowledge", "record_chart_insight"]
+    assert set(w.tool_dispatch) == {"paipan", "load_mingli_reference", "search_knowledge", "record_chart_insight"}
     assert w.max_turns == 30
 
 

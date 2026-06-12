@@ -27,9 +27,6 @@
 
   /* ── Agent 颜色 ── */
   --xi:   #2563EB;
-  --yiyi:     #DB2777;
-  --tianyuan: #059669;
-  --shoucang: #7C3AED;
   --executor: #EA580C;
   --writer:   #0891B2;
   --reader:   #65A30D;
@@ -501,13 +498,14 @@ svg.nav-icon { display: inline-block; vertical-align: middle; color: var(--muted
 
 /* Agent avatar 背景色 */
 .xi-bg   { background: #DBEAFE; }
-.yiyi-bg     { background: #FCE7F3; }
-.tianyuan-bg { background: #D1FAE5; }
-.shoucang-bg  { background: #EDE9FE; }
 .executor-bg { background: #FFEDD5; }
 .writer-bg   { background: #CFFAFE; }
 .reader-bg   { background: #ECFCCB; }
 .critic-bg   { background: #F3E8FF; }
+/* M-P2：delegate 能力角标用色（researcher/analyst/product_manager 无独立 tab） */
+.researcher-bg { background: #FEF3C7; }
+.analyst-bg    { background: #FFE4E6; }
+.pm-bg         { background: #E0E7FF; }
 
 /* 消息列表 */
 .chat-messages {
@@ -656,6 +654,16 @@ svg.nav-icon { display: inline-block; vertical-align: middle; color: var(--muted
 .thinking-step-item.fail    { background: #FEF2F2; border-color: #FECACA; }
 .thinking-step-item.fail .ts-spin { color: #DC2626; }
 .thinking-step-item .ts-err { font-size:10px; color: var(--error); margin-left:4px; flex-shrink:0; }
+
+/* M-P2：delegate 步骤——"她正在调用 XX 能力"角标，沿用该能力主题色 */
+.thinking-step-item.delegate-step { max-width: 380px; }
+.thinking-step-item.delegate-step .ts-name { white-space: normal; }
+.delegate-badge {
+  display: inline-flex; align-items: center;
+  padding: 0 6px; margin: 0 3px;
+  border-radius: 6px; font-weight: 700; color: var(--text);
+  border: 1px solid var(--border);
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ═══════════════════════════════════════
@@ -863,7 +871,7 @@ svg.nav-icon { display: inline-block; vertical-align: middle; color: var(--muted
   position: relative;
 }
 /* 整体加一个 outline card 效果 */
-#composer-xi, #composer-yiyi, #composer-tianyuan, #composer-shoucang {
+#composer-xi {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -2845,9 +2853,9 @@ kbd {
   --t-scale:    1;                                              /* 动效节奏倍率 */
 }
 
-/* —— 每个人格一套主题（body[data-agent] 由 switchTab 注入）——
+/* —— 人格主题（body[data-agent] 由 switchTab 注入）——
    配色按用户方向：层次渐变，不用单一平色。
-   Anima=米黄神女光明 / 情感模式=桃花层次粉 / 任务模式=蓝调 / 研究模式=水墨 */
+   Anima=米黄神女光明 */
 
 /* Anima｜私人助理｜米黄·光明神女：暖金从高光到沉金，顶部一抹神性光晕 */
 body[data-agent="xi"] {
@@ -2857,34 +2865,6 @@ body[data-agent="xi"] {
   --agent-wash: radial-gradient(120% 70% at 50% 0%, #FBEAB8 0%, #FCF3DC 38%, transparent 72%);
   --agent-glow: rgba(214,168,23,.24);
   --t-scale:1;
-}
-/* 情感模式｜桃花·层次粉：花瓣由浅到深三层，温柔舒缓 */
-body[data-agent="yiyi"] {
-  --agent:#E0518A; --agent-2:#F49AC1;
-  --agent-grad: linear-gradient(135deg, #FBD3E0 0%, #F49AC1 48%, #E0518A 100%);
-  --agent-soft:#FDF0F5;
-  --agent-wash: linear-gradient(180deg, #FBDDE8 0%, #FCEAF1 44%, transparent 100%);
-  --agent-glow: rgba(224,81,138,.22);
-  --t-scale:1.15;
-}
-/* 任务模式｜蓝调：天青→靛蓝纵深，利落决断 */
-body[data-agent="tianyuan"],
-body[data-agent="tianyuan-team"] {
-  --agent:#1D4ED8; --agent-2:#3B82F6;
-  --agent-grad: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 52%, #1E3A8A 100%);
-  --agent-soft:#EEF3FE;
-  --agent-wash: linear-gradient(180deg, #D7E3FD 0%, #E9F0FE 46%, transparent 100%);
-  --agent-glow: rgba(29,78,216,.22);
-  --t-scale:.82;
-}
-/* 研究模式｜水墨：宣纸暖灰底 + 焦墨渐淡，沉静典雅 */
-body[data-agent="shoucang"] {
-  --agent:#3A3F47; --agent-2:#6B7280;
-  --agent-grad: linear-gradient(135deg, #6B7280 0%, #374151 55%, #161A20 100%);
-  --agent-soft:#F4F2EC;
-  --agent-wash: radial-gradient(130% 80% at 22% 0%, rgba(40,44,52,.16) 0%, rgba(75,85,99,.06) 34%, transparent 70%);
-  --agent-glow: rgba(55,65,81,.20);
-  --t-scale:1.28;
 }
 /* workers（沿用渐变思路） */
 body[data-agent="executor"] { --agent:#C2410C; --agent-2:#F97316; --agent-grad:linear-gradient(135deg,#FB923C,#C2410C); --agent-soft:#FFF1E6; --agent-wash:linear-gradient(180deg,#FCE3CE 0%,#FFF1E6 46%,transparent 100%); --agent-glow:rgba(234,88,12,.20); --t-scale:.82; }
@@ -3016,9 +2996,6 @@ body[data-agent] .thinking-dot { background: var(--agent) !important; }
 
 /* 每模式书法字体（系统自带，回退到全 Windows 都有的楷/宋） */
 body[data-agent="xi"]       .agent-name, body[data-agent="xi"]       .welcome-name{ font-family:"STSong","SimSun","宋体",serif; letter-spacing:.04em; }
-body[data-agent="yiyi"]     .agent-name, body[data-agent="yiyi"]     .welcome-name{ font-family:"STXingkai","华文行楷","STKaiti","KaiTi",cursive; letter-spacing:.04em; }
-body[data-agent="tianyuan"] .agent-name, body[data-agent="tianyuan"] .welcome-name{ font-family:"STXinwei","华文新魏","STZhongsong","SimSun",serif; letter-spacing:.04em; }
-body[data-agent="shoucang"] .agent-name, body[data-agent="shoucang"] .welcome-name{ font-family:"STLiti","隶书","STKaiti","KaiTi",serif; letter-spacing:.08em; }
 .agent-name, .welcome-name{ font-weight:600; }
 
 .sidebar{ position:relative; z-index:2; }
@@ -3335,8 +3312,6 @@ body.mode-companion .chat-header{ display:none !important; }
 .co-name{ font-family:"STSong","STKaiti","SimSun",serif; font-size:34px; font-weight:700; color:#23252a;
   letter-spacing:.05em; text-shadow:0 2px 24px rgba(255,255,255,.6); }
 .co-tag{ display:none; }   /* 下方小字去掉，只留名字 */
-/* 欢迎名字随世界明暗自适应：深色世界用浅字 */
-body.mode-companion[data-agent="yiyi"] .co-name, body.mode-companion[data-agent="tianyuan"] .co-name{ color:#fff; text-shadow:0 2px 24px rgba(0,0,0,.5); }
 
 /* ══ 成就 · 灵犀 ══ */
 .ach-intro{ font-size:13px; line-height:1.7; color:var(--muted); margin:2px 0 18px; max-width:760px; }
@@ -3949,3 +3924,254 @@ body.dark .settings-page h2 {
   white-space: nowrap;
 }
 #backend-down-banner button:hover { background: rgba(255,255,255,.22); }
+
+/* ══════════════════════════════════════════════════
+   M6 灵魂空间：密码门 + 三室
+   （我的命盘 / 她记得的我 / 我们的时刻）
+══════════════════════════════════════════════════ */
+.soul-gate {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.soul-gate.hidden { display: none; }
+
+.soul-content {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+.soul-content.hidden { display: none; }
+
+.soul-rooms {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.soul-room-tab {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color .15s, border-color .15s;
+}
+.soul-room-tab:hover { color: var(--text); }
+.soul-room-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+.soul-room { display: none; }
+.soul-room.active { display: block; }
+
+.soul-room-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.soul-empty {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 8px 0;
+  line-height: 1.6;
+}
+
+/* 室一：我的命盘 */
+.soul-birth-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.soul-birth-row:last-child { border-bottom: none; }
+.soul-birth-row span { color: var(--muted); }
+
+.soul-chart-result:empty { display: none; }
+.soul-chart-md {
+  font-size: 13px;
+  line-height: 1.7;
+  padding: 14px 16px;
+  background: var(--surface2);
+  border-radius: var(--radius-sm, 8px);
+  margin-top: 12px;
+}
+
+.soul-history-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 8px);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.soul-history-item summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  list-style: none;
+}
+.soul-history-item summary::-webkit-details-marker { display: none; }
+.soul-history-item[open] summary { border-bottom: 1px solid var(--border); }
+.soul-history-item .soul-chart-md {
+  margin-top: 0;
+  border-radius: 0;
+  background: none;
+}
+
+/* 室二：她记得的我（L2 画像） */
+.soul-l2-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.soul-l2-row:last-child { border-bottom: none; }
+.soul-l2-main { flex: 1; min-width: 0; }
+.soul-l2-key {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 4px;
+}
+.soul-l2-text { font-size: 13.5px; line-height: 1.6; }
+.soul-l2-sources {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.soul-l2-source-tag {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: default;
+}
+
+/* 室三：我们的时刻 */
+.soul-moment-date {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 600;
+  margin: 16px 0 6px;
+}
+.soul-moment-date:first-child { margin-top: 0; }
+.soul-moment-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+}
+.soul-moment-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.soul-moment-main { flex: 1; min-width: 0; }
+.soul-moment-key {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.soul-moment-text { font-size: 13.5px; line-height: 1.6; }
+
+/* ══════════════════════════════════════════════════════
+   今日灵犀 — 手写手账风日记
+   ══════════════════════════════════════════════════════ */
+.lingxi-wrap {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-8) var(--space-4) var(--space-10);
+}
+
+.lingxi-page {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  height: fit-content;
+  background: #FCF7EB;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 44px 40px 40px 64px;
+}
+
+body.dark .lingxi-page { background: #2E2A21; }
+
+/* 左侧装订线 */
+.lingxi-page::before {
+  content: '';
+  position: absolute;
+  left: 34px;
+  top: 28px;
+  bottom: 28px;
+  width: 1px;
+  background: rgba(199, 90, 60, .22);
+}
+
+.lingxi-leaf {
+  position: absolute;
+  font-size: 22px;
+  opacity: .5;
+  pointer-events: none;
+}
+.lingxi-leaf-1 { top: 16px; right: 26px; transform: rotate(12deg); }
+.lingxi-leaf-2 { bottom: 18px; right: 46px; font-size: 18px; transform: rotate(-18deg); }
+
+.lingxi-date {
+  font-family: "STKaiti", "KaiTi", "华文楷体", cursive;
+  font-size: 14px;
+  color: var(--muted);
+  letter-spacing: .08em;
+  margin-bottom: 26px;
+}
+
+.lingxi-content {
+  font-family: "STKaiti", "KaiTi", "华文楷体", cursive;
+  font-size: 17px;
+  line-height: 2;
+  color: var(--text);
+}
+
+.lingxi-content p {
+  margin: 0 0 20px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .8s var(--ease-out), transform .8s var(--ease-out);
+}
+.lingxi-content p.show { opacity: 1; transform: translateY(0); }
+
+.lingxi-content p.lingxi-sign {
+  margin-top: 28px;
+  text-align: right;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.lingxi-loading, .lingxi-empty {
+  font-family: "STKaiti", "KaiTi", "华文楷体", cursive;
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--muted);
+  padding: 32px 0;
+}

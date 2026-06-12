@@ -17,6 +17,7 @@ worker 用 build() 把它们组装成 tool_defs / dispatch / 提示词。
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -50,6 +51,30 @@ _ORCH_FRAGMENT = """
 遇到大的、能拆开的活——多步工程、要写长文、要做调研、要评审挑错——别一个人闷头扛。
 先 list_subagents() 看看你手下有谁，再用 delegate(role, task) 把边界清楚的子任务派出去，
 收回结果你来合成、把关。小事自己顺手做，不必动用队伍。你是拿主意和兜底的那个。
+"""
+
+_MEMORY_FRAGMENT = """
+## 记忆（remember / recall / forget）
+
+记忆是关系的底子，不是任务清单，别什么都往里塞。
+
+什么值得记，按四级分类，写入时用 category 标注：
+- A 身份恒定：生日、家人、职业、出生信息——近乎不变的事实。
+- B 偏好习惯：用户自己说出来的喜恶、习惯、雷点，如不吃香菜、讨厌被催、习惯夜里工作。
+- C 近期状态：正在做的事、近期计划、近期情绪，如下周出差、最近失眠——这类信息会过期，标 C。
+  如果带具体日期（评审、截止、出差当天），顺手填上 remind_at="YYYY-MM-DD"，
+  到点前一天会被自动整理出来，让你能主动提一句。
+- D 关系记忆：你们之间发生的事——她许过的承诺、用户的反馈、吵过的架、自己说错过的话。
+  这层最容易被忽略，但最造人感："上次你说那句话太冲，我记着呢"比记一百条偏好都像人，遇到了别漏。
+
+什么不记：一次性指令、寒暄客套、聊天里随时能重建的信息。
+健康、财务等敏感细节，先问一句"这个要记下来吗"，用户确认了再写。
+
+写完用"记下了。"这类口头禅简短确认，不解释存哪、用了什么分类。
+聊到相关的事先 recall 一下，让记忆自然渗入，别摆着不用；信息过时或用户要求忘掉的就 forget。
+
+如果 remember 返回 conflict（新旧记忆对不上），别硬塞、别解释系统原理，
+直接问出来，比如"咦，你之前说的是 X，现在变了？"——等用户确认了再 remember 一次。
 """
 
 
@@ -138,6 +163,92 @@ def _orchestration_cap(agent_id: str) -> Capability:
                       build_orchestration_dispatch(), _ORCH_FRAGMENT)
 
 
+def _memory_cap(agent_id: str) -> Capability:
+    """第 6 块积木（M1）：记忆能力——remember / recall / forget。
+    接到 memory_injector 现成的 write/search/delete/list 接口，
+    写入分级（A/B/C/D）见 _MEMORY_FRAGMENT（§3.1）。"""
+    from memory_injector import write_memory_gated, search_memory, delete_memory, list_memory
+
+    defs = [
+        {"type": "function", "function": {
+            "name": "remember",
+            "description": "把值得长期记住的事实写入记忆。同一 key 再写会更新而非重复。"
+                           "写完用简短口头禅确认（如「记下了。」），不必解释存哪、用了什么分类。",
+            "parameters": {"type": "object", "properties": {
+                "key": {"type": "string", "description": "记忆要点的简短标题，如 '常驻城市' '下周行程' '不吃香菜'"},
+                "value": {"type": "string", "description": "记忆内容正文"},
+                "category": {"type": "string", "enum": ["A", "B", "C", "D"],
+                             "description": "A=身份恒定 B=偏好习惯 C=近期状态(会过期) D=关系记忆(承诺/反馈/吵过的架)"},
+                "importance": {"type": "integer", "description": "重要度 1-5，默认 3"},
+                "remind_at": {"type": "string",
+                              "description": "可选，'YYYY-MM-DD'。仅 C 层(近期状态)用——"
+                                              "用户提到一个有具体日期的事(评审/截止/出差)时填上，"
+                                              "到期前一天会被自动收进每日整理，让你能主动提一句。"},
+            }, "required": ["key", "value", "category"]}}},
+        {"type": "function", "function": {
+            "name": "recall",
+            "description": "搜索已有记忆。聊到相关话题时主动用一下，让记忆自然渗入对话，别摆着不用。",
+            "parameters": {"type": "object", "properties": {
+                "query": {"type": "string", "description": "搜索关键词或话题"},
+            }, "required": ["query"]}}},
+        {"type": "function", "function": {
+            "name": "forget",
+            "description": "按 key 精确删除一条记忆。用户明确要求忘掉，或信息已过时无需保留时用。",
+            "parameters": {"type": "object", "properties": {
+                "key": {"type": "string", "description": "要删除的记忆 key（需与写入时一致）"},
+            }, "required": ["key"]}}},
+    ]
+
+    def _remember(**kw):
+        key, value = kw["key"], kw["value"]
+        category = kw.get("category", "C")
+        if category not in ("A", "B", "C", "D"):
+            category = "C"
+        try:
+            importance = max(1, min(5, int(kw.get("importance", 3))))
+        except Exception:
+            importance = 3
+        remind_at = kw.get("remind_at") or None
+        if remind_at and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", remind_at):
+            remind_at = None
+        result = write_memory_gated(key=key, value=value, category=category,
+                                    agent_id=agent_id, importance=importance,
+                                    remind_at=remind_at)
+        if result["ok"]:
+            return {"ok": True, "id": result["id"], "key": result["key"], "category": category}
+        if result["reason"] == "conflict":
+            return {"ok": False, "conflict": True,
+                    "existing_key": result["existing_key"],
+                    "existing_value": result["existing_value"],
+                    "new_value": result["new_value"],
+                    "hint": "别静默改写，先用一句「咦，你之前说的是…现在变了？」跟用户确认，"
+                            "确认后再 remember 一次。"}
+        return {"ok": False, "reason": result["reason"], "message": result["message"]}
+
+    def _recall(**kw):
+        query = kw.get("query", "")
+        if not query:
+            return {"error": "query 为空"}
+        entries = search_memory(query, agent_id=agent_id)
+        return {"results": [
+            {"key": e.key, "value": e.value, "category": e.category,
+             "importance": e.importance, "updated_at": e.updated_at}
+            for e in entries
+        ]}
+
+    def _forget(**kw):
+        key = kw.get("key", "")
+        if not key:
+            return {"error": "key 为空"}
+        target = next((e for e in list_memory(agent_id=agent_id) if e.key == key), None)
+        if not target:
+            return {"ok": False, "error": f"未找到记忆: {key}"}
+        return {"ok": delete_memory(target.id), "key": key}
+
+    dispatch = {"remember": _remember, "recall": _recall, "forget": _forget}
+    return Capability("memory", defs, dispatch, _MEMORY_FRAGMENT)
+
+
 def _mcp_cap(agent_id: str) -> Capability:
     """第 5 块积木（M11）：已连接的 MCP 外部工具。
     构造期 snapshot 多为空（boot 可能晚于 worker 构造，用户也可能运行中加 server）；
@@ -155,6 +266,7 @@ _FACTORIES: dict[str, Callable[[str], Capability]] = {
     "web":           _web_cap,
     "divination":    _divination_cap,
     "orchestration": _orchestration_cap,
+    "memory":        _memory_cap,
     "mcp":           _mcp_cap,
 }
 
