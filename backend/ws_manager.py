@@ -108,16 +108,18 @@ class WorkerServer:
         session_id = data.get("session_id") or f"{self.worker.name}-{int(asyncio.get_event_loop().time())}"
         return message, model, session_id, ""
 
-    def _spawn_task(self, task, selected_model):
+    def _spawn_task(self, task, selected_model, plan_mode=False):
         """把任务跑成主循环上的 asyncio.Task：不阻塞消息循环，可 cancel / 重连。
         task 自身当作 ws 传给 worker.run（缓冲事件 + 转发给当前 attach 的 ws），
         这样断线重连 task_attach 即可换上新 ws 并 replay，流不丢。"""
         async def _run():
             self.tasks.set_status(task, "running")
             try:
-                result = await self.worker.run(
-                    task.message, session_id=task.session_id,
-                    model=selected_model, ws=task)
+                run_kwargs = dict(session_id=task.session_id,
+                                  model=selected_model, ws=task)
+                if plan_mode:
+                    run_kwargs["plan_mode"] = True
+                result = await self.worker.run(task.message, **run_kwargs)
             except asyncio.CancelledError:
                 self.tasks.set_status(task, "cancelled", "已取消")
                 await task.send_json({"type": "response", "data": {
@@ -162,12 +164,13 @@ class WorkerServer:
             await ws.send_json({"type": "error", "message": err})
             return
         self.current_session_id = session_id
+        plan_mode = bool(data.get("plan_mode", False))
         task = self.tasks.create(self.worker.name, session_id, message)
         self.tasks.attach(task.task_id, ws)
         await ws.send_json({"type": "status", "status": "running",
                             "session_id": session_id, "task_id": task.task_id,
                             "model": selected_model})
-        self._spawn_task(task, selected_model)
+        self._spawn_task(task, selected_model, plan_mode=plan_mode)
 
     @staticmethod
     async def _safe_send(ws, payload):

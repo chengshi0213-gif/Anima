@@ -444,3 +444,151 @@ def test_no_effort_keeps_defaults(worker, monkeypatch, tmp_path):
 
     assert caps_during_run["max_turns"] == orig_max_turns
     assert caps_during_run["tool_result_cap"] == orig_cap
+
+
+# ════════════════════════════════════════════════════════════════════
+#  D1 — Plan Mode
+# ════════════════════════════════════════════════════════════════════
+
+def test_parse_plan_prefix():
+    is_plan, task = ew._parse_plan_prefix("plan: 重构认证模块")
+    assert is_plan is True
+    assert task == "重构认证模块"
+
+
+def test_parse_plan_prefix_chinese_colon():
+    is_plan, task = ew._parse_plan_prefix("Plan：重构")
+    assert is_plan is True
+    assert task == "重构"
+
+
+def test_parse_plan_prefix_none():
+    is_plan, task = ew._parse_plan_prefix("修个 bug")
+    assert is_plan is False
+    assert task == "修个 bug"
+
+
+def test_plan_mode_restricts_tools(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    captured_tools: dict[str, list] = {}
+    call_count = {"n": 0}
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        call_count["n"] += 1
+        captured_tools[f"phase{call_count['n']}"] = [
+            d["function"]["name"] for d in self.tool_defs]
+        return {"status": "completed", "summary": '{"plan":["step1"]}',
+                "files_changed": ["a.py"] if call_count["n"] > 1 else [],
+                "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    async def fake_ask(question, choices=None, timeout=120):
+        return {"answer": "批准执行", "timed_out": False}
+    monkeypatch.setattr(worker, "_ask_user", fake_ask)
+
+    asyncio.run(worker.run("plan: 重构模块", project=str(proj)))
+
+    for name in captured_tools["phase1"]:
+        assert name in ew._PLAN_READ_ONLY
+    assert "file_write" not in captured_tools["phase1"]
+    assert "file_write" in captured_tools["phase2"]
+
+
+def test_plan_mode_cancel(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        return {"status": "completed", "summary": "plan here",
+                "files_changed": [], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    async def fake_ask(question, choices=None, timeout=120):
+        return {"answer": "取消", "timed_out": False}
+    monkeypatch.setattr(worker, "_ask_user", fake_ask)
+
+    result = asyncio.run(worker.run("plan: 大重构", project=str(proj)))
+    assert result["status"] == "cancelled"
+
+
+def test_plan_mode_modify_feedback_loop(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    call_count = {"n": 0}
+    captured_tasks: list[str] = []
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        call_count["n"] += 1
+        captured_tasks.append(task)
+        return {"status": "completed", "summary": f"plan_v{call_count['n']}",
+                "files_changed": ["a.py"] if call_count["n"] == 3 else [],
+                "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    ask_n = {"n": 0}
+    async def fake_ask(question, choices=None, timeout=120):
+        ask_n["n"] += 1
+        if ask_n["n"] == 1:
+            return {"answer": "需要修改", "timed_out": False}
+        if ask_n["n"] == 2:
+            return {"answer": "加上错误处理", "timed_out": False}
+        return {"answer": "批准执行", "timed_out": False}
+    monkeypatch.setattr(worker, "_ask_user", fake_ask)
+
+    result = asyncio.run(worker.run("plan: 重构", project=str(proj)))
+    assert call_count["n"] == 3
+    assert "修改意见" in captured_tasks[1]
+    assert result["status"] == "completed"
+
+
+def test_plan_mode_param_flag(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    captured_names: list[str] = []
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        captured_names.extend(d["function"]["name"] for d in self.tool_defs)
+        return {"status": "completed", "summary": "plan",
+                "files_changed": [], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    async def fake_ask(question, choices=None, timeout=120):
+        return {"answer": "取消", "timed_out": False}
+    monkeypatch.setattr(worker, "_ask_user", fake_ask)
+
+    asyncio.run(worker.run("重构模块", plan_mode=True, project=str(proj)))
+    assert "file_write" not in captured_names
+
+
+def test_plan_mode_tools_restored_on_error(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    orig_count = len(worker.tool_defs)
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        raise RuntimeError("boom")
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(worker.run("plan: 爆炸", project=str(proj)))
+    assert len(worker.tool_defs) == orig_count
+
+
+def test_plan_prefix_with_effort_combo(worker, monkeypatch, tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    caps_seen: dict = {}
+
+    async def fake_run(self, task, session_id=None, model=None, ws=None, project=None):
+        caps_seen["max_turns"] = self.max_turns
+        return {"status": "completed", "summary": "plan",
+                "files_changed": [], "turn_count": 1}
+    monkeypatch.setattr(AgentBase, "run", fake_run)
+
+    async def fake_ask(question, choices=None, timeout=120):
+        return {"answer": "取消", "timed_out": False}
+    monkeypatch.setattr(worker, "_ask_user", fake_ask)
+
+    asyncio.run(worker.run("plan: deep: 重构", project=str(proj)))
+    assert caps_seen["max_turns"] == 120

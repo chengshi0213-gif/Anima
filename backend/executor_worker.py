@@ -60,6 +60,35 @@ def _parse_effort(task: str) -> tuple[str | None, str]:
     return None, task
 
 
+# ── D1: Plan Mode（先调研出方案 → 批准 → 再执行）──────────────
+_PLAN_READ_ONLY = frozenset({
+    "list_dir", "file_read", "search_code", "glob_files", "map_project",
+    "find_symbol", "find_usages", "search_code_ctx",
+    "git_status", "git_diff", "git_log",
+    "read_pdf", "read_image", "http_request",
+})
+
+_PLAN_PREFIX_RE = re.compile(r"^plan\s*[:：]\s*", re.IGNORECASE)
+
+_PLAN_PROMPT_SUFFIX = """
+
+## 当前模式：方案规划（只读）
+
+你只能使用只读工具调研，不能修改文件。充分调研后，输出结构化方案：
+
+```json
+{"plan": ["步骤1: ...", "步骤2: ..."], "files_to_change": ["path/file.py"], "risks": ["风险1"]}
+```
+"""
+
+
+def _parse_plan_prefix(task: str) -> tuple[bool, str]:
+    m = _PLAN_PREFIX_RE.match(task)
+    if m:
+        return True, task[m.end():]
+    return False, task
+
+
 # ── A2: file_read/file_edit 接路径作用域规则（.anima/rules/*.md，按需追加）──
 
 def _read_file_scoped(worker: "ExecutorWorker", path: str, offset: int = 0, limit: int = 600) -> dict:
@@ -389,8 +418,47 @@ class ExecutorWorker(AgentBase):
         if self._ask_event:
             self._ask_event.set()
 
+    async def _run_plan_mode(self, task: str, session_id, model, ws, project) -> dict:
+        """D1: 规划模式——只读调研 → 出方案 → 批准 → 执行。"""
+        full_defs = self.tool_defs
+        full_dispatch = self.tool_dispatch
+        self.tool_defs = [d for d in full_defs
+                          if d["function"]["name"] in _PLAN_READ_ONLY]
+        self.tool_dispatch = {k: v for k, v in full_dispatch.items()
+                              if k in _PLAN_READ_ONLY}
+        try:
+            plan_result = await super().run(
+                task + _PLAN_PROMPT_SUFFIX, session_id, model, ws, project)
+        finally:
+            self.tool_defs = full_defs
+            self.tool_dispatch = full_dispatch
+
+        plan_text = plan_result.get("summary", "")
+        approval = await self._ask_user(
+            f"方案规划完成，请审批：\n\n{plan_text}",
+            ["批准执行", "需要修改", "取消"],
+        )
+        answer = approval.get("answer", "")
+
+        if answer == "取消" or (approval.get("timed_out") and not answer):
+            return {**plan_result, "status": "cancelled",
+                    "summary": f"规划已取消\n\n{plan_text}"}
+
+        if answer == "需要修改":
+            feedback = await self._ask_user("请提供修改意见：")
+            revised = (f"{task}\n\n上一版方案：\n{plan_text}"
+                       f"\n\n修改意见：{feedback.get('answer', '')}")
+            return await self._run_plan_mode(revised, session_id, model, ws, project)
+
+        exec_task = (f"{task}\n\n## 已批准的执行计划\n{plan_text}"
+                     f"\n\n请严格按照上述计划执行，用 update_plan 报告进度。")
+        return await super().run(exec_task, session_id, model, ws, project)
+
     async def run(self, task: str, session_id=None, model=None, ws=None,
-                  project: str | None = None) -> dict:
+                  project: str | None = None, plan_mode: bool = False) -> dict:
+        # D1: plan: 前缀也触发规划模式
+        plan_prefix, task = _parse_plan_prefix(task)
+        plan_mode = plan_mode or plan_prefix
         # C3: 解析 effort 前缀并临时覆盖参数
         effort_name, task = _parse_effort(task)
         effort = EFFORT_LEVELS.get(effort_name, {})
@@ -425,7 +493,10 @@ class ExecutorWorker(AgentBase):
                     task = task + mem_ctx
             except Exception:
                 pass
-            result = await super().run(task, session_id, model, ws, project)
+            if plan_mode:
+                result = await self._run_plan_mode(task, session_id, model, ws, project)
+            else:
+                result = await super().run(task, session_id, model, ws, project)
             if project and result.get("status") == "completed" and result.get("files_changed"):
                 asyncio.create_task(self._save_auto_memory(session_id, task, result, project_root))
             return result
