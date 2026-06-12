@@ -198,9 +198,6 @@ LIST_SUBAGENTS_TOOL_DEF = {
     },
 }
 
-ORCHESTRATION_TOOL_DEFS = [DELEGATE_TOOL_DEF, LIST_SUBAGENTS_TOOL_DEF]
-
-
 def build_orchestration_dispatch(allowed_roles: Optional[set[str]] = None) -> dict:
     """返回 {tool_name: callable} 供 worker 合并进 tool_dispatch。
 
@@ -212,7 +209,74 @@ def build_orchestration_dispatch(allowed_roles: Optional[set[str]] = None) -> di
             kw["role"], kw["task"], kw.get("context", ""), kw.get("model"),
             allowed_roles=allowed_roles),
         "list_subagents": lambda **kw: list_subagents(),
+        "delegate_parallel": lambda **kw: delegate_parallel(
+            kw["tasks"], allowed_roles=allowed_roles),
     }
+
+
+_MAX_PARALLEL = 4
+
+
+def delegate_parallel(tasks: list[dict],
+                      allowed_roles: Optional[set[str]] = None) -> dict:
+    """N4: 并行派发多个子任务。tasks: [{role, task, context?}, ...]
+    每个任务一个线程（复用 delegate 逻辑），全部完成后汇总返回。
+    上限 4 路并行，超出排队。受 _MAX_DEPTH/_MAX_TREE_DELEGATIONS 约束。"""
+    if not tasks or not isinstance(tasks, list):
+        return {"error": "tasks 必须是非空列表"}
+    if len(tasks) > 10:
+        return {"error": f"一次最多 10 个并行子任务，收到 {len(tasks)}"}
+    results = [None] * len(tasks)
+
+    def _run_one(idx, spec):
+        results[idx] = delegate(
+            spec.get("role", "executor"),
+            spec.get("task", ""),
+            spec.get("context", ""),
+            spec.get("model"),
+            allowed_roles=allowed_roles,
+        )
+
+    # 分批并行（每批 _MAX_PARALLEL 个）
+    for batch_start in range(0, len(tasks), _MAX_PARALLEL):
+        batch = tasks[batch_start:batch_start + _MAX_PARALLEL]
+        threads = []
+        for i, spec in enumerate(batch):
+            t = threading.Thread(
+                target=_run_one, args=(batch_start + i, spec), daemon=True)
+            threads.append(t)
+            t.start()
+        for t in threads:
+            t.join()
+    return {"results": results, "count": len(results)}
+
+
+DELEGATE_PARALLEL_TOOL_DEF = {
+    "type": "function",
+    "function": {
+        "name": "delegate_parallel",
+        "description": "并行派发多个独立子任务（最多 4 路并行）。适合「把这 5 个模块分别重构」类场景。"
+                       "每个任务独立完成后汇总返回。受深度与预算约束。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "items": {"type": "object", "properties": {
+                        "role": {"type": "string", "description": "子员工角色"},
+                        "task": {"type": "string", "description": "子任务描述"},
+                        "context": {"type": "string", "description": "可选背景"},
+                    }, "required": ["role", "task"]},
+                    "description": "子任务列表",
+                },
+            },
+            "required": ["tasks"],
+        },
+    },
+}
+
+
+ORCHESTRATION_TOOL_DEFS = [DELEGATE_TOOL_DEF, DELEGATE_PARALLEL_TOOL_DEF, LIST_SUBAGENTS_TOOL_DEF]
 
 
 def lead_delegate_tool_defs(allowed_roles: set[str]) -> list[dict]:

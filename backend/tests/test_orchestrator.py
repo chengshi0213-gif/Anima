@@ -98,10 +98,11 @@ def test_delegate_subagent_exception(monkeypatch):
 
 def test_build_dispatch_and_tool_defs():
     names = {d["function"]["name"] for d in orch.ORCHESTRATION_TOOL_DEFS}
-    assert names == {"delegate", "list_subagents"}
+    assert names == {"delegate", "delegate_parallel", "list_subagents"}
     d = orch.build_orchestration_dispatch()
-    assert set(d) == {"delegate", "list_subagents"}
+    assert set(d) == {"delegate", "delegate_parallel", "list_subagents"}
     assert callable(d["delegate"]) and callable(d["list_subagents"])
+    assert callable(d["delegate_parallel"])
     # delegate 工具的 enum 与注册表一致
     deleg = next(x for x in orch.ORCHESTRATION_TOOL_DEFS
                  if x["function"]["name"] == "delegate")
