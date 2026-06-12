@@ -123,6 +123,91 @@ def _search_code(pattern: str, path: str = ".", file_glob: str = "*", limit: int
     except Exception as e:
         return {"error": str(e)}
 
+
+def _glob_files(pattern: str, path: str = ".", limit: int = 100) -> dict:
+    """按文件名 glob 模式查找文件（支持 ** 递归，如 '**/*.test.py'）。
+    区别于 search_code（搜内容）——这里只按文件名匹配，结果按修改时间降序，
+    最近改动的在前，符合「找最相关文件」的直觉。命中护栏的敏感文件自动跳过。"""
+    _blk = _sandbox(path, write=False)
+    if _blk:
+        return _blk
+    try:
+        import path_sandbox
+        base = Path(path)
+        if not base.exists():
+            return {"error": f"路径不存在: {path}"}
+        matches = []
+        for fpath in base.glob(pattern):
+            if not fpath.is_file():
+                continue
+            try:
+                _ok, _ = path_sandbox.check_path(str(fpath), write=False)
+                if not _ok:
+                    continue
+            except Exception:
+                pass
+            matches.append(fpath)
+            if len(matches) >= 2000:   # 安全上限，避免巨型目录撑爆
+                break
+        matches.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+        files = [str(f) for f in matches[:limit]]
+        return {"pattern": pattern, "path": path, "files": files,
+                "count": len(files), "truncated": len(matches) > limit}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# 项目全景树跳过的噪声目录（依赖/缓存/构建产物/IDE）
+_MAP_IGNORE = {
+    ".git", "node_modules", "__pycache__", ".venv", "venv", "env",
+    "dist", "build", ".next", ".nuxt", ".cache", "target", ".idea",
+    ".vscode", "coverage", ".pytest_cache", ".mypy_cache", "site-packages",
+    ".gradle", "vendor", ".turbo", ".parcel-cache",
+}
+
+def _map_project(root: str = ".", max_depth: int = 3) -> dict:
+    """项目全景目录树：渲染缩进树（自动跳过 node_modules/.git 等噪声），
+    供 Agent 开工第一步快速建立项目结构认知，省下前几轮的逐目录探索。"""
+    _blk = _sandbox(root, write=False)
+    if _blk:
+        return _blk
+    try:
+        base = Path(root)
+        if not base.exists():
+            return {"error": f"路径不存在: {root}"}
+        lines: list[str] = []
+        counts = {"dirs": 0, "files": 0}
+        MAX_ENTRIES = 400
+
+        def walk(d: Path, depth: int):
+            if depth > max_depth or len(lines) >= MAX_ENTRIES:
+                return
+            try:
+                entries = sorted(d.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
+            except Exception:
+                return
+            for item in entries:
+                if len(lines) >= MAX_ENTRIES:
+                    return
+                if item.is_dir():
+                    if item.name in _MAP_IGNORE:
+                        continue
+                    counts["dirs"] += 1
+                    lines.append("  " * depth + item.name + "/")
+                    walk(item, depth + 1)
+                else:
+                    counts["files"] += 1
+                    lines.append("  " * depth + item.name)
+
+        walk(base, 0)
+        truncated = len(lines) >= MAX_ENTRIES
+        return {"root": str(base), "tree": "\n".join(lines),
+                "dirs": counts["dirs"], "files": counts["files"],
+                "truncated": truncated}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 import re as _re
 
 # 精确危险命令检测（替换旧的裸子串匹配，避免误杀 npm run format / git log --format 等正常命令）

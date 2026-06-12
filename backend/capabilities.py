@@ -80,7 +80,8 @@ _MEMORY_FRAGMENT = """
 
 # ── 能力工厂（惰性 import 真实实现）──────────────────────
 def _execution_cap(agent_id: str) -> Capability:
-    from xi_worker import _list_dir, _read_file, _write_file, _edit_file, _search_code, _shell_run
+    from xi_worker import (_list_dir, _read_file, _write_file, _edit_file,
+                           _search_code, _shell_run, _glob_files, _map_project)
     defs = [
         {"type": "function", "function": {
             "name": "list_dir", "description": "列出目录内容（递归，可指定深度）",
@@ -88,6 +89,23 @@ def _execution_cap(agent_id: str) -> Capability:
                 "path": {"type": "string"},
                 "max_depth": {"type": "integer", "description": "最大深度（默认2）"},
             }, "required": ["path"]}}},
+        {"type": "function", "function": {
+            "name": "glob_files",
+            "description": "按文件名 glob 模式查找文件（支持 ** 递归，如 '**/*.test.py'）。"
+                           "找文件用它，搜文件内容用 search_code。",
+            "parameters": {"type": "object", "properties": {
+                "pattern": {"type": "string", "description": "glob 模式，如 '**/*.py'"},
+                "path": {"type": "string", "description": "搜索根目录，默认当前目录"},
+                "limit": {"type": "integer", "description": "最多返回文件数（默认100）"},
+            }, "required": ["pattern"]}}},
+        {"type": "function", "function": {
+            "name": "map_project",
+            "description": "获取项目全景目录树（自动跳过 node_modules/.git 等噪声）。"
+                           "进入一个陌生项目时第一步先调它，快速建立结构认知。",
+            "parameters": {"type": "object", "properties": {
+                "root": {"type": "string", "description": "项目根目录，默认当前目录"},
+                "max_depth": {"type": "integer", "description": "树最大深度（默认3）"},
+            }, "required": []}}},
         {"type": "function", "function": {
             "name": "file_read", "description": "读取文件内容（支持行范围）",
             "parameters": {"type": "object", "properties": {
@@ -118,6 +136,8 @@ def _execution_cap(agent_id: str) -> Capability:
     ]
     dispatch = {
         "list_dir":    lambda **kw: _list_dir(kw["path"], kw.get("max_depth", 2)),
+        "glob_files":  lambda **kw: _glob_files(kw["pattern"], kw.get("path", "."), kw.get("limit", 100)),
+        "map_project": lambda **kw: _map_project(kw.get("root", "."), kw.get("max_depth", 3)),
         "file_read":   lambda **kw: _read_file(kw["path"], kw.get("offset", 0), kw.get("limit", 200)),
         "file_write":  lambda **kw: _write_file(kw["path"], kw["content"]),
         "file_edit":   lambda **kw: _edit_file(kw["path"], kw["old_string"], kw["new_string"], kw.get("replace_all", False)),
