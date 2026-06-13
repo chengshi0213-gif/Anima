@@ -72,6 +72,8 @@ class WorkerServer:
                     "task_cancel":       self._handle_task_cancel,
                     # ── M14 内核3：危险操作确认答复 ──
                     "confirm_response":  self._handle_confirm_response,
+                    # ── H1 v1.2.3：运行中插话 / 优雅停止 ──
+                    "steer":             self._handle_steer,
                     # ── C1 v1.2.2：用户回答 ask_user ──
                     "user_answer":       self._handle_user_answer,
                 }
@@ -284,6 +286,22 @@ class WorkerServer:
             bool(data.get("approved", False)),
             data.get("scope", "once"))
         await ws.send_json({"type": "response", "data": {"resolved": ok}})
+
+    async def _handle_steer(self, ws, data):
+        """H1: 运行中插话或优雅停止。
+        {"action":"steer", "session_id":"...", "content":"改方向"}  → 插话
+        {"action":"steer", "session_id":"...", "cancel": true}     → 优雅停止
+        """
+        sid = data.get("session_id") or self.current_session_id
+        if not sid:
+            await ws.send_json({"type": "error", "message": "没有运行中的会话"})
+            return
+        box = self.worker._steering.setdefault(sid, {"cancel": False, "messages": []})
+        if data.get("cancel"):
+            box["cancel"] = True
+        elif data.get("content"):
+            box["messages"].append(data["content"])
+        await ws.send_json({"type": "response", "data": {"steered": True, "session_id": sid}})
 
     async def _handle_user_answer(self, ws, data):
         """C1: 用户回答 ask_user 提问——set event 恢复 agent 协程。"""

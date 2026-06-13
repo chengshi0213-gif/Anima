@@ -136,6 +136,8 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
         # 压缩 & 去重（去重集合改为 per-run 局部，避免并发会话相互污染）
         self._compress_semaphore = asyncio.Semaphore(1)
         self._compression_pending = False
+        # H1: 运行中的 session 控制信箱（steer/cancel）
+        self._steering: dict[str, dict] = {}   # session_id → {"cancel": bool, "messages": []}
 
         # 飞书推送（可选）
         self._feishu_app_id     = os.getenv("FEISHU_APP_ID", "")
@@ -350,6 +352,17 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
         tool_ctx = {"ws": ws, "session_id": session_id, "agent": self.name}
 
         for turn in range(1, self.max_turns + 1):
+            # H1: 每轮检查控制信箱（cancel / steer）
+            ctl = self._steering.get(session_id, {})
+            if ctl.get("cancel"):
+                self._steering.pop(session_id, None)
+                self._log(session_id, "graceful_stop", {"turn": turn})
+                return {"status": "stopped",
+                        "summary": f"用户在第 {turn} 轮叫停。已改文件: {', '.join(files_changed) or '无'}",
+                        "files_changed": files_changed, "turn_count": turn}
+            for steer_msg in ctl.pop("messages", []):
+                messages.append({"role": "user",
+                                 "content": f"[用户插话] {steer_msg}"})
             # H2: 阈值压缩——累计字符接近预算上限时才压缩（一次到位），
             # 绝大多数任务全程零压缩，前缀始终稳定，prompt cache 持续命中。
             msg_chars = sum(len(json.dumps(m, ensure_ascii=False)) for m in messages)

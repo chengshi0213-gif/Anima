@@ -616,5 +616,76 @@ def test_h7_evict_integrated_with_compress(tmp_path, monkeypatch):
             pytest.fail("大工具结果未被驱逐")
 
 
+# ════════════════════════════════════════════════════════════════════
+#  H1: 中途打断与改道（steering / cancel）
+# ════════════════════════════════════════════════════════════════════
+
+def test_h1_steering_attr(tmp_path):
+    agent = _make_agent(tmp_path)
+    assert hasattr(agent, "_steering")
+    assert isinstance(agent._steering, dict)
+
+
+def test_h1_cancel_stops_run(tmp_path, monkeypatch):
+    """cancel 标志使 run 在下一轮优雅停止。"""
+    agent = _make_agent(tmp_path)
+    import memory_injector as mi
+    monkeypatch.setattr(mi, "get_memory_injection", lambda *a, **k: "")
+    monkeypatch.setattr(mi, "get_active_project_context", lambda *a, **k: "")
+
+    call_count = 0
+    async def _fake_api(*a, **k):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # 第一轮正常返回工具调用，触发下一轮
+            return {"content": None, "tool_calls": [
+                {"id": "c1", "function": {"name": "noop", "arguments": "{}"}}
+            ]}
+        return {"content": "done", "tool_calls": None}
+    monkeypatch.setattr(agent, "_call_api", _fake_api)
+    agent.tool_dispatch["noop"] = lambda: {"ok": True}
+
+    # 在第一轮 API 调用后设置 cancel
+    sid = "test-cancel"
+    agent._steering[sid] = {"cancel": True, "messages": []}
+
+    out = asyncio.run(agent.run("test task", session_id=sid))
+    assert out["status"] == "stopped"
+    assert "叫停" in out["summary"]
+
+
+def test_h1_steer_injects_message(tmp_path, monkeypatch):
+    """插话消息注入到 messages 里，模型能看到。"""
+    agent = _make_agent(tmp_path)
+    import memory_injector as mi
+    monkeypatch.setattr(mi, "get_memory_injection", lambda *a, **k: "")
+    monkeypatch.setattr(mi, "get_active_project_context", lambda *a, **k: "")
+
+    captured_messages = []
+    call_count = 0
+    async def _capture_api(messages, **k):
+        nonlocal call_count
+        call_count += 1
+        captured_messages.append([m.copy() for m in messages])
+        if call_count == 1:
+            return {"content": None, "tool_calls": [
+                {"id": "c1", "function": {"name": "noop", "arguments": "{}"}}
+            ]}
+        return {"content": "done", "tool_calls": None}
+    monkeypatch.setattr(agent, "_call_api", _capture_api)
+    agent.tool_dispatch["noop"] = lambda: {"ok": True}
+
+    sid = "test-steer"
+    # 在第 2 轮之前会被检查到
+    agent._steering[sid] = {"cancel": False, "messages": ["改方向去改 B 文件"]}
+
+    asyncio.run(agent.run("test task", session_id=sid))
+    # 第二轮的 messages 应该包含插话
+    if len(captured_messages) >= 2:
+        texts = [m.get("content", "") for m in captured_messages[1]]
+        assert any("用户插话" in t and "改方向" in t for t in texts)
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
