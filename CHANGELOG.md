@@ -8,6 +8,39 @@
 
 ---
 
+## [1.2.3] - 2026-06-13
+
+### 新增 (Added)
+
+**Harness 骨架工程 — 打断 · 缓存 · 压缩 · 恢复**
+
+- **H1 中途打断与改道**：
+  运行中会话支持 steer（插话改方向）和 cancel（优雅停止）。
+  每轮检查 steering 信箱，用户消息即时注入模型上下文。
+- **H2 缓存友好压缩**：
+  废除 compress_every=5 定期压缩，改为阈值触发（70% 预算才压）。
+  记录 prompt_cache_hit_tokens，长任务 prompt cache 持续命中。
+- **H3 结构化 LLM 压缩**：
+  压缩时用 DeepSeek-V4-Flash 生成八段式摘要（原始任务/技术决策/已改文件/
+  踩过的错/关键代码/用户插话/待办/当前进展），替代旧占位符。
+- **H4 Read-before-Edit 硬闸门**：
+  file_edit/file_write 必须先 file_read 过目标文件；记录 mtime，
+  外部修改后自动拦截要求重新读取。
+- **H5 并行只读工具执行**：
+  同一轮全部工具调用均为只读时，用 asyncio.gather 并行执行。
+- **H6 错误恢复三道保险**：
+  工具调用熔断（3 次警告/5 次拦截）、API 429/5xx 指数退避重试、
+  新增 AgentResilienceMixin 独立模块。
+- **H7 上下文经济**：
+  分级工具预算（file_read 8K/shell_run 6K/search_code 4K 等），
+  压缩事件自动驱逐 >4KB 旧工具结果为 SHA 指纹。
+- **H8 行为规则**：
+  executor 提示词加入 6 条行为纪律（可逆性判断/验证前不收工/结论先行/
+  范围纪律/代码引用带行号/卡住 3 轮自动求助）。
+  创建 docs/agent-failure-cases.md 失败案例库模板。
+
+---
+
 ## [1.2.2] - 2026-06-12
 
 ### 新增 (Added)
