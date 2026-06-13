@@ -15,8 +15,9 @@ import aiohttp
 sys.path.insert(0, str(Path(__file__).parent))
 
 # ── Mixin 分层（历史压缩 / 日志）─────────────────────────────────────────────
-from agent_compress import AgentCompressMixin
-from agent_logging  import AgentLoggingMixin
+from agent_compress    import AgentCompressMixin
+from agent_logging     import AgentLoggingMixin
+from agent_resilience  import AgentResilienceMixin
 
 
 # ── 权限请求异常（Agent 发现缺少 API 时抛出）─────────────
@@ -113,7 +114,7 @@ def first_available_model() -> tuple[str, str, str]:
     return "", "", ""
 
 
-class AgentBase(AgentCompressMixin, AgentLoggingMixin):
+class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin):
     """所有数字员工的基类。提供 ReAct 循环、三层压缩、日志。"""
 
     def __init__(self, name: str, api_key: str, model: str, base_url: str,
@@ -155,10 +156,7 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
         self.compress_every    = 5       # 已废弃，保留兼容；H2 改用阈值触发
         self.compress_threshold = 0.7    # H2: 累计字符 > max_total_chars * 此值时才压缩
         self.context_cap_chars = 8000
-        # 累计输入预算（字符）：每轮 API 调用都会重发整个 messages，
-        # 累计成本 ≈ Σ(每轮 messages 大小)。超出则优雅收尾，
-        # 防止大文件循环 / 失控 ReAct 在 180s 超时前烧光额度。约 ~200k tokens。
-        self.max_total_chars   = 800_000
+        self.max_total_chars   = 800_000  # 累计输入预算（字符），超出则优雅收尾
         # 工具结果回传给模型时的截断上限（per-agent 可覆盖）。
         # 默认值对聊天型人格友好（控制上下文膨胀）；编程/阅读型子类需调大，
         # 否则看不全代码 = 半瞎改 = 花架子。
@@ -327,10 +325,10 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
             {"role": "user",   "content": f"## 任务\n\n{self._normalize(task)}"},
         ]
         files_changed: list[str] = []
-        seen_hashes: set[str] = set()   # 本次运行专属的工具结果去重集合
-        self._file_state: dict[str, float] = {}  # H4: path → mtime（读过才能改）
-        total_chars = 0                 # 累计已发送给 API 的输入字符（预算护栏）
-        # 记录实际使用的模型（用于日志）
+        seen_hashes: set[str] = set()
+        self._file_state: dict[str, float] = {}
+        _fail_counts: dict[str, int] = {}
+        total_chars = 0
         _used_key, _used_url, _used_model = self._resolve_model(model)
         self._log(session_id, "session_start", {"task": task[:200], "model": _used_model})
 
@@ -387,7 +385,8 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
                 return {"status": "budget_exceeded", "summary": summary,
                         "files_changed": files_changed, "turn_count": turn}
 
-            resp = await self._call_api(messages, tools=self.tool_defs, override_model=model, on_delta=on_delta)
+            resp = await self._call_api_resilient(messages, tools=self.tool_defs, override_model=model,
+                                                     on_delta=on_delta, session_id=session_id, turn=turn)
             # H2: 记录缓存命中率（DeepSeek/Kimi 的 prompt_cache_hit_tokens）
             usage = resp.get("usage") or {}
             if usage.get("prompt_cache_hit_tokens"):
@@ -431,14 +430,19 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
                     args = {}
                     result = {"error": f"参数解析失败: {tc['function']['arguments'][:200]}"}
                 else:
-                    # 推送 tool_start 事件（截断参数值避免过长）
-                    safe_args = {k: (str(v)[:120] + "…" if len(str(v)) > 120 else str(v))
-                                 for k, v in args.items()}
-                    await _ws_send({
-                        "type": "tool_start",
-                        "data": {"tool": name, "args": safe_args, "turn": turn},
-                    })
-                    result = await self._execute_tool(name, args, ctx=tool_ctx)
+                    # H6: 熔断检查
+                    breaker = self._check_breaker(name, args, _fail_counts)
+                    if breaker is not None:
+                        result = breaker
+                    else:
+                        safe_args = {k: (str(v)[:120] + "…" if len(str(v)) > 120 else str(v))
+                                     for k, v in args.items()}
+                        await _ws_send({
+                            "type": "tool_start",
+                            "data": {"tool": name, "args": safe_args, "turn": turn},
+                        })
+                        result = await self._execute_tool(name, args, ctx=tool_ctx)
+                    self._record_tool_result(name, args, result, _fail_counts)
 
                 if name in ("file_write", "file_edit") and "error" not in result:
                     if p := result.get("path"):

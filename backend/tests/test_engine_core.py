@@ -740,5 +740,66 @@ def test_h4_mtime_change_blocks(tmp_path):
     assert "外部修改" in result["error"]
 
 
+# ════════════════════════════════════════════════════════════════════
+#  H6: 错误恢复（熔断 + API 退避 + 截断续写）
+# ════════════════════════════════════════════════════════════════════
+
+def test_h6_breaker_warns_at_3(tmp_path):
+    from agent_resilience import AgentResilienceMixin as R
+    fc = {}
+    h = R._tool_hash("bad_tool", {"a": 1})
+    fc[h] = 3
+    result = R._check_breaker("bad_tool", {"a": 1}, fc)
+    assert result is not None
+    assert "连续失败" in result["error"]
+    assert result.get("_breaker_warning")
+
+
+def test_h6_breaker_blocks_at_5(tmp_path):
+    from agent_resilience import AgentResilienceMixin as R
+    fc = {}
+    h = R._tool_hash("bad_tool", {"a": 1})
+    fc[h] = 5
+    result = R._check_breaker("bad_tool", {"a": 1}, fc)
+    assert result is not None
+    assert "强制拦截" in result["error"]
+
+
+def test_h6_breaker_pass_when_ok(tmp_path):
+    from agent_resilience import AgentResilienceMixin as R
+    fc = {}
+    assert R._check_breaker("good_tool", {"a": 1}, fc) is None
+
+
+def test_h6_record_clears_on_success(tmp_path):
+    from agent_resilience import AgentResilienceMixin as R
+    fc = {}
+    R._record_tool_result("t", {"x": 1}, {"error": "fail"}, fc)
+    assert fc.get(R._tool_hash("t", {"x": 1})) == 1
+    R._record_tool_result("t", {"x": 1}, {"error": "fail"}, fc)
+    assert fc.get(R._tool_hash("t", {"x": 1})) == 2
+    R._record_tool_result("t", {"x": 1}, {"ok": True}, fc)
+    assert R._tool_hash("t", {"x": 1}) not in fc
+
+
+def test_h6_api_retry_on_429(tmp_path):
+    """429 应该重试而非直接报错。"""
+    agent = _make_agent(tmp_path)
+    call_count = 0
+    async def _flaky(*a, **k):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            return {"error": "API 429: rate limited"}
+        return {"content": "ok", "tool_calls": None}
+    import types
+    agent._call_api = types.MethodType(lambda self, *a, **k: _flaky(*a, **k), agent)
+
+    resp = asyncio.run(agent._call_api_resilient(
+        [{"role": "user", "content": "hi"}], session_id="t", turn=1))
+    assert "error" not in resp
+    assert call_count == 3
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
