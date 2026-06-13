@@ -328,6 +328,7 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
         ]
         files_changed: list[str] = []
         seen_hashes: set[str] = set()   # 本次运行专属的工具结果去重集合
+        self._file_state: dict[str, float] = {}  # H4: path → mtime（读过才能改）
         total_chars = 0                 # 累计已发送给 API 的输入字符（预算护栏）
         # 记录实际使用的模型（用于日志）
         _used_key, _used_url, _used_model = self._resolve_model(model)
@@ -482,17 +483,13 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
                 "summary": f"达到最大轮数 {self.max_turns}", "turn_count": self.max_turns}
 
     async def _execute_tool(self, name: str, args: dict, ctx: dict | None = None) -> dict:
-        """工具调用的全局唯一咽喉。
-
-        内核1（异步化）：同步工具返回 dict（iscoroutine=False，行为与旧版完全一致）；
-            异步工具（MCP / 任何 async 回调）返回协程，在此 await。
-        内核3（确认 / Hooks）：仅当传入 ctx 时启用——pre_tool 钩子可否决、危险操作
-            走 confirm 往返、post_tool 钩子收尾。ctx=None（含所有单测直调）时整条
-            确认/钩子链跳过，路径与内核1 时期字节级一致，故向后兼容不破。
-            默认策略全 off、默认无钩子，所以即便传 ctx，默认配置下也零行为变化。
-        """
+        """工具调用咽喉：异步化 + 确认/钩子（ctx 不为 None 时） + H4 文件闸门。"""
         if name not in self.tool_dispatch:
             return {"error": f"未知工具: {name}"}
+        # H4: Read-before-Edit 硬闸门
+        gate = self._file_gate(name, args)
+        if gate is not None:
+            return gate
         if ctx is not None:
             blocked = await self._guard_tool(name, args, ctx)
             if blocked is not None:
@@ -507,6 +504,12 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
             result = {"error": f"工具参数错误: {e}"}
         except Exception as e:
             result = {"error": f"工具执行异常: {e}"}
+        # H4: file_read 成功后记录 mtime
+        if name == "file_read" and "error" not in result and args.get("path"):
+            try:
+                self._file_state[args["path"]] = os.path.getmtime(args["path"])
+            except OSError:
+                pass
         if ctx is not None:
             await self._post_tool(name, args, result, ctx)
         return result
@@ -554,6 +557,25 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
             await run_post_tool(name, args, result, ctx)
         except Exception:
             pass
+
+    def _file_gate(self, name: str, args: dict) -> dict | None:
+        """H4: file_edit / file_write(已存在文件) 必须先 file_read 过。"""
+        if name not in ("file_edit", "file_write"):
+            return None
+        path = args.get("path", "")
+        if not path:
+            return None
+        if name == "file_write" and not os.path.exists(path):
+            return None  # 新文件不需要先读
+        if path not in self._file_state:
+            return {"error": f"请先 file_read 读取 {path} 再修改（防止盲改）"}
+        try:
+            current_mtime = os.path.getmtime(path)
+            if abs(current_mtime - self._file_state[path]) > 0.01:
+                return {"error": f"文件 {path} 在你读过之后被外部修改了，请重新 file_read"}
+        except OSError:
+            pass
+        return None
 
     # ── 工具 ──
     @staticmethod

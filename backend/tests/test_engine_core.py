@@ -687,5 +687,58 @@ def test_h1_steer_injects_message(tmp_path, monkeypatch):
         assert any("用户插话" in t and "改方向" in t for t in texts)
 
 
+# ════════════════════════════════════════════════════════════════════
+#  H4: Read-before-Edit 硬闸门 + mtime 追踪
+# ════════════════════════════════════════════════════════════════════
+
+def test_h4_edit_blocked_without_read(tmp_path):
+    """file_edit 未先 file_read → 被闸门拦截。"""
+    agent = _make_agent(tmp_path)
+    agent._file_state = {}
+    f = tmp_path / "work" / "test.py"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("hello")
+    result = agent._file_gate("file_edit", {"path": str(f)})
+    assert result is not None
+    assert "file_read" in result["error"]
+
+
+def test_h4_edit_allowed_after_read(tmp_path):
+    """file_read 后 file_edit 放行。"""
+    agent = _make_agent(tmp_path)
+    agent._file_state = {}
+    f = tmp_path / "work" / "test.py"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("hello")
+    import os
+    agent._file_state[str(f)] = os.path.getmtime(str(f))
+    result = agent._file_gate("file_edit", {"path": str(f)})
+    assert result is None
+
+
+def test_h4_write_new_file_allowed(tmp_path):
+    """file_write 新文件不需要先读。"""
+    agent = _make_agent(tmp_path)
+    agent._file_state = {}
+    result = agent._file_gate("file_write", {"path": str(tmp_path / "new.py")})
+    assert result is None
+
+
+def test_h4_mtime_change_blocks(tmp_path):
+    """读后外部修改 → mtime 不符 → 拦截。"""
+    agent = _make_agent(tmp_path)
+    agent._file_state = {}
+    f = tmp_path / "work" / "test.py"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("v1")
+    import os, time
+    agent._file_state[str(f)] = os.path.getmtime(str(f))
+    time.sleep(0.05)
+    f.write_text("v2 - external change")
+    result = agent._file_gate("file_edit", {"path": str(f)})
+    assert result is not None
+    assert "外部修改" in result["error"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
