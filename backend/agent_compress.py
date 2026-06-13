@@ -8,7 +8,7 @@ AgentCompressMixin — 历史压缩、异步落盘摘要、上次摘要扫描
   self._notes_dir, self._compress_semaphore, self._call_api,
   self._log, self.name, self.coding_compress
 """
-import asyncio, json, re
+import asyncio, hashlib, json, re
 from datetime import datetime
 
 
@@ -75,7 +75,7 @@ class AgentCompressMixin:
             result.append(first_user)
         result.append({"role": "assistant",
                         "content": f"[结构化摘要（中间 {len(dropped)} 条消息已压缩）]\n\n{summary_text}"})
-        return result + tail
+        return result + self._evict_large_results(tail)
 
     def _compress_history(self, messages: list[dict]) -> list[dict]:
         if len(messages) <= 10:
@@ -100,7 +100,21 @@ class AgentCompressMixin:
                 if digest:
                     placeholder = placeholder + "\n\n" + digest
             result.append({"role": "assistant", "content": placeholder})
-        return result + tail
+        return result + self._evict_large_results(tail)
+
+    @staticmethod
+    def _evict_large_results(msgs: list[dict], threshold: int = 4096) -> list[dict]:
+        """H7: 压缩事件时驱逐超大工具结果，替换为指纹占位。
+        只处理 tool 角色消息，其余原样保留。"""
+        out = []
+        for m in msgs:
+            if m.get("role") == "tool":
+                c = m.get("content") or ""
+                if len(c) > threshold:
+                    fp = hashlib.sha256(c.encode()).hexdigest()[:12]
+                    m = {**m, "content": f"[已驱逐 {len(c)} 字符，SHA:{fp}，需要时重新读取]"}
+            out.append(m)
+        return out
 
     def _coding_digest(self, dropped: list[dict]) -> str:
         """从被压缩掉的中间消息里提炼"已改文件 + 关键命令/退出码"摘要，

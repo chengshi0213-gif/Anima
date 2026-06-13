@@ -356,11 +356,12 @@ def test_h2_short_history_no_compress(tmp_path):
     out = agent._compress_history(msgs)
     assert len(out) == len(msgs)
 
-    # 普通工具结果同样受 tool_result_cap 控制
+    # 普通工具结果受 tool_budgets 分级控制（H7）
     small = _make_agent(tmp_path / "b")
-    long_text = {"results": "y" * 3000}
-    assert "[截断" in small._trim_result("search_code", long_text, set())  # 默认 500 截断
-    small.tool_result_cap = 16000
+    long_text = {"results": "y" * 5000}
+    # search_code 预算 4096，5000 字符应截断
+    assert "[截断" in small._trim_result("search_code", long_text, set())
+    small.tool_budgets["search_code"] = 16000
     assert "[截断" not in small._trim_result("search_code", long_text, set())
 
 
@@ -539,6 +540,80 @@ def test_h3_tool_calls_rendered(tmp_path, monkeypatch):
 
     asyncio.run(agent._structured_compress(msgs))
     assert "调用工具" in captured_prompt["text"]
+
+
+# ════════════════════════════════════════════════════════════════════
+#  H7: 上下文经济——分级预算 + 压缩驱逐
+# ════════════════════════════════════════════════════════════════════
+
+def test_h7_tool_budgets_attr(tmp_path):
+    agent = _make_agent(tmp_path)
+    assert isinstance(agent.tool_budgets, dict)
+    assert agent.tool_budgets["file_read"] == 8192
+    assert agent.tool_budgets["shell_run"] == 6144
+
+
+def test_h7_trim_uses_per_tool_budget(tmp_path):
+    """_trim_result 用 tool_budgets 而非固定 tool_result_cap。"""
+    agent = _make_agent(tmp_path)
+    big = {"content": "x" * 10000}
+    # file_read 预算 8192 → 10000 字符应截断但比默认 500 宽得多
+    out = agent._trim_result("file_read", big, set())
+    # file_read 超 file_read_cap 会走指纹逻辑
+    assert "fingerprint" in out or "截断" in out
+
+    # shell_run 预算 6144，制造 7000 字符结果
+    shell_result = {"output": "o" * 7000}
+    out2 = agent._trim_result("shell_run", shell_result, set())
+    assert "截断" in out2
+    # 截断位置应大于默认 500
+    assert len(out2) > 5000
+
+    # 未注册工具走默认 tool_result_cap=500
+    out3 = agent._trim_result("some_unknown_tool", {"data": "d" * 1000}, set())
+    assert "截断" in out3
+    assert len(out3) < 600
+
+
+def test_h7_evict_large_results(tmp_path):
+    """_evict_large_results 驱逐超大 tool 消息。"""
+    from agent_compress import AgentCompressMixin
+    msgs = [
+        {"role": "assistant", "content": "ok"},
+        {"role": "tool", "tool_call_id": "c1", "content": "small"},
+        {"role": "tool", "tool_call_id": "c2", "content": "B" * 5000},
+        {"role": "user", "content": "next"},
+    ]
+    out = AgentCompressMixin._evict_large_results(msgs)
+    assert len(out) == 4
+    assert out[1]["content"] == "small"
+    assert "已驱逐" in out[2]["content"]
+    assert "SHA:" in out[2]["content"]
+    assert out[3]["content"] == "next"
+
+
+def test_h7_evict_integrated_with_compress(tmp_path, monkeypatch):
+    """压缩触发时自动驱逐尾部大工具结果。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"}]
+    for i in range(20):
+        msgs.append({"role": "assistant", "content": f"a{i}",
+                      "tool_calls": [{"function": {"name": "file_read"}}]})
+        msgs.append({"role": "tool", "tool_call_id": f"c{i}",
+                      "content": "X" * 5000 if i >= 17 else "small"})
+
+    async def _ok_api(*a, **k):
+        return {"content": "1. 原始任务：x\n2. 技术决策：y\n3. 已改文件：z\n"
+                           "4. 踩过的错：无\n5. 关键代码：无\n6. 用户插话：无\n"
+                           "7. 待办事项：无\n8. 当前进展：做完了这个很长的摘要内容"}
+    monkeypatch.setattr(agent, "_call_api", _ok_api)
+
+    out = asyncio.run(agent._structured_compress(msgs))
+    tool_msgs = [m for m in out if m.get("role") == "tool"]
+    for tm in tool_msgs:
+        if len(tm["content"]) > 4096:
+            pytest.fail("大工具结果未被驱逐")
 
 
 if __name__ == "__main__":

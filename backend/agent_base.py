@@ -164,6 +164,12 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
         #   file_read_cap   : file_read 内容超此值则只回指纹（设大才能真读代码）
         self.tool_result_cap = 500
         self.file_read_cap   = 2048
+        # H7: 分级工具预算——关键工具给大窗口，杂项工具收紧，替代单一 cap
+        self.tool_budgets: dict[str, int] = {
+            "file_read": 8192, "search_code": 4096, "shell_run": 6144,
+            "list_dir": 2048, "map_project": 3072, "web_search": 3072,
+            "fetch_url": 3072, "git_diff": 6144, "git_log": 4096,
+        }
         # 编程向历史压缩（M9 Part 3）：默认 False = 旧行为（中间段落直接丢成占位符）。
         # 编程型子类（executor）置 True：压缩时从被丢弃的中间消息里提炼一份
         # "已改文件 + 关键命令/退出码" 摘要塞进占位符，长会话里不会忘记自己改过什么。
@@ -594,7 +600,7 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
                                        "note": "文件过大已压缩"}, ensure_ascii=False)
             except Exception:
                 pass
-        cap = self.tool_result_cap
+        cap = self.tool_budgets.get(tool_name, self.tool_result_cap)
         return text[:cap] + f"…[截断,原长{len(text)}字符]" if len(text) > cap else text
 
     # ── _compress_history / _coding_digest / _async_compress / _scan_previous_summary
