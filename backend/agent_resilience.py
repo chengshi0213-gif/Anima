@@ -16,8 +16,15 @@ import hashlib
 import json
 
 
+_PARALLEL_SAFE = frozenset({
+    "file_read", "list_dir", "search_code", "glob_files",
+    "find_symbol", "find_usages", "git_status", "git_diff",
+    "git_log", "web_search", "fetch_url", "map_project",
+})
+
+
 class AgentResilienceMixin:
-    """循环级错误恢复 Mixin，供 AgentBase 继承。"""
+    """循环级错误恢复 + 并行工具执行 Mixin，供 AgentBase 继承。"""
 
     @staticmethod
     def _tool_hash(name: str, args: dict) -> str:
@@ -73,3 +80,43 @@ class AgentResilienceMixin:
         if last_resp is None:
             return {"error": "API 重试耗尽"}
         return last_resp
+
+    async def _execute_tools_maybe_parallel(
+        self, tool_calls: list[dict], fail_counts: dict, ctx: dict | None,
+    ) -> list[tuple[str, dict, dict]]:
+        """H5: 解析 tool_calls → 执行（只读全量并行 / 否则串行）→ [(name, args, result)]。"""
+        parsed = []
+        for tc in tool_calls:
+            name = tc["function"]["name"]
+            try:
+                args = json.loads(tc["function"]["arguments"])
+            except json.JSONDecodeError:
+                args = {}
+                parsed.append((tc, name, args, {"error": f"参数解析失败: {tc['function']['arguments'][:200]}"}))
+                continue
+            breaker = self._check_breaker(name, args, fail_counts)
+            if breaker is not None:
+                parsed.append((tc, name, args, breaker))
+                continue
+            parsed.append((tc, name, args, None))
+
+        need_exec = [(i, n, a) for i, (_, n, a, r) in enumerate(parsed) if r is None]
+        can_parallel = (len(need_exec) > 1 and
+                        all(n in _PARALLEL_SAFE for _, n, _ in need_exec))
+
+        if can_parallel:
+            coros = [self._execute_tool(n, a, ctx=ctx) for _, n, a in need_exec]
+            results = await asyncio.gather(*coros)
+            for (idx, _, _), res in zip(need_exec, results):
+                tc_orig, name, args, _ = parsed[idx]
+                parsed[idx] = (tc_orig, name, args, res)
+        else:
+            for idx, name, args in need_exec:
+                res = await self._execute_tool(name, args, ctx=ctx)
+                tc_orig = parsed[idx][0]
+                parsed[idx] = (tc_orig, name, args, res)
+
+        for _, name, args, result in parsed:
+            if result is not None:
+                self._record_tool_result(name, args, result, fail_counts)
+        return [(tc, name, args, result) for tc, name, args, result in parsed]

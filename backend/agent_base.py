@@ -421,40 +421,15 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin):
                 return {"status": "completed", "summary": summary,
                         "files_changed": files_changed, "turn_count": turn}
 
-            # ── 执行工具（含实时推流）──
-            for tc in resp["tool_calls"]:
-                name = tc["function"]["name"]
-                try:
-                    args = json.loads(tc["function"]["arguments"])
-                except json.JSONDecodeError:
-                    args = {}
-                    result = {"error": f"参数解析失败: {tc['function']['arguments'][:200]}"}
-                else:
-                    # H6: 熔断检查
-                    breaker = self._check_breaker(name, args, _fail_counts)
-                    if breaker is not None:
-                        result = breaker
-                    else:
-                        safe_args = {k: (str(v)[:120] + "…" if len(str(v)) > 120 else str(v))
-                                     for k, v in args.items()}
-                        await _ws_send({
-                            "type": "tool_start",
-                            "data": {"tool": name, "args": safe_args, "turn": turn},
-                        })
-                        result = await self._execute_tool(name, args, ctx=tool_ctx)
-                    self._record_tool_result(name, args, result, _fail_counts)
-
+            # ── 执行工具（H5: 只读工具并行 / 否则串行）──
+            batch = await self._execute_tools_maybe_parallel(
+                resp["tool_calls"], _fail_counts, tool_ctx)
+            for tc, name, args, result in batch:
                 if name in ("file_write", "file_edit") and "error" not in result:
                     if p := result.get("path"):
                         files_changed.append(p)
-
-                # 推送 tool_done 事件
-                td = {
-                    "tool": name,
-                    "ok":   "error" not in result,
-                    "turn": turn,
-                    "hint": str(result.get("error", ""))[:80] if "error" in result else "",
-                }
+                td = {"tool": name, "ok": "error" not in result, "turn": turn,
+                      "hint": str(result.get("error", ""))[:80] if "error" in result else ""}
                 if name in ("file_write", "file_edit") and td["ok"]:
                     td["file"] = str(result.get("path", ""))
                     diff = result.pop("diff", None)
@@ -465,14 +440,9 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin):
                 elif name == "task_poll" and td["ok"]:
                     td["task_status"] = result.get("status", "")
                 await _ws_send({"type": "tool_done", "data": td})
-
                 self._log(session_id, "tool_call", {
-                    "turn": turn, "tool": name, "success": "error" not in result,
-                })
-                tool_msg = {
-                    "role": "tool",
-                    "tool_call_id": tc.get("id", f"call_{turn}"),
-                }
+                    "turn": turn, "tool": name, "success": "error" not in result})
+                tool_msg = {"role": "tool", "tool_call_id": tc.get("id", f"call_{turn}")}
                 if isinstance(result, dict) and "_vision_block" in result:
                     tool_msg["content"] = result["_vision_block"]
                 else:

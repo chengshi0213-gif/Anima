@@ -801,5 +801,53 @@ def test_h6_api_retry_on_429(tmp_path):
     assert call_count == 3
 
 
+# ════════════════════════════════════════════════════════════════════
+#  H5: 并行只读工具执行
+# ════════════════════════════════════════════════════════════════════
+
+def test_h5_parallel_safe_set():
+    from agent_resilience import _PARALLEL_SAFE
+    assert "file_read" in _PARALLEL_SAFE
+    assert "search_code" in _PARALLEL_SAFE
+    assert "file_write" not in _PARALLEL_SAFE
+    assert "file_edit" not in _PARALLEL_SAFE
+    assert "shell_run" not in _PARALLEL_SAFE
+
+
+def test_h5_batch_serial_when_mixed(tmp_path):
+    """含写工具时走串行。"""
+    agent = _make_agent(tmp_path)
+    agent.tool_dispatch["file_read"] = lambda path="": {"content": "ok"}
+    agent.tool_dispatch["file_write"] = lambda path="", content="": {"path": path}
+    tool_calls = [
+        {"id": "c1", "function": {"name": "file_read", "arguments": '{"path":"a.py"}'}},
+        {"id": "c2", "function": {"name": "file_write", "arguments": '{"path":"b.py"}'}},
+    ]
+    results = asyncio.run(agent._execute_tools_maybe_parallel(tool_calls, {}, None))
+    assert len(results) == 2
+    assert results[0][1] == "file_read"
+    assert results[1][1] == "file_write"
+
+
+def test_h5_batch_parallel_all_readonly(tmp_path):
+    """全部只读工具时应并行执行。"""
+    agent = _make_agent(tmp_path)
+    order = []
+    async def _slow_read(**kw):
+        await asyncio.sleep(0.01)
+        order.append(kw.get("path", "?"))
+        return {"content": "data"}
+    agent.tool_dispatch["file_read"] = lambda **kw: _slow_read(**kw)
+    agent.tool_dispatch["search_code"] = lambda **kw: _slow_read(**kw)
+    tool_calls = [
+        {"id": "c1", "function": {"name": "file_read", "arguments": '{"path":"a.py"}'}},
+        {"id": "c2", "function": {"name": "search_code", "arguments": '{"path":"b.py"}'}},
+        {"id": "c3", "function": {"name": "file_read", "arguments": '{"path":"c.py"}'}},
+    ]
+    results = asyncio.run(agent._execute_tools_maybe_parallel(tool_calls, {}, None))
+    assert len(results) == 3
+    assert all("error" not in r for _, _, _, r in results)
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
