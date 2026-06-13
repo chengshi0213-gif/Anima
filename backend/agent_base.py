@@ -349,11 +349,11 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin):
             msg_chars = sum(len(json.dumps(m, ensure_ascii=False)) for m in messages)
             if msg_chars > self.max_total_chars * self.compress_threshold:
                 old = len(messages)
-                messages = self._compress_history(messages)
+                messages = await self._structured_compress(messages, session_id)
                 if len(messages) < old:
                     self._log(session_id, "compress", {
                         "turn": turn, "before": old, "after": len(messages),
-                        "trigger": "threshold",
+                        "trigger": "structured",
                         "chars": msg_chars,
                     })
 

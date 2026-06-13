@@ -12,8 +12,70 @@ import asyncio, json, re
 from datetime import datetime
 
 
+_STRUCTURED_PROMPT = """\
+请根据以下对话历史生成结构化摘要（八段式，每段2-3句，总计800字内）。
+
+{history}
+
+按以下格式输出（不要遗漏任何段）：
+1. 原始任务：用户最初要什么（逐字保留核心要求）
+2. 技术决策：选了什么方案、为什么
+3. 已改文件：路径 + 每个文件改了什么（一行一个）
+4. 踩过的错：错误信息 + 最终怎么解决的
+5. 关键代码片段：正在改的函数签名/接口（原文保留）
+6. 用户插话：所有用户中途给的指示（逐条保留）
+7. 待办事项：计划里还没做完的步骤
+8. 当前进展：压缩那一刻正在干什么、下一步是什么"""
+
+
 class AgentCompressMixin:
     """历史压缩与摘要落盘的 Mixin，供 AgentBase 继承。"""
+
+    async def _structured_compress(self, messages: list[dict],
+                                   session_id: str = "") -> list[dict]:
+        """H3: 用 LLM 生成八段式结构化摘要替代占位符。失败回退 _compress_history。"""
+        if len(messages) <= 10:
+            return messages
+        sys_msgs = [m for m in messages if m["role"] == "system"]
+        rest = [m for m in messages if m["role"] != "system"]
+        first_user = next((m for m in rest if m["role"] == "user"), None)
+        tail = rest[-6:] if len(rest) > 6 else rest
+        while tail and tail[0].get("role") == "tool":
+            tail = tail[1:]
+        dropped = [m for m in rest if m is not first_user and m not in tail]
+        if not dropped:
+            return self._compress_history(messages)
+        history_lines = []
+        for m in dropped[-30:]:
+            role = m.get("role", "?")
+            c = m.get("content") or ""
+            if isinstance(c, list):
+                c = str(c)[:300]
+            elif len(c) > 400:
+                c = c[:400] + "…"
+            tcs = m.get("tool_calls") or []
+            if tcs:
+                names = [tc.get("function", {}).get("name", "?") for tc in tcs]
+                c = f"[调用工具: {', '.join(names)}]"
+            history_lines.append(f"[{role}] {c}")
+        prompt = _STRUCTURED_PROMPT.format(history="\n".join(history_lines))
+        try:
+            resp = await self._call_api(
+                [{"role": "user", "content": prompt}],
+                tools=None, stream=False,
+                override_model="DeepSeek-V4-Flash",
+            )
+            summary_text = (resp.get("content") or "").strip()
+            if not summary_text or len(summary_text) < 50:
+                raise ValueError("摘要过短或为空")
+        except Exception:
+            return self._compress_history(messages)
+        result = sys_msgs[:]
+        if first_user:
+            result.append(first_user)
+        result.append({"role": "assistant",
+                        "content": f"[结构化摘要（中间 {len(dropped)} 条消息已压缩）]\n\n{summary_text}"})
+        return result + tail
 
     def _compress_history(self, messages: list[dict]) -> list[dict]:
         if len(messages) <= 10:

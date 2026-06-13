@@ -443,5 +443,103 @@ def test_reindex_dedup(engine):
     assert len(engine.search("apple")) == 1
 
 
+# ════════════════════════════════════════════════════════════════════
+#  H3: 结构化压缩 _structured_compress
+# ════════════════════════════════════════════════════════════════════
+
+def test_h3_short_history_unchanged(tmp_path):
+    """<= 10 条消息直接原样返回，不触发 LLM。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"},
+            {"role": "assistant", "content": "a"}]
+    out = asyncio.run(agent._structured_compress(msgs))
+    assert out is msgs
+
+
+def test_h3_fallback_on_llm_failure(tmp_path, monkeypatch):
+    """LLM 调用失败时回退到 _compress_history。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "sys"}]
+    msgs.append({"role": "user", "content": "first question"})
+    for i in range(20):
+        msgs.append({"role": "assistant", "content": f"ans-{i}"})
+        msgs.append({"role": "user", "content": f"q-{i}"})
+
+    async def _fail_api(*a, **k):
+        raise RuntimeError("LLM down")
+    monkeypatch.setattr(agent, "_call_api", _fail_api)
+
+    out = asyncio.run(agent._structured_compress(msgs))
+    assert len(out) < len(msgs)
+    assert any("[中间对话已压缩]" in m.get("content", "") for m in out)
+
+
+def test_h3_structured_summary_used(tmp_path, monkeypatch):
+    """LLM 成功时用结构化摘要替代占位符。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "sys"}]
+    msgs.append({"role": "user", "content": "first question"})
+    for i in range(20):
+        msgs.append({"role": "assistant", "content": f"ans-{i}"})
+        msgs.append({"role": "user", "content": f"q-{i}"})
+
+    fake_summary = "1. 原始任务：测试\n2. 技术决策：选A\n3. 已改文件：无\n" \
+                   "4. 踩过的错：无\n5. 关键代码：无\n6. 用户插话：无\n" \
+                   "7. 待办事项：无\n8. 当前进展：测试中"
+
+    async def _ok_api(*a, **k):
+        return {"content": fake_summary}
+    monkeypatch.setattr(agent, "_call_api", _ok_api)
+
+    out = asyncio.run(agent._structured_compress(msgs))
+    summary_msg = [m for m in out if "结构化摘要" in m.get("content", "")]
+    assert len(summary_msg) == 1
+    assert "原始任务" in summary_msg[0]["content"]
+    assert out[0]["role"] == "system"
+    assert out[1]["role"] == "user"
+    assert out[1]["content"] == "first question"
+
+
+def test_h3_empty_summary_triggers_fallback(tmp_path, monkeypatch):
+    """LLM 返回空/过短摘要时回退。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"}]
+    for i in range(20):
+        msgs.append({"role": "assistant", "content": f"a{i}"})
+        msgs.append({"role": "user", "content": f"q{i}"})
+
+    async def _short_api(*a, **k):
+        return {"content": "too short"}
+    monkeypatch.setattr(agent, "_call_api", _short_api)
+
+    out = asyncio.run(agent._structured_compress(msgs))
+    assert any("[中间对话已压缩]" in m.get("content", "") for m in out)
+
+
+def test_h3_tool_calls_rendered(tmp_path, monkeypatch):
+    """含 tool_calls 的消息在 history_lines 里显示工具名。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"}]
+    for i in range(15):
+        msgs.append({"role": "assistant", "content": f"a{i}",
+                      "tool_calls": [{"function": {"name": f"tool_{i}"}}]})
+        msgs.append({"role": "user", "content": f"q{i}"})
+
+    captured_prompt = {}
+
+    async def _capture_api(messages, **k):
+        captured_prompt["text"] = messages[0]["content"]
+        return {"content": "1. 原始任务：x\n2. 技术决策：y\n3. 已改文件：z\n"
+                           "4. 踩过的错：无\n5. 关键代码：无\n6. 用户插话：无\n"
+                           "7. 待办事项：无\n8. 当前进展：做完了这个很长的摘要内容"}
+    monkeypatch.setattr(agent, "_call_api", _capture_api)
+
+    asyncio.run(agent._structured_compress(msgs))
+    assert "调用工具" in captured_prompt["text"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
