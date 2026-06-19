@@ -33,6 +33,19 @@ def _resolve_command(command: str) -> str:
     污染基线。占位符保证可移植。"""
     return command.replace("{py}", f'"{sys.executable}"')
 
+
+def _classify_error(exc: Exception) -> str:
+    """把 solver 抛的异常分两类，决定是「这一题的事」还是「整套的事」：
+
+      "setup" —— 环境/配置/权限缺失（典型：PermissionRequest，未配 relay_url）。
+                 这类错误对每道题都一样，会让整套基线全军覆没，且并非模型能力问题。
+                 → 整套应立即中止、且这些题不能算进完成率（否则配置坑会伪装成 0% 基线）。
+      "crash" —— 某一道题的 solver 偶发崩溃，是这一题自己的问题，不波及别的题。
+
+    用类名判断而非 isinstance，避免 eval 包硬依赖 agent_base（保持离线可测）。"""
+    return "setup" if type(exc).__name__ == "PermissionRequest" else "crash"
+
+
 # solver 协议：给一句任务描述 + 工作区路径 + 模型名，让 agent 干活。
 # 返回 agent 的结果 dict（含 turn_count / status 等，用于统计；评分只认 verify）。
 Solver = Callable[[str, Path, str | None], Awaitable[dict]]
@@ -48,6 +61,13 @@ class TaskResult:
     status: str = ""              # agent 自报状态（completed/unverified/error...）
     failure_summary: str = ""     # 验收失败摘要（红时）
     error: str = ""               # 跑题过程异常（solver 抛错等）
+    error_kind: str = ""          # ""=正常 / "setup"=环境配置坑 / "crash"=偶发崩 / "skipped"=整套中止后被跳过
+
+    @property
+    def attempted(self) -> bool:
+        """这道题是否真正被「跑过」。setup 错（没起跑）和 skipped（被整套中止跳过）= 没跑过，
+        不该计入能力度量。crash 算跑过（solver 真起来了只是崩了）。"""
+        return self.error_kind not in ("setup", "skipped")
 
 
 @dataclass
@@ -70,11 +90,33 @@ class SuiteResult:
         """自主完成率 = 通过题数 / 总题数。核心数。"""
         return (self.passed / self.total) if self.total else 0.0
 
+    @property
+    def not_attempted(self) -> int:
+        """没真正起跑的题数（setup 配置坑 + 被整套中止跳过的）。> 0 即基线不可信。"""
+        return sum(1 for r in self.results if not r.attempted)
+
+    @property
+    def reliable(self) -> bool:
+        """整套是否可信：所有题都真正起跑过，没有环境/配置错误把题挡在门外。
+        不可信时 completion_rate 不能当基线用——它度量的是配置坑，不是模型能力。"""
+        return self.total > 0 and self.not_attempted == 0
+
+    def setup_reasons(self) -> list[str]:
+        """去重后的 setup 错误原因（用于报告里告诉用户「该修什么配置」）。"""
+        seen, out = set(), []
+        for r in self.results:
+            if r.error_kind == "setup" and r.error and r.error not in seen:
+                seen.add(r.error)
+                out.append(r.error)
+        return out
+
     def to_dict(self) -> dict:
         return {
             "model": self.model, "label": self.label,
             "total": self.total, "passed": self.passed,
             "completion_rate": round(self.completion_rate, 4),
+            "not_attempted": self.not_attempted,
+            "reliable": self.reliable,
             "started_at": self.started_at,
             "results": [asdict(r) for r in self.results],
         }
@@ -99,7 +141,7 @@ async def run_task(task: EvalTask, solver: Solver, model: str | None = None,
     """跑单题：物化 → solver 改 → 验收。solver 异常不致命，记为该题失败。"""
     workspace = Path(tempfile.mkdtemp(prefix=f"eval_{task.id}_"))
     t0 = time.time()
-    status, rounds, err = "", 0, ""
+    status, rounds, err, err_kind = "", 0, "", ""
     try:
         materialize(task, workspace)
         try:
@@ -109,6 +151,7 @@ async def run_task(task: EvalTask, solver: Solver, model: str | None = None,
                 rounds = int(agent_out.get("turn_count", 0) or 0)
         except Exception as e:  # solver 崩了 = 这题没做成，但不能拖垮整套
             err = f"solver 异常: {type(e).__name__}: {e}"
+            err_kind = _classify_error(e)
         verdict = grade(task, workspace)
         return TaskResult(
             id=task.id,
@@ -116,9 +159,10 @@ async def run_task(task: EvalTask, solver: Solver, model: str | None = None,
             exit_code=verdict.get("exit_code"),
             rounds=rounds,
             elapsed=round(time.time() - t0, 2),
-            status=status,
+            status=err_kind or status,
             failure_summary="" if verdict.get("ok") else str(verdict.get("failure_summary", ""))[:500],
             error=err,
+            error_kind=err_kind,
         )
     finally:
         if not keep_workspace:
@@ -127,10 +171,23 @@ async def run_task(task: EvalTask, solver: Solver, model: str | None = None,
 
 async def run_suite(tasks: list[EvalTask], solver: Solver, model: str | None = None,
                     label: str = "") -> SuiteResult:
-    """串行跑全套（题之间隔离，串行避免互相抢资源/污染度量）。"""
+    """串行跑全套（题之间隔离，串行避免互相抢资源/污染度量）。
+
+    系统性环境错误（setup，如未配 relay_url）会让每道题都同样失败 → 一旦撞上就整套中止：
+    剩余题标 skipped 不再起跑。这既避免刷一屏相同的假失败，也避免对真实模型白烧额度。"""
     suite = SuiteResult(model=model or "(default)", label=label)
+    aborted_reason = ""
     for task in tasks:
-        suite.results.append(await run_task(task, solver, model))
+        if aborted_reason:
+            suite.results.append(TaskResult(
+                id=task.id, passed=False, exit_code=None,
+                status="skipped", error_kind="skipped",
+                error=f"已跳过：整套因环境错误中止（{aborted_reason}）"))
+            continue
+        res = await run_task(task, solver, model)
+        suite.results.append(res)
+        if res.error_kind == "setup":
+            aborted_reason = res.error
     return suite
 
 

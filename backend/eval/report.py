@@ -18,7 +18,31 @@ def _pct(x: float) -> str:
 
 
 def _mark(r: TaskResult) -> str:
+    """✅通过 / ❌跑了没过 / ⚠环境没起跑 / ⏭整套中止被跳过 / 💥偶发崩溃。"""
+    if r.error_kind == "setup":
+        return "⚠"
+    if r.error_kind == "skipped":
+        return "⏭"
+    if r.error_kind == "crash":
+        return "💥"
     return "✅" if r.passed else "❌"
+
+
+def _unreliable_banner(suite: SuiteResult) -> list[str]:
+    """基线不可信时的醒目警告块（环境/配置错误把题挡在门外，不是模型能力问题）。"""
+    if suite.reliable:
+        return []
+    out = [
+        f"> ⚠️ **此基线不可信**：{suite.not_attempted}/{suite.total} 题因环境/配置错误未能起跑"
+        f"（不是模型能力问题，下面的完成率不能当基线）。修复后重跑才作数。",
+    ]
+    reasons = suite.setup_reasons()
+    if reasons:
+        out.append(">")
+        out.append("> 需先修复：")
+        out.extend(f"> - {r}" for r in reasons)
+    out.append("")
+    return out
 
 
 def format_report(suite: SuiteResult) -> str:
@@ -26,6 +50,9 @@ def format_report(suite: SuiteResult) -> str:
     lines = [
         f"# 评估报告 — {suite.model}" + (f"（{suite.label}）" if suite.label else ""),
         "",
+    ]
+    lines += _unreliable_banner(suite)
+    lines += [
         f"**自主完成率：{_pct(suite.completion_rate)}**　（{suite.passed}/{suite.total} 通过）",
         "",
         "| 题目 | 结果 | 退出码 | 轮数 | 耗时(s) | 备注 |",
@@ -49,6 +76,15 @@ def format_compare(a: SuiteResult, b: SuiteResult,
     lines = [
         f"# 对比报告　{label_a} → {label_b}",
         "",
+    ]
+    if not a.reliable or not b.reliable:
+        bad = ", ".join(lbl for lbl, s in ((label_a, a), (label_b, b)) if not s.reliable)
+        lines += [
+            f"> ⚠️ **对比无效**：{bad} 一侧因环境/配置错误未真正起跑，完成率差是噪声。"
+            f"先修好配置、两侧都跑出可信基线再对比。",
+            "",
+        ]
+    lines += [
         f"- {label_a}（{a.model}）：{_pct(a.completion_rate)}　（{a.passed}/{a.total}）",
         f"- {label_b}（{b.model}）：{_pct(b.completion_rate)}　（{b.passed}/{b.total}）",
         f"- **完成率变化：{sign}{_pct(abs(delta))}**",
