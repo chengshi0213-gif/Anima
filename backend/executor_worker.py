@@ -465,6 +465,9 @@ class ExecutorWorker(AgentBase):
         self.file_read_cap   = 24000
         # 编程向历史压缩：长会话里保留"改过哪些文件、跑过哪些测试"的记忆
         self.coding_compress = True
+        # V (v1.3): 验证闸门——改过文件却没跑过绿验证就声称完成时，
+        # 闸门主动跑测试，红则结构化报错回灌、自修复，把"不绿不收工"从提示升级为硬约束。
+        self.verify_gate = True
         # A2: file_read/file_edit 按需查路径作用域规则用的当前项目根（run() 时刷新）
         self._current_project_root = "."
         # C1: ask_user 挂起/恢复机制

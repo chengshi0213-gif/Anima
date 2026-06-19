@@ -180,6 +180,11 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin):
         self.humanize_output = False
         # 采样温度：None = 用供应商默认；聊天人格略调高，回复更自然不刻板。
         self.temperature = None
+        # V (v1.3): Verify 闸门。默认 False = 聊天人格零影响。
+        # 编程型子类（executor）置 True：声称完成且改过文件却没跑过绿色验证时，
+        # 闸门主动跑测试 → 红则结构化报错回灌、自修复，最多 max_repair_rounds 轮。
+        self.verify_gate = False
+        self.max_repair_rounds = 3
 
     # ── 子类必须实现 ──
     def get_identity_files(self) -> dict[str, Path]:
@@ -329,6 +334,10 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin):
         self._file_state: dict[str, float] = {}
         _fail_counts: dict[str, int] = {}
         total_chars = 0
+        # V (v1.3): 验证闸门会话状态。verified_green = 最后一次文件改动之后跑过绿验证。
+        # 改文件 → 置假（旧绿作废）；shell 跑验证且 exit 0 → 置真。
+        verified_green = False
+        repair_rounds = 0
         _used_key, _used_url, _used_model = self._resolve_model(model)
         self._log(session_id, "session_start", {"task": task[:200], "model": _used_model})
 
@@ -413,6 +422,22 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin):
             # 无工具调用 = 完成
             if not resp.get("tool_calls"):
                 summary = resp.get("content", "")
+                # V (v1.3): Verify 闸门——改过文件却没跑过绿验证就声称完成 → 拦下自修复
+                if self.verify_gate and files_changed and not verified_green:
+                    action, repair_rounds = await self._run_verify_gate(
+                        project, repair_rounds, messages, session_id)
+                    if action == "repair":
+                        continue   # 已注入结构化报错，回循环让模型修
+                    if action == "pass":
+                        verified_green = True
+                    elif action == "unverified":
+                        if self.humanize_output:
+                            summary = self._humanize(summary)
+                        self._log(session_id, "session_complete_unverified",
+                                  {"turns": turn, "files_changed": files_changed})
+                        return {"status": "unverified",
+                                "summary": "⚠️ 改动未通过自动验证（已达修复上限）。\n\n" + summary,
+                                "files_changed": files_changed, "turn_count": turn}
                 if self.humanize_output:
                     summary = self._humanize(summary)
                 self._log(session_id, "session_complete", {"turns": turn, "files_changed": files_changed})
@@ -428,6 +453,13 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin):
                 if name in ("file_write", "file_edit") and "error" not in result:
                     if p := result.get("path"):
                         files_changed.append(p)
+                    verified_green = False   # V: 改了代码 → 之前的绿验证作废
+                elif name == "shell_run" and self.verify_gate and "error" not in result \
+                        and result.get("exit_code") == 0:
+                    # V: 模型自己跑了验证命令且全绿 → 记一次绿，闸门免重复跑
+                    from verify_gate import looks_like_verify
+                    if looks_like_verify(args.get("command", "")):
+                        verified_green = True
                 td = {"tool": name, "ok": "error" not in result, "turn": turn,
                       "hint": str(result.get("error", ""))[:80] if "error" in result else ""}
                 if name in ("file_write", "file_edit") and td["ok"]:
@@ -455,6 +487,35 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin):
 
         return {"status": "max_turns_reached",
                 "summary": f"达到最大轮数 {self.max_turns}", "turn_count": self.max_turns}
+
+    async def _run_verify_gate(self, project: str | None, repair_rounds: int,
+                               messages: list[dict], session_id: str) -> tuple[str, int]:
+        """V (v1.3): 完成前验证闸门。在子进程跑探测到的验证命令，不阻塞事件循环。
+
+        返回 (action, repair_rounds)：
+          "pass"        放行（验证绿 / 探测不到命令无法把关）
+          "repair"      验证红且仍有修复额度，已注入结构化报错，调用方应 continue
+          "unverified"  修复额度用尽仍红，调用方应标记未验证完成
+        """
+        from verify_gate import run_verification, format_repair_message
+        result = await asyncio.to_thread(run_verification, project or ".")
+        if not result["ran"]:
+            self._log(session_id, "verify_gate_skip", {"reason": result.get("note", "")})
+            return ("pass", repair_rounds)
+        if result["ok"]:
+            self._log(session_id, "verify_gate_pass", {"command": result["command"]})
+            return ("pass", repair_rounds)
+        if repair_rounds >= self.max_repair_rounds:
+            self._log(session_id, "verify_gate_exhausted",
+                      {"rounds": repair_rounds, "command": result["command"]})
+            return ("unverified", repair_rounds)
+        repair_rounds += 1
+        messages.append({"role": "user",
+                         "content": format_repair_message(result, repair_rounds, self.max_repair_rounds)})
+        self._log(session_id, "verify_gate_repair",
+                  {"round": repair_rounds, "command": result["command"],
+                   "exit_code": result["exit_code"]})
+        return ("repair", repair_rounds)
 
     async def _execute_tool(self, name: str, args: dict, ctx: dict | None = None) -> dict:
         """工具调用咽喉：异步化 + 确认/钩子（ctx 不为 None 时） + H4 文件闸门。"""
