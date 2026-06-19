@@ -1,0 +1,25 @@
+id: handle-empty-average
+title: average 处理空列表
+category: edge-case
+prompt: |
+  stats.py 的 average(nums) 在传入空列表时会抛 ZeroDivisionError。
+  请让它在空列表时返回 0.0，非空时正常返回平均值。test_stats.py 覆盖了这两种情况，
+  让它全过，不要改测试。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    stats.py: |
+      def average(nums):
+          return sum(nums) / len(nums)
+    test_stats.py: |
+      from stats import average
+
+      def test_normal():
+          assert average([2, 4]) == 3.0
+
+      def test_single():
+          assert average([5]) == 5.0
+
+      def test_empty():
+          assert average([]) == 0.0

@@ -23,6 +23,17 @@
 - **R — 跨会话失败记忆**：
   新模块 `failure_memory.py`（13 测试）。把错误文本归一化（抹路径/行号/数字/地址）成稳定签名，
   同类错误跨会话累计；验证失败时召回"这类坑历史上出现过 N 次"附到修复消息，止住盲目重试。
+- **E — 评估脊柱**（度量先于优化）：
+  新包 `backend/eval/`（23 测试）。声明式 yaml 任务集（自包含微工作区，初始即红）+ 隔离工作区
+  runner（solver 可注入，框架离线可测，评分复用 verify_gate）+ 完成率/AB 对比报告。
+  CLI `python -m eval` 跑真实基线（烧 API，用户触发）。让每个 harness 改动都能用「自主完成率」
+  数字验真伪，不再盲调。当前 6 道种子题，目标扩到 ~20 道。
+
+### 重构 (Refactored)
+
+- **工具执行咽喉 mixin 化**：`agent_base.py` 的 `_execute_tool`/`_guard_tool`/`_post_tool`/`_file_gate`
+  抽成 `agent_tools.py` 的 `AgentToolGateMixin`（承既有 compress/logging/resilience 分层惯例）。
+  `PermissionRequest` 一并迁入并 re-export，外部导入零影响。`agent_base.py` 694 → 546 行，回软红线内。
 
 ### 清理 (Cleanup)
 

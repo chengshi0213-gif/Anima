@@ -1,0 +1,2 @@
+# 基线报告是运行 artifact（python -m eval 的产物），不入库
+reports/

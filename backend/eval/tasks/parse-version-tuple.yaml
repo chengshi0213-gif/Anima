@@ -1,0 +1,28 @@
+id: parse-version-tuple
+title: 解析版本号为整数元组
+category: add-feature
+prompt: |
+  version.py 的 parse(s) 还没实现。请实现它：把形如 "1.2.3" 的版本字符串解析成
+  整数元组 (1, 2, 3)。允许任意段数（"1.2" → (1, 2)）。test_version.py 定义了行为，
+  让它全过，不要改测试。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    version.py: |
+      def parse(s):
+          pass  # TODO: 待实现
+    test_version.py: |
+      from version import parse
+
+      def test_three():
+          assert parse("1.2.3") == (1, 2, 3)
+
+      def test_two():
+          assert parse("10.0") == (10, 0)
+
+      def test_one():
+          assert parse("7") == (7,)
+
+      def test_type():
+          assert all(isinstance(x, int) for x in parse("1.2.3"))
