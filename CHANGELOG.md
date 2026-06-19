@@ -29,6 +29,14 @@
   CLI `python -m eval` 跑真实基线（烧 API，用户触发）。让每个 harness 改动都能用「自主完成率」
   数字验真伪，不再盲调。当前 6 道种子题，目标扩到 ~20 道。
 
+### 修复 (Fixed)
+
+- **eval 区分"环境没起跑"与"真失败"**：E4 首跑因未配 `api.relay_url` 让中转模型
+  抛 `PermissionRequest`、agent 一轮没跑就被挡门外，旧 runner 却把它当普通失败、报告头条
+  仍显示"完成率 0.0%"——配置坑伪装成模型零能力。现按错误类型分 setup（环境/配置坑）/
+  crash（单题偶发崩）：setup 不计入完成率、撞上即整套中止（剩余题标 skipped，不刷假失败也不白烧额度），
+  报告头条打 ⚠ 警告并列出该修的配置，`format_compare` 任一侧不可信即标"对比无效"。+6 测试。
+
 ### 重构 (Refactored)
 
 - **工具执行咽喉 mixin 化**：`agent_base.py` 的 `_execute_tool`/`_guard_tool`/`_post_tool`/`_file_gate`
