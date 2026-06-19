@@ -505,16 +505,30 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin):
         if result["ok"]:
             self._log(session_id, "verify_gate_pass", {"command": result["command"]})
             return ("pass", repair_rounds)
+        # R (v1.3): 跨会话失败记忆——先 recall 历史（含本次之前），再 record 本次失败。
+        recall_hint = ""
+        try:
+            from failure_memory import get_failure_memory, format_recall_hint
+            fm = get_failure_memory()
+            category = "verify:" + (result.get("kind") or "")
+            prior = fm.recall(category, result["failure_summary"])
+            if prior and prior.get("count", 0) >= 1:
+                recall_hint = format_recall_hint(prior)
+            fm.record(category, result["failure_summary"],
+                      summary=result["failure_summary"])
+        except Exception:
+            pass
         if repair_rounds >= self.max_repair_rounds:
             self._log(session_id, "verify_gate_exhausted",
                       {"rounds": repair_rounds, "command": result["command"]})
             return ("unverified", repair_rounds)
         repair_rounds += 1
         messages.append({"role": "user",
-                         "content": format_repair_message(result, repair_rounds, self.max_repair_rounds)})
+                         "content": format_repair_message(result, repair_rounds, self.max_repair_rounds)
+                                    + recall_hint})
         self._log(session_id, "verify_gate_repair",
                   {"round": repair_rounds, "command": result["command"],
-                   "exit_code": result["exit_code"]})
+                   "exit_code": result["exit_code"], "recalled": bool(recall_hint)})
         return ("repair", repair_rounds)
 
     async def _execute_tool(self, name: str, args: dict, ctx: dict | None = None) -> dict:
