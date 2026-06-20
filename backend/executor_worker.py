@@ -27,6 +27,7 @@ from project_memory import load_project_memory, get_scoped_rules, append_auto_me
 from git_tools import GIT_TOOL_DEFS, build_git_dispatch
 from task_runner import TASK_TOOL_DEFS, build_task_dispatch
 from code_intel import CODE_INTEL_TOOL_DEFS, CODE_INTEL_DISPATCH
+from code_index import CODE_INDEX_TOOL_DEFS, CODE_INDEX_DISPATCH
 from orchestrator import lead_delegate_tool_defs, build_orchestration_dispatch
 from git_safety import GIT_SAFETY_TOOL_DEFS, build_git_safety_dispatch
 from computer_tools import TOOL_DEFS as COMPUTER_TOOL_DEFS, build_dispatch as build_computer_dispatch
@@ -378,6 +379,8 @@ class ExecutorWorker(AgentBase):
                         "text": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "doing", "done"]},
                     }}},
                 }, "required": ["steps"]}}},
+            # v1.3 L: 代码定位层（locate_relevant/find_symbol_ast/rebuild_index——AST精确+无上限）
+            *CODE_INDEX_TOOL_DEFS,
             # v1.2.2 B1-B4: 代码智能（find_symbol/find_usages/search_code_ctx/apply_patch）
             *CODE_INTEL_TOOL_DEFS,
             # v1.2.1 T2: 后台长命令 + T7: git 工具
@@ -440,6 +443,7 @@ class ExecutorWorker(AgentBase):
                                                            kw.get("body"), kw.get("headers"), kw.get("timeout", 30)),
                 "install_pkg": lambda **kw: _install_pkg(kw["package"], kw.get("manager", "pip")),
                 "update_plan": lambda **kw: _update_plan(kw["steps"], kw.get("session_id", "")),
+                **CODE_INDEX_DISPATCH,
                 **CODE_INTEL_DISPATCH,
                 **build_task_dispatch(),
                 **build_git_dispatch(),
