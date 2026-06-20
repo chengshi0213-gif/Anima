@@ -1,0 +1,102 @@
+id: dispatch-table-swap
+title: 命令分发表里两个处理器对调了
+category: bug-fix
+prompt: |
+  test_executor.py 测试一个命令执行引擎，有几个测试失败了。
+  executor.py 的代码只是查表和调用，逻辑看起来没问题。
+  请在项目文件中定位真正出问题的地方并修好。不要改测试文件。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    commands_move.py: |
+      def handle_up(n=1):
+          return f"moved_up_{n}"
+
+      def handle_down(n=1):
+          return f"moved_down_{n}"
+
+    commands_file.py: |
+      def handle_open(path):
+          return f"opened_{path}"
+
+      def handle_save(path):
+          return f"saved_{path}"
+
+    commands_edit.py: |
+      def handle_copy(text):
+          return f"copied_{text}"
+
+      def handle_paste():
+          return "pasted"
+
+    dispatch.py: |
+      from commands_move import handle_up, handle_down
+      from commands_file import handle_open, handle_save
+
+      COMMANDS = {
+          "up": handle_down,
+          "down": handle_up,
+          "open": handle_open,
+          "save": handle_save,
+      }
+
+    executor.py: |
+      from dispatch import COMMANDS
+
+      def execute(cmd_name, *args, **kwargs):
+          handler = COMMANDS.get(cmd_name)
+          if handler is None:
+              raise ValueError(f"未知命令: {cmd_name}")
+          return handler(*args, **kwargs)
+
+      def list_commands():
+          return sorted(COMMANDS.keys())
+
+    output_fmt.py: |
+      def format_result(result):
+          return f"[OK] {result}"
+
+      def format_error(msg):
+          return f"[ERR] {msg}"
+
+    cmd_history.py: |
+      _history = []
+
+      def record(cmd):
+          _history.append(cmd)
+
+      def get_history():
+          return list(_history)
+
+    test_executor.py: |
+      from executor import execute
+
+      def test_up():
+          assert execute("up") == "moved_up_1"
+
+      def test_down():
+          assert execute("down") == "moved_down_1"
+
+      def test_up_with_steps():
+          assert execute("up", 3) == "moved_up_3"
+
+      def test_open():
+          assert execute("open", "file.txt") == "opened_file.txt"
+
+      def test_unknown_command():
+          import pytest
+          with pytest.raises(ValueError, match="未知命令"):
+              execute("delete")
+solution:
+  files:
+    dispatch.py: |
+      from commands_move import handle_up, handle_down
+      from commands_file import handle_open, handle_save
+
+      COMMANDS = {
+          "up": handle_up,
+          "down": handle_down,
+          "open": handle_open,
+          "save": handle_save,
+      }

@@ -1,0 +1,72 @@
+id: deep-import-precision
+title: 精度配置在依赖链深处导致金额计算截断
+category: bug-fix
+prompt: |
+  test_billing.py 测试含税折扣计算，跑起来有测试失败——金额被截断到整数了。
+  billing.py 的逻辑本身看起来没问题，bug 藏在它的依赖链更深处。
+  项目有好几个文件，请定位真正出错的地方修好，让测试全绿。不要改测试文件。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    config.py: |
+      APP_NAME = "ShopEasy"
+      VERSION = "2.1.0"
+      DECIMAL_PLACES = 0
+      DEBUG = False
+
+    currency.py: |
+      from config import DECIMAL_PLACES
+
+      def round_amount(value):
+          return round(value, DECIMAL_PLACES)
+
+      def format_price(value):
+          return f"${round_amount(value):.2f}"
+
+    tax.py: |
+      from currency import round_amount
+
+      RATES = {"standard": 0.08, "reduced": 0.04, "exempt": 0.0}
+
+      def compute_tax(amount, rate_name="standard"):
+          rate = RATES.get(rate_name, RATES["standard"])
+          return round_amount(amount * rate)
+
+    discount.py: |
+      from currency import round_amount
+
+      def apply_discount(amount, pct):
+          if not 0 <= pct <= 100:
+              raise ValueError("折扣百分比须在 0-100")
+          return round_amount(amount * (1 - pct / 100))
+
+    billing.py: |
+      from tax import compute_tax
+      from discount import apply_discount
+      from currency import round_amount
+
+      def calculate_total(subtotal, discount_pct=0, tax_rate="standard"):
+          after_discount = apply_discount(subtotal, discount_pct)
+          tax = compute_tax(after_discount, tax_rate)
+          return round_amount(after_discount + tax)
+
+    test_billing.py: |
+      from billing import calculate_total
+
+      def test_no_discount():
+          assert calculate_total(100) == 108.00
+
+      def test_with_discount():
+          assert calculate_total(250, discount_pct=10) == 243.00
+
+      def test_fractional():
+          # 49.99 * 0.85 = 42.4915 → tax 3.3993 → total 45.89
+          assert calculate_total(49.99, discount_pct=15) == 45.89
+solution:
+  files:
+    config.py: |
+      APP_NAME = "ShopEasy"
+      VERSION = "2.1.0"
+      DECIMAL_PLACES = 2
+      DEBUG = False
