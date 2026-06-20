@@ -14,7 +14,7 @@ from pathlib import Path
 # ── 版本单一真源（R2）──
 # 后端唯一版本常量；横幅/接口统一引用，杜绝硬编码。
 # 发版时与 package.json / tauri.conf.json / Cargo.toml 三清单保持一致。
-ANIMA_VERSION = "1.3.0"
+ANIMA_VERSION = "1.3.1"
 
 # ── 项目根目录（兼容 PyInstaller 打包后的路径）──
 if getattr(sys, 'frozen', False):

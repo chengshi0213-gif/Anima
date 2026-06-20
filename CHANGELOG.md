@@ -8,7 +8,44 @@
 
 ---
 
-## [未发布] - v1.3 厚 Harness（第一批）
+## [1.3.1] - 2026-06-20 — 发版补丁 + Harness 自演化
+
+> v1.3.0 已发布，但 R1 的 `--hidden-import` 修复落在 tag 之后的提交里、没进已发布的冻结包——
+> 线上 v1.3.0 调 analyst/pm/researcher 仍会崩。本版把修复真正发出去，并把 v1.3 的失败记忆
+> 升级成"会自我进化"的闭环（解法记忆 + 自演化提案），背书见 AHE 论文（arXiv:2604.25850）：
+> 增益来自工具/中间件/记忆的演化，而非 prompt 措辞。
+
+### 修复 (Fixed)
+
+- **发版漏修补发（P0）**：v1.3.0 的安装包未包含 analyst/pm/researcher 三 worker 的
+  `--hidden-import`（修复提交在 tag 之后），PyInstaller `--onefile` 只跟静态导入，导致这三个
+  动态加载的角色在冻结二进制里 `ModuleNotFoundError`、调用即崩。本版重新发版把修复带出去。
+
+### 新增 (Added)
+
+- **解法记忆 / hindsight note（P3）**：新模块 `solution_memory.py`。失败记忆（Phase R）原本
+  只诚实记录"这类坑反复出现"、明确把"持久化解法"留作后续升级——本版补上：验证闸门经自修复
+  转绿时，按**同一套错误签名**落盘一条 hindsight note（修了几轮、解决了几次）。下次再撞同类
+  错误，召回时不仅提示"这坑出现过 N 次"，还附上"这类错误以前修好过、N 轮内能解"——给弱模型
+  正向锚点，止住"没测就报未验证"的过早放弃。与 `failure_memory` 对称、可持久化、离线可测。
+- **Harness 自演化提案（P2）**：新模块 `harness_evolution.py`。读取失败记忆 + 解法记忆，按
+  数据生成**排序的 harness 改进提案**——高频且从未解决的错误类 → 高优先级"该长一个前置检查
+  工具/中间件"；高频但可解 → 中优先级"把已知解法固化成工具，别让模型每次重新推导"。落实 AHE
+  论点：让真实失败数据告诉你 harness 该往哪长，而不是拍脑袋堆功能。CLI `python -m harness_evolution`。
+- **eval 消融自检（P1）**：新增 `backend/eval/ablation_demo.py` + 离线 stub solver。用确定性
+  "弱模型"（关闸门会"没测就收工"、开闸门被逼修到绿）跑 gate-off/gate-on 两轮，证明消融对照
+  管道**确有判别力**（量得出 Verify 闸门增益），与基线是否饱和解耦。真实数字仍需本机
+  `python -m eval --model DeepSeek-V4-Pro` 烧额度跑；本演示只证明"尺子能量出来"。
+
+### 文档 (Docs)
+
+- **ROADMAP 护城河刷新（P4）**：`docs/ROADMAP.md` 修正陈旧路径（`E:\Anima` → 实际
+  `E:\AI\workspace\Anima`）、勾掉已完成项、新增"护城河聚焦"段——依 2026 过时排查结论，
+  停止特性军备竞赛，转夯实"厚 harness + 本地优先 + 角色化陪伴"三位一体护城河。
+
+---
+
+## [1.3.0] - 2026-06-20 — v1.3 厚 Harness（第一批）
 
 > 命题：输出质量天花板应由 harness 决定，而非"租到哪个模型"。让弱模型（DeepSeek 直连）
 > 靠厚 harness 补足，不依赖 Claude 也能强输出。详见 `docs/v1.3-execution-log.md`。

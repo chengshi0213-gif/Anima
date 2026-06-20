@@ -326,6 +326,7 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin,
         # 改文件 → 置假（旧绿作废）；shell 跑验证且 exit 0 → 置真。
         verified_green = False
         repair_rounds = 0
+        self._pending_resolution = None  # P3: 待记录的"经修复转绿"解法（红时置、转绿时落盘）
         _used_key, _used_url, _used_model = self._resolve_model(model)
         self._log(session_id, "session_start", {"task": task[:200], "model": _used_model})
 
@@ -492,6 +493,18 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin,
             return ("pass", repair_rounds)
         if result["ok"]:
             self._log(session_id, "verify_gate_pass", {"command": result["command"]})
+            # P3: 经自修复转绿 → 给这类错误落一条 hindsight note（解法可信由闸门背书）
+            pending = getattr(self, "_pending_resolution", None)
+            if pending and repair_rounds > 0:
+                try:
+                    from solution_memory import get_solution_memory
+                    get_solution_memory().record_resolution(
+                        pending["category"], pending["error_text"],
+                        note=f"经 {repair_rounds} 轮自修复，验证命令 `{result['command']}` 转绿。",
+                        repair_rounds=repair_rounds)
+                except Exception:
+                    pass
+                self._pending_resolution = None
             return ("pass", repair_rounds)
         # R (v1.3): 跨会话失败记忆——先 recall 历史（含本次之前），再 record 本次失败。
         recall_hint = ""
@@ -506,6 +519,18 @@ class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin,
                       summary=result["failure_summary"])
         except Exception:
             pass
+        # P3: 解法记忆——这类错误以前若被解决过，附正向提示（可解、别过早标未验证）。
+        category = "verify:" + (result.get("kind") or "")
+        try:
+            from solution_memory import get_solution_memory, format_solution_hint
+            sol = get_solution_memory().recall(category, result["failure_summary"])
+            if sol:
+                recall_hint += format_solution_hint(sol)
+        except Exception:
+            pass
+        # 记下本次失败签名，若后续修复转绿则登记为"已解决"
+        self._pending_resolution = {"category": category,
+                                    "error_text": result["failure_summary"]}
         if repair_rounds >= self.max_repair_rounds:
             self._log(session_id, "verify_gate_exhausted",
                       {"rounds": repair_rounds, "command": result["command"]})

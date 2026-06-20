@@ -1,7 +1,7 @@
 # Anima 项目地图与导航
 
 > 一次扫描，长期复用。改了结构请同步本文件。
-> 最后更新：2026-06-20 · 对应版本 v1.3.0（master）
+> 最后更新：2026-06-20 · 对应版本 v1.3.1（master）
 
 ---
 
@@ -90,11 +90,13 @@ Anima 是一个 **Tauri v2 桌面应用**：前端 = 原生 JS（无打包器）
 | 模块 | Phase |
 |---|---|
 | `verify_gate.py` | **V** Plan-Execute-Verify 闸门 |
-| `failure_memory.py` | **R** 跨会话失败记忆 |
+| `failure_memory.py` | **R** 跨会话失败记忆（负向：别再用上次那招硬撞） |
+| `solution_memory.py` | **P3** 跨会话解法记忆 / hindsight note（正向：这类错可解、N 轮内修过；v1.3.1） |
+| `harness_evolution.py` | **P2** Harness 自演化提案（读失败+解法记忆→排序的"该长什么工具/中间件"建议，`python -m harness_evolution`；v1.3.1） |
 | `code_index.py` | **L** 代码定位层（locate + AST find_symbol + SHA256 增量索引） |
 | `code_intel.py` | 代码智能工具 B1-B4（AST 优先，regex 回退） |
 | `agentless_pipeline.py` | **D** 确定性三段管道（locate→patch→verify） |
-| `backend/eval/` | **E** Eval 评测脊柱（`python -m eval`，13 任务消融） |
+| `backend/eval/` | **E** Eval 评测脊柱（`python -m eval`，13 任务消融）；`eval/ablation_demo.py` = 闸门消融离线判别力自检（v1.3.1） |
 
 ### 4.3 记忆与检索
 | 模块 | 职责 |

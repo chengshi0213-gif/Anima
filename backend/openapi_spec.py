@@ -11,7 +11,7 @@ import json
 try:
     from config import ANIMA_VERSION as VERSION  # 单一版本真源（R2）
 except Exception:
-    VERSION = "1.3.0"
+    VERSION = "1.3.1"
 
 SPEC: dict = {
     "openapi": "3.0.3",
