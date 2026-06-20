@@ -1,0 +1,51 @@
+id: roman-to-int-subtractive
+title: roman_to_int 没处理减法记法
+category: edge-case
+prompt: |
+  roman.py 的 roman_to_int(s) 把罗马数字转整数，但现在对减法记法（IV=4、IX=9、XL=40…）算错了，
+  只对纯累加的（III、VIII）才对。test_roman.py 是红的。请修 roman.py 让测试通过，不要改测试文件。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    roman.py: |
+      _VAL = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+
+      def roman_to_int(s):
+          # bug: 直接累加每个字母，没处理"小值在大值左边要做减法"的记法
+          total = 0
+          for ch in s:
+              total += _VAL[ch]
+          return total
+    test_roman.py: |
+      from roman import roman_to_int
+
+      def test_additive():
+          assert roman_to_int("III") == 3
+          assert roman_to_int("VIII") == 8
+
+      def test_subtractive():
+          assert roman_to_int("IV") == 4
+          assert roman_to_int("IX") == 9
+          assert roman_to_int("XL") == 40
+          assert roman_to_int("XC") == 90
+
+      def test_mixed():
+          assert roman_to_int("LVIII") == 58
+          assert roman_to_int("MCMXCIV") == 1994
+solution:
+  files:
+    roman.py: |
+      _VAL = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+
+      def roman_to_int(s):
+          total = 0
+          prev = 0
+          for ch in reversed(s):
+              v = _VAL[ch]
+              if v < prev:
+                  total -= v
+              else:
+                  total += v
+                  prev = v
+          return total

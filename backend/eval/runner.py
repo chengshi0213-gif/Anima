@@ -122,12 +122,23 @@ class SuiteResult:
         }
 
 
-def materialize(task: EvalTask, workspace: Path) -> None:
-    """把任务的初始文件写进工作区。"""
-    for rel, content in task.setup_files.items():
+def _write_files(files: dict[str, str], workspace: Path) -> None:
+    for rel, content in files.items():
         dest = workspace / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(content, encoding="utf-8")
+
+
+def materialize(task: EvalTask, workspace: Path) -> None:
+    """把任务的初始文件写进工作区。"""
+    _write_files(task.setup_files, workspace)
+
+
+def apply_solution(task: EvalTask, workspace: Path) -> None:
+    """把参考解覆盖进工作区。配合 grade 做「这题确实可解」的离线纪律检查——
+    保证一道题既「初始即红」（test_seed_task_starts_red）又「参考解能转绿」，
+    两侧夹住，避免发布一道根本做不出的题、让 harness 背锅。"""
+    _write_files(task.solution_files, workspace)
 
 
 def grade(task: EvalTask, workspace: Path) -> dict:
@@ -192,17 +203,25 @@ async def run_suite(tasks: list[EvalTask], solver: Solver, model: str | None = N
 
 
 # ── 生产 solver：真正驱动 executor agent（需 API Key，烧额度）─────────────────
-def make_executor_solver() -> Solver:
+def make_executor_solver(verify_gate: bool = True,
+                         max_repair_rounds: int | None = None) -> Solver:
     """构造真实 solver：每题起一个 executor，工作区根目录 = 隔离 workspace。
 
     这是 E4「跑基线」实际用的 solver，需配置好模型 API Key。本函数只构造，
     不在 import 期触网；真正花额度发生在 run_suite 调用时。
+
+    `verify_gate` 是消融开关：同一模型、同一套题，开/关 Verify 闸门各跑一次，
+    `format_compare(off, on)` 的完成率差 = 闸门对弱模型的真实增益（v1.3 的核心论点
+    「厚 harness 让弱模型变强」就靠这个差值证伪/证真，而非凭感觉）。
     """
     async def _solve(prompt: str, workspace: Path, model: str | None) -> dict:
         from executor_worker import ExecutorWorker
         worker = ExecutorWorker()
         # 把 agent 的文件操作根钉在隔离工作区，并通过 project 注入上下文
         worker.work_dir = workspace
+        worker.verify_gate = verify_gate          # 消融：关掉它，看弱模型会不会「没测就收工」
+        if max_repair_rounds is not None:
+            worker.max_repair_rounds = max_repair_rounds
         task = (f"工作目录就是当前项目根：{workspace}\n"
                 f"所有文件路径相对它。完成后必须让验收测试通过。\n\n{prompt}")
         return await worker.run(task, model=model, project=str(workspace))

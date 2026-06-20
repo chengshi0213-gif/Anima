@@ -15,7 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from eval.spec import EvalTask, load_task, load_tasks, TASKS_DIR
 from eval.runner import (
-    materialize, grade, run_task, run_suite, _resolve_command, TaskResult, SuiteResult,
+    materialize, apply_solution, grade, run_task, run_suite, _resolve_command,
+    make_executor_solver, TaskResult, SuiteResult,
 )
 from eval.report import format_report, format_compare, save_report
 
@@ -85,6 +86,17 @@ def test_seed_task_starts_red(task, tmp_path):
     assert grade(task, tmp_path)["ok"] is False, f"{task.id} 初始竟然是绿的——失去判别力"
 
 
+@pytest.mark.parametrize("task", [t for t in load_tasks() if t.solution_files],
+                         ids=lambda t: t.id)
+def test_seed_task_winnable(task, tmp_path):
+    """纪律闸门（另一侧）：带参考解的题，套上参考解必须转绿。
+    与 test_seed_task_starts_red 夹住——保证题既不是"白给"也不是"根本做不出"（坏题会让 harness 背锅）。"""
+    materialize(task, tmp_path)
+    assert grade(task, tmp_path)["ok"] is False         # 初始红
+    apply_solution(task, tmp_path)
+    assert grade(task, tmp_path)["ok"] is True, f"{task.id} 套上参考解竟然没转绿——题/解不自洽"
+
+
 # ── runner：物化 + 评分 ───────────────────────────────────────────────────────
 def test_materialize_writes_files(tmp_path):
     t = _light_task("mat")
@@ -115,6 +127,14 @@ def test_run_task_noop_fails_real_pytest():
     assert isinstance(res, TaskResult)
     assert res.passed is False                    # 初始即红，什么都不改 → 不过
     assert res.failure_summary                     # 有结构化失败摘要
+
+
+def test_executor_solver_factory_accepts_ablation_knob():
+    """make_executor_solver 的 verify_gate 消融开关：开/关都应构造出可调用 solver
+    （不触网——真正起 executor 在 _solve 调用时才发生）。"""
+    assert callable(make_executor_solver())
+    assert callable(make_executor_solver(verify_gate=False))
+    assert callable(make_executor_solver(verify_gate=False, max_repair_rounds=0))
 
 
 def test_run_task_fix_passes_real_pytest():

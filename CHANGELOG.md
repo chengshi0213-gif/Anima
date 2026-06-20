@@ -27,7 +27,14 @@
   新包 `backend/eval/`（23 测试）。声明式 yaml 任务集（自包含微工作区，初始即红）+ 隔离工作区
   runner（solver 可注入，框架离线可测，评分复用 verify_gate）+ 完成率/AB 对比报告。
   CLI `python -m eval` 跑真实基线（烧 API，用户触发）。让每个 harness 改动都能用「自主完成率」
-  数字验真伪，不再盲调。当前 6 道种子题，目标扩到 ~20 道。
+  数字验真伪，不再盲调。
+- **E — Verify 闸门消融 + 判别力任务**（让评估能证明自己的论点）：
+  首跑 DeepSeek-V4-Pro 在 6 道种子题上 100%——框架通了，但基线饱和、量不出 harness 增益。
+  补两样：① `make_executor_solver(verify_gate=…)` 消融开关 + CLI `--no-verify-gate`，
+  同模型开/关闸门各跑一次，`format_compare(off, on)` 的完成率差 = Verify 闸门对弱模型的真实增益
+  （v1.3 核心论点从此可证伪）；② 4 道判别力更强的题（多 bug 逼多轮自修复 / 跨文件逼定位 /
+  藏边界用例 / 有状态逻辑），共 10 道。新增 `solution.files` 参考解字段 + `test_seed_task_winnable`
+  纪律闸门：红（初始）/ 绿（套参考解）两侧夹住，杜绝"做不出的坏题"让 harness 背锅。
 
 ### 修复 (Fixed)
 

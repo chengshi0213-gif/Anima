@@ -31,6 +31,7 @@ class EvalTask:
     prompt: str
     verify: str                              # 验收命令，exit 0 = 通过
     setup_files: dict[str, str] = field(default_factory=dict)  # 相对路径 → 内容
+    solution_files: dict[str, str] = field(default_factory=dict)  # 参考解（覆盖到工作区应转绿）
     title: str = ""
     category: str = "misc"                   # bug-fix / add-feature / fix-test / refactor / edge-case
     timeout: int = 120                       # 验收命令超时（秒）
@@ -51,11 +52,14 @@ def _coerce(raw: dict, source: str) -> EvalTask:
         raise ValueError(f"{source}: 任务必须是 mapping，得到 {type(raw).__name__}")
     setup = raw.get("setup") or {}
     files = setup.get("files") if isinstance(setup, dict) else None
+    solution = raw.get("solution") or {}
+    sol_files = solution.get("files") if isinstance(solution, dict) else None
     return EvalTask(
         id=str(raw.get("id", "")).strip(),
         prompt=str(raw.get("prompt", "")),
         verify=str(raw.get("verify", "")).strip(),
         setup_files={str(k): str(v) for k, v in (files or {}).items()},
+        solution_files={str(k): str(v) for k, v in (sol_files or {}).items()},
         title=str(raw.get("title", "")).strip(),
         category=str(raw.get("category", "misc")).strip() or "misc",
         timeout=int(raw.get("timeout", 120)),
