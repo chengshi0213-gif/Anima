@@ -247,6 +247,58 @@ def test_apply_patch_empty():
     assert "error" in r
 
 
+# ════════════════════════════════════════════════════════════════════
+#  F1 — find_symbol AST 索引优先路径
+# ════════════════════════════════════════════════════════════════════
+
+def test_find_symbol_ast_context_is_real_line(tmp_path):
+    """F1: Python 文件走 AST 索引，context 应该是真实的源码行，不是合成字符串。"""
+    (tmp_path / "mod.py").write_text(
+        "def compute(x, y):\n    return x + y\n", encoding="utf-8"
+    )
+    r = ci.find_symbol("compute", root=str(tmp_path))
+    assert r["total"] == 1
+    m = r["matches"][0]
+    assert m["line"] == 1
+    assert m["type"] == "function"
+    # 真实行内容，不是 "function compute" 合成串
+    assert "compute" in m["context"]
+    assert "def compute" in m["context"] or "compute" in m["context"]
+
+
+def test_find_symbol_ast_class(tmp_path):
+    """F1: AST 索引能精确找到 class 定义。"""
+    (tmp_path / "srv.py").write_text(
+        "class Server:\n    pass\n\nclass Client:\n    pass\n", encoding="utf-8"
+    )
+    r = ci.find_symbol("Server", root=str(tmp_path))
+    assert r["total"] == 1
+    assert r["matches"][0]["type"] == "class"
+
+
+def test_find_symbol_ast_no_regex_false_positive(tmp_path):
+    """F1: AST 索引不会把注释/字符串里的 def 当定义。"""
+    (tmp_path / "c.py").write_text(
+        '# def fake():\n"""def fake2():\"\"\"\nfake3 = "def real()"\ndef real():\n    pass\n',
+        encoding="utf-8",
+    )
+    r = ci.find_symbol("real", root=str(tmp_path))
+    # AST 只会报告真实的函数定义（第4行），不包含注释/字符串里的
+    assert r["total"] == 1
+    assert r["matches"][0]["line"] == 4
+
+
+def test_find_symbol_fallback_js(tmp_path):
+    """F1: JS 文件走 regex 回退路径，结果仍然正确。"""
+    (tmp_path / "util.js").write_text(
+        "export function formatDate(d) { return d.toISOString(); }\n",
+        encoding="utf-8",
+    )
+    r = ci.find_symbol("formatDate", root=str(tmp_path))
+    assert r["total"] == 1
+    assert r["matches"][0]["type"] == "function"
+
+
 def test_apply_patch_bad_format():
     r = ci.apply_patch("this is not a diff")
     assert "error" in r

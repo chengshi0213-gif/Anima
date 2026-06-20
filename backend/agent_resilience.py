@@ -14,6 +14,7 @@ AgentResilienceMixin — 循环级错误恢复（H6）
 import asyncio
 import hashlib
 import json
+import re
 
 
 _PARALLEL_SAFE = frozenset({
@@ -25,6 +26,30 @@ _PARALLEL_SAFE = frozenset({
 
 class AgentResilienceMixin:
     """循环级错误恢复 + 并行工具执行 Mixin，供 AgentBase 继承。"""
+
+    @staticmethod
+    def _tolerant_parse_args(raw: str) -> dict | None:
+        """F3: 容错 JSON 参数解析——弱模型常输出带代码块/单引号/未加引号的 JSON。
+        策略: 直接 parse → 剥 markdown → 提取第一个 {...}。失败返回 None。
+        """
+        raw = raw.strip()
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            pass
+        m = re.match(r"```(?:json)?\s*([\s\S]+?)\s*```$", raw, re.DOTALL)
+        if m:
+            try:
+                return json.loads(m.group(1))
+            except json.JSONDecodeError:
+                pass
+        m2 = re.search(r"\{[\s\S]*\}", raw)
+        if m2:
+            try:
+                return json.loads(m2.group(0))
+            except json.JSONDecodeError:
+                pass
+        return None
 
     @staticmethod
     def _tool_hash(name: str, args: dict) -> str:
@@ -88,12 +113,21 @@ class AgentResilienceMixin:
         parsed = []
         for tc in tool_calls:
             name = tc["function"]["name"]
+            raw_args = tc["function"]["arguments"]
             try:
-                args = json.loads(tc["function"]["arguments"])
+                args = json.loads(raw_args)
             except json.JSONDecodeError:
-                args = {}
-                parsed.append((tc, name, args, {"error": f"参数解析失败: {tc['function']['arguments'][:200]}"}))
-                continue
+                # F3: 容错修复——弱模型常输出 markdown 包裹/单引号/未加引号的 JSON
+                args = self._tolerant_parse_args(raw_args)
+                if args is None:
+                    args = {}
+                    parsed.append((tc, name, args, {
+                        "error": (
+                            f"参数解析失败（已尝试容错修复）: {raw_args[:200]}\n"
+                            "请用合法 JSON 重新调用此工具。"
+                        ),
+                    }))
+                    continue
             breaker = self._check_breaker(name, args, fail_counts)
             if breaker is not None:
                 parsed.append((tc, name, args, breaker))

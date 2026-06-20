@@ -31,20 +31,62 @@ _STRUCTURED_PROMPT = """\
 class AgentCompressMixin:
     """历史压缩与摘要落盘的 Mixin，供 AgentBase 继承。"""
 
+    def _tiered_compress(self, messages: list[dict],
+                         hot_n: int = 12, warm_n: int = 36) -> list[dict]:
+        """F2: 三档渐进压缩（近/中/远）。
+        近(hot): 最近 hot_n 条 → 完整保留
+        中(warm): 再往前 warm_n 条 → coding_digest 提炼（文件+命令）
+        远(cold): 更早 → 仅计数占位
+        """
+        sys_msgs = [m for m in messages if m["role"] == "system"]
+        rest = [m for m in messages if m["role"] != "system"]
+        if len(rest) <= hot_n:
+            return messages
+
+        hot = rest[-hot_n:]
+        while hot and hot[0].get("role") == "tool":
+            hot = hot[1:]
+
+        warm_start = max(0, len(rest) - hot_n - warm_n)
+        warm = rest[warm_start : len(rest) - hot_n]
+        cold = rest[:warm_start]
+
+        first_user = next((m for m in rest if m["role"] == "user"), None)
+
+        result = sys_msgs[:]
+
+        if cold:
+            result.append({
+                "role": "assistant",
+                "content": f"[远期归档: {len(cold)} 条早期消息已丢弃]",
+            })
+
+        if first_user and first_user not in hot and first_user not in warm:
+            result.append(first_user)
+
+        if warm:
+            digest = self._coding_digest(warm)
+            label = f"[中期摘要（{len(warm)} 条消息）]"
+            content = f"{label}\n\n{digest}" if digest else label
+            result.append({"role": "assistant", "content": content})
+
+        return result + self._evict_large_results(hot)
+
     async def _structured_compress(self, messages: list[dict],
                                    session_id: str = "") -> list[dict]:
-        """H3: 用 LLM 生成八段式结构化摘要替代占位符。失败回退 _compress_history。"""
+        """H3/F2: LLM 八段式摘要（中间区），失败回退三档渐进压缩。"""
         if len(messages) <= 10:
             return messages
         sys_msgs = [m for m in messages if m["role"] == "system"]
         rest = [m for m in messages if m["role"] != "system"]
         first_user = next((m for m in rest if m["role"] == "user"), None)
-        tail = rest[-6:] if len(rest) > 6 else rest
+        hot_n = 12
+        tail = rest[-hot_n:] if len(rest) > hot_n else rest
         while tail and tail[0].get("role") == "tool":
             tail = tail[1:]
         dropped = [m for m in rest if m is not first_user and m not in tail]
         if not dropped:
-            return self._compress_history(messages)
+            return self._tiered_compress(messages)
         history_lines = []
         for m in dropped[-30:]:
             role = m.get("role", "?")
@@ -69,7 +111,7 @@ class AgentCompressMixin:
             if not summary_text or len(summary_text) < 50:
                 raise ValueError("摘要过短或为空")
         except Exception:
-            return self._compress_history(messages)
+            return self._tiered_compress(messages)
         result = sys_msgs[:]
         if first_user:
             result.append(first_user)

@@ -459,7 +459,7 @@ def test_h3_short_history_unchanged(tmp_path):
 
 
 def test_h3_fallback_on_llm_failure(tmp_path, monkeypatch):
-    """LLM 调用失败时回退到 _compress_history。"""
+    """LLM 调用失败时回退到三档渐进压缩（F2 升级后的行为）。"""
     agent = _make_agent(tmp_path)
     msgs = [{"role": "system", "content": "sys"}]
     msgs.append({"role": "user", "content": "first question"})
@@ -473,7 +473,9 @@ def test_h3_fallback_on_llm_failure(tmp_path, monkeypatch):
 
     out = asyncio.run(agent._structured_compress(msgs))
     assert len(out) < len(msgs)
-    assert any("[中间对话已压缩]" in m.get("content", "") for m in out)
+    # F2: fallback 改为三档压缩，占位符为"中期摘要"或"远期归档"
+    all_text = " ".join(m.get("content", "") or "" for m in out)
+    assert "中期摘要" in all_text or "远期归档" in all_text or "归档" in all_text
 
 
 def test_h3_structured_summary_used(tmp_path, monkeypatch):
@@ -503,7 +505,7 @@ def test_h3_structured_summary_used(tmp_path, monkeypatch):
 
 
 def test_h3_empty_summary_triggers_fallback(tmp_path, monkeypatch):
-    """LLM 返回空/过短摘要时回退。"""
+    """LLM 返回空/过短摘要时回退到三档渐进压缩（F2）。"""
     agent = _make_agent(tmp_path)
     msgs = [{"role": "system", "content": "s"},
             {"role": "user", "content": "u"}]
@@ -516,7 +518,10 @@ def test_h3_empty_summary_triggers_fallback(tmp_path, monkeypatch):
     monkeypatch.setattr(agent, "_call_api", _short_api)
 
     out = asyncio.run(agent._structured_compress(msgs))
-    assert any("[中间对话已压缩]" in m.get("content", "") for m in out)
+    assert len(out) < len(msgs)
+    # F2: fallback 改为三档压缩
+    all_text = " ".join(m.get("content", "") or "" for m in out)
+    assert "中期摘要" in all_text or "远期归档" in all_text or "归档" in all_text
 
 
 def test_h3_tool_calls_rendered(tmp_path, monkeypatch):

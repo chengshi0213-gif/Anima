@@ -91,6 +91,7 @@ def _walk_files(root: Path, file_glob: str | None = None, limit: int = 5000):
 
 def find_symbol(name: str, symbol_type: str = "any", root: str = ".") -> dict:
     """在代码库中找符号定义位置。
+    F1: 优先走 code_index AST 索引（Python 无误报，无文件数上限），失败回退 regex。
     symbol_type: function | class | variable | any
     返回: {matches: [{file, line, type, context}], total}
     """
@@ -101,6 +102,27 @@ def find_symbol(name: str, symbol_type: str = "any", root: str = ".") -> dict:
     if not base.is_dir():
         return {"error": f"目录不存在: {root}"}
 
+    # F1: AST 索引优先路径
+    try:
+        from code_index import find_symbol_ast
+        result = find_symbol_ast(name, root, symbol_type=symbol_type)
+        if "error" not in result:
+            # 用真实行内容替换合成 context
+            for m in result.get("matches", []):
+                try:
+                    lines = (base / m["file"]).read_text(
+                        "utf-8", errors="replace"
+                    ).splitlines()
+                    ln = m["line"] - 1
+                    if 0 <= ln < len(lines):
+                        m["context"] = lines[ln].strip()[:200]
+                except Exception:
+                    pass
+            return result
+    except ImportError:
+        pass
+
+    # regex 回退（非 Python 文件 / 索引不可用）
     matches = []
     for fpath in _walk_files(base):
         ext = fpath.suffix.lower()
@@ -157,11 +179,15 @@ def find_usages(symbol: str, root: str = ".",
     if not base.is_dir():
         return {"error": f"目录不存在: {root}"}
 
-    defs = set()
+    defs: set[tuple[str, int]] = set()
     if exclude_definition:
         defs_result = find_symbol(symbol, root=root)
         for m in defs_result.get("matches", []):
-            defs.add((m["file"], m["line"]))
+            # F1: AST 路径是相对路径，regex 路径是绝对路径；统一转绝对
+            fp = m["file"]
+            if not Path(fp).is_absolute():
+                fp = str((base / fp).resolve())
+            defs.add((fp, m["line"]))
 
     usages = []
     pattern = re.compile(r"\b" + re.escape(symbol) + r"\b")
@@ -170,7 +196,7 @@ def find_usages(symbol: str, root: str = ".",
             text = fpath.read_text(encoding="utf-8", errors="replace")
         except Exception:
             continue
-        fp = str(fpath)
+        fp = str(fpath.resolve())   # 统一用绝对路径
         for i, line in enumerate(text.splitlines(), 1):
             if pattern.search(line):
                 if exclude_definition and (fp, i) in defs:
