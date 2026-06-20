@@ -11,7 +11,7 @@ code_index.py — Phase L 代码定位层（v1.3）
 设计约束：
   - 零外部依赖（stdlib: ast, hashlib, json, pathlib, re）
   - 无文件数硬上限（replaces _walk_files(limit=5000)）
-  - 索引持久化到 DATA_DIR/.code_index_{project_hash}.json
+  - 索引持久化到 DATA_DIR/.anima_index/code_index_{project_hash}.json
   - 线程安全：读多写少，索引重建是单次操作
 """
 from __future__ import annotations
@@ -79,7 +79,8 @@ def _file_sha256(path: Path) -> str:
 
 def _index_path(root: Path) -> Path:
     key = hashlib.sha256(str(root.resolve()).encode()).hexdigest()[:12]
-    return _DATA_DIR / f".code_index_{key}.json"
+    # 收归专用缓存目录，避免索引文件糊在仓库根（R3）
+    return _DATA_DIR / ".anima_index" / f"code_index_{key}.json"
 
 
 # ── 文件遍历（无上限）──────────────────────────────────────────────────────

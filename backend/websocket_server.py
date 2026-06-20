@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from aiohttp import web
 
-from config import PORT_WS, LOG_DIR, SESSIONS_DB, WORKFLOWS_DIR
+from config import PORT_WS, LOG_DIR, SESSIONS_DB, WORKFLOWS_DIR, ANIMA_VERSION
 from xi_worker import XiWorker
 from yiyi_worker import YiyiWorker
 from tianyuan_worker import TianyuanWorker
@@ -222,7 +222,7 @@ async def main():
     await site.start()
 
     print("=" * 52)
-    print("  Anima — 后端服务 v1.0.0")
+    print(f"  Anima — 后端服务 v{ANIMA_VERSION}")
     print("=" * 52)
     print(f"  健康检查:  http://127.0.0.1:{PORT_WS}/health")
     print(f"  陶朱控制台: http://127.0.0.1:{PORT_WS}/console")

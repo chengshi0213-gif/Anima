@@ -70,7 +70,7 @@ jobs:
         if: matrix.platform == 'windows-latest'
         run: |
           cd backend
-          pyinstaller --onefile --name anima-server-x86_64-pc-windows-msvc websocket_server.py
+          pyinstaller --onefile --name anima-server-x86_64-pc-windows-msvc --hidden-import analyst_worker --hidden-import pm_worker --hidden-import researcher_worker websocket_server.py
           mkdir -p ../src-tauri/binaries
           cp dist/anima-server-x86_64-pc-windows-msvc.exe ../src-tauri/binaries/
 
@@ -78,7 +78,7 @@ jobs:
         if: matrix.label == 'macos-arm64'
         run: |
           cd backend
-          pyinstaller --onefile --name anima-server-aarch64-apple-darwin websocket_server.py
+          pyinstaller --onefile --name anima-server-aarch64-apple-darwin --hidden-import analyst_worker --hidden-import pm_worker --hidden-import researcher_worker websocket_server.py
           mkdir -p ../src-tauri/binaries
           cp dist/anima-server-aarch64-apple-darwin ../src-tauri/binaries/
 
@@ -86,7 +86,7 @@ jobs:
         if: matrix.label == 'macos-x64'
         run: |
           cd backend
-          pyinstaller --onefile --name anima-server-x86_64-apple-darwin websocket_server.py
+          pyinstaller --onefile --name anima-server-x86_64-apple-darwin --hidden-import analyst_worker --hidden-import pm_worker --hidden-import researcher_worker websocket_server.py
           mkdir -p ../src-tauri/binaries
           cp dist/anima-server-x86_64-apple-darwin ../src-tauri/binaries/
 
@@ -94,7 +94,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           cd backend
-          pyinstaller --onefile --name anima-server-x86_64-unknown-linux-gnu websocket_server.py
+          pyinstaller --onefile --name anima-server-x86_64-unknown-linux-gnu --hidden-import analyst_worker --hidden-import pm_worker --hidden-import researcher_worker websocket_server.py
           mkdir -p ../src-tauri/binaries
           cp dist/anima-server-x86_64-unknown-linux-gnu ../src-tauri/binaries/
 

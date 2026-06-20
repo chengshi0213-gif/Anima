@@ -8,7 +8,10 @@ Anima HTTP API — OpenAPI 3.0 规格文档
 from pathlib import Path
 import json
 
-VERSION = "1.0.0"
+try:
+    from config import ANIMA_VERSION as VERSION  # 单一版本真源（R2）
+except Exception:
+    VERSION = "1.3.0"
 
 SPEC: dict = {
     "openapi": "3.0.3",
