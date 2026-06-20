@@ -140,14 +140,13 @@ jobs:
           TARGET=${{ matrix.target }}
           BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
           echo "=== Looking for .sig files in ${BUNDLE_DIR} ==="
-          ls -laR "${BUNDLE_DIR}" 2>/dev/null | grep '\.sig' || echo "(no sig via ls)"
-          # 上传所有 .sig 文件（nsis/*.sig + msi/*.sig 等）
+          find "${BUNDLE_DIR}" -name "*.sig" 2>/dev/null || echo "(no sig via find)"
           uploaded=0
-          for f in "${BUNDLE_DIR}"/**/*.sig "${BUNDLE_DIR}"/*/*.sig; do
+          while IFS= read -r f; do
             [ -f "$f" ] || continue
             echo "Uploading: $f"
             gh release upload "${TAG}" "$f" --repo chengshi0213-gif/Anima --clobber && uploaded=$((uploaded+1)) || echo "WARN: failed $f"
-          done
+          done < <(find "${BUNDLE_DIR}" -name "*.sig" 2>/dev/null)
           echo "=== Uploaded ${uploaded} sig file(s) ==="
 
   # ── 构建完成后：把安装包 + update.json 发布到 anima-site（公开仓库）──
