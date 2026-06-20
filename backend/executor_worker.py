@@ -61,6 +61,18 @@ def _parse_effort(task: str) -> tuple[str | None, str]:
     return None, task
 
 
+# ── D2(Phase D): Agentless 前缀路由 ─────────────────────────────
+_AGENTLESS_PREFIX_RE = re.compile(r"^agentless\s*[:：]\s*", re.IGNORECASE)
+
+
+def _parse_agentless_prefix(task: str) -> tuple[bool, str]:
+    """检测 'agentless: <任务>' 前缀，返回 (is_agentless, 去掉前缀的任务)。"""
+    m = _AGENTLESS_PREFIX_RE.match(task)
+    if m:
+        return True, task[m.end():]
+    return False, task
+
+
 # ── D1: Plan Mode（先调研出方案 → 批准 → 再执行）──────────────
 _PLAN_READ_ONLY = frozenset({
     "list_dir", "file_read", "search_code", "glob_files", "map_project",
@@ -558,8 +570,35 @@ class ExecutorWorker(AgentBase):
                      f"\n\n请严格按照上述计划执行，用 update_plan 报告进度。")
         return await super().run(exec_task, session_id, model, ws, project)
 
+    async def _run_agentless_mode(self, task: str, project_root: str,
+                                  model: str | None) -> dict:
+        """Phase D: Agentless 三段管道——Locate → Patch → Verify，不开放 agent 循环。"""
+        from agentless_pipeline import AgentlessPipeline
+        from agent_base import MODEL_REGISTRY, first_available_model
+
+        # 取 API 参数（优先 model 参数指定的，其次默认 DeepSeek-V4-Pro）
+        model_name = model or "DeepSeek-V4-Pro"
+        entry = MODEL_REGISTRY.get(model_name)
+        if entry:
+            api_key, base_url, model_id = entry[0](), entry[1], entry[2]
+        else:
+            api_key, base_url, model_id = first_available_model()
+        if not api_key:
+            return {"status": "failed",
+                    "summary": f"Agentless 模式：未找到可用 API key（模型={model_name}）",
+                    "error": "no_api_key"}
+
+        pipeline = AgentlessPipeline(
+            api_key=api_key, base_url=base_url, model_id=model_id,
+            max_repair_rounds=3,
+        )
+        result = await pipeline.run(task, project_root)
+        return result.to_dict()
+
     async def run(self, task: str, session_id=None, model=None, ws=None,
                   project: str | None = None, plan_mode: bool = False) -> dict:
+        # Phase D: agentless: 前缀
+        agentless_prefix, task = _parse_agentless_prefix(task)
         # D1: plan: 前缀也触发规划模式
         plan_prefix, task = _parse_plan_prefix(task)
         plan_mode = plan_mode or plan_prefix
@@ -607,7 +646,9 @@ class ExecutorWorker(AgentBase):
                     task = task + cmd_idx
             except Exception:
                 pass
-            if plan_mode:
+            if agentless_prefix:
+                result = await self._run_agentless_mode(task, project_root, model)
+            elif plan_mode:
                 result = await self._run_plan_mode(task, session_id, model, ws, project)
             else:
                 result = await super().run(task, session_id, model, ws, project)
