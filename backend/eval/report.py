@@ -18,9 +18,11 @@ def _pct(x: float) -> str:
 
 
 def _mark(r: TaskResult) -> str:
-    """✅通过 / ❌跑了没过 / ⚠环境没起跑 / ⏭整套中止被跳过 / 💥偶发崩溃。"""
+    """✅通过 / ❌跑了没过 / ⚠配置坑 / 🌐网络抖 / ⏭跳过 / 💥崩溃。"""
     if r.error_kind == "setup":
         return "⚠"
+    if r.error_kind == "transient":
+        return "🌐"
     if r.error_kind == "skipped":
         return "⏭"
     if r.error_kind == "crash":
@@ -52,8 +54,13 @@ def format_report(suite: SuiteResult) -> str:
         "",
     ]
     lines += _unreliable_banner(suite)
+    rate_line = f"**自主完成率：{_pct(suite.completion_rate)}**　（{suite.passed}/{suite.total} 通过）"
+    if suite.not_attempted > 0:
+        rate_line += (f"\n**真实能力完成率：{_pct(suite.attempted_rate)}**"
+                      f"　（{suite.passed}/{suite.attempted_count} 起跑题通过，"
+                      f"{suite.not_attempted} 题因网络/配置未起跑，已排除）")
     lines += [
-        f"**自主完成率：{_pct(suite.completion_rate)}**　（{suite.passed}/{suite.total} 通过）",
+        rate_line,
         "",
         "| 题目 | 结果 | 退出码 | 轮数 | 耗时(s) | 备注 |",
         "|---|---|---|---|---|---|",
@@ -71,23 +78,31 @@ def format_compare(a: SuiteResult, b: SuiteResult,
     by_id_a = {r.id: r for r in a.results}
     by_id_b = {r.id: r for r in b.results}
     all_ids = sorted(set(by_id_a) | set(by_id_b))
-    delta = b.completion_rate - a.completion_rate
+    noisy = not a.reliable or not b.reliable
+    if noisy:
+        delta = b.attempted_rate - a.attempted_rate
+        rate_fn = lambda s: s.attempted_rate
+        rate_label = "真实能力完成率"
+    else:
+        delta = b.completion_rate - a.completion_rate
+        rate_fn = lambda s: s.completion_rate
+        rate_label = "完成率"
     sign = "＋" if delta >= 0 else "－"
     lines = [
         f"# 对比报告　{label_a} → {label_b}",
         "",
     ]
-    if not a.reliable or not b.reliable:
+    if noisy:
         bad = ", ".join(lbl for lbl, s in ((label_a, a), (label_b, b)) if not s.reliable)
         lines += [
-            f"> ⚠️ **对比无效**：{bad} 一侧因环境/配置错误未真正起跑，完成率差是噪声。"
-            f"先修好配置、两侧都跑出可信基线再对比。",
+            f"> ⚠️ **{bad} 侧有网络/配置错误**，部分题未起跑。下面用「真实能力完成率」"
+            f"（仅算起跑题）做对比——比原始完成率更准，但最可靠的做法仍是网络稳定后重跑。",
             "",
         ]
     lines += [
-        f"- {label_a}（{a.model}）：{_pct(a.completion_rate)}　（{a.passed}/{a.total}）",
-        f"- {label_b}（{b.model}）：{_pct(b.completion_rate)}　（{b.passed}/{b.total}）",
-        f"- **完成率变化：{sign}{_pct(abs(delta))}**",
+        f"- {label_a}（{a.model}）：{_pct(rate_fn(a))}　（{a.passed}/{a.attempted_count if noisy else a.total}）",
+        f"- {label_b}（{b.model}）：{_pct(rate_fn(b))}　（{b.passed}/{b.attempted_count if noisy else b.total}）",
+        f"- **{rate_label}变化：{sign}{_pct(abs(delta))}**",
         "",
         f"| 题目 | {label_a} | {label_b} | 变化 |",
         "|---|---|---|---|",

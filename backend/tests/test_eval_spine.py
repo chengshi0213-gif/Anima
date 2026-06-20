@@ -207,6 +207,36 @@ def test_run_suite_crash_does_not_abort():
     assert suite.reliable is True               # crash 不影响可信性
 
 
+# ── transient 网络错：不计入能力，不中止整套 ─────────────────────────────────
+def test_transient_error_not_attempted():
+    """网络/超时 = solver 连 API 都没摸到 → 不算进能力度量。"""
+    async def _network_fail(prompt, ws, model):
+        raise TimeoutError("request timed out")
+    res = asyncio.run(run_task(_light_task("net"), _network_fail))
+    assert res.error_kind == "transient"
+    assert res.attempted is False
+
+
+def test_transient_does_not_abort_suite():
+    """网络抖动是瞬态的 → 不中止整套（下一题可能通了）。"""
+    calls = []
+
+    async def _solver(prompt, ws, model):
+        calls.append(prompt)
+        if "n1" in prompt:
+            raise TimeoutError("network blip")
+        (Path(ws) / "done.py").write_text("# x\n", encoding="utf-8")
+        return {"status": "completed", "turn_count": 1}
+    tasks = [_light_task("n1"), _light_task("n2"), _light_task("n3")]
+    suite = asyncio.run(run_suite(tasks, _solver))
+    assert len(calls) == 3                      # 全跑了，没中止
+    assert suite.not_attempted == 1             # n1 没起跑
+    assert suite.attempted_count == 2
+    assert suite.passed == 2
+    assert suite.reliable is False              # 有未起跑题 → 不完全可信
+    assert suite.attempted_rate == 1.0          # 起跑的全过了
+
+
 def test_run_task_cleans_workspace(tmp_path, monkeypatch):
     created = {}
     real_mkdtemp = __import__("tempfile").mkdtemp
@@ -287,6 +317,32 @@ def test_report_flags_unreliable_baseline():
     assert "⚠" in out and "⏭" in out             # setup / skipped 标记区分
 
 
+def _transient_suite() -> SuiteResult:
+    """模拟 DeepSeek 跑时网络抖动：3 题通过、1 题网络断。"""
+    s = SuiteResult(model="DeepSeek-V4-Pro", label="gate-on")
+    s.results.append(TaskResult(id="t1", passed=True, exit_code=0, rounds=5))
+    s.results.append(TaskResult(id="t2", passed=True, exit_code=0, rounds=4))
+    s.results.append(TaskResult(id="t3", passed=False, exit_code=1, rounds=0,
+                                error="solver 异常: ClientConnectorError: Cannot connect",
+                                error_kind="transient"))
+    s.results.append(TaskResult(id="t4", passed=True, exit_code=0, rounds=6))
+    return s
+
+
+def test_transient_report_shows_attempted_rate():
+    out = format_report(_transient_suite())
+    assert "真实能力完成率" in out                 # 告诉用户排除噪声后的数
+    assert "100.0%" in out                         # 起跑的 3/3 全过
+    assert "🌐" in out                             # transient 标记
+
+
+def test_compare_uses_attempted_rate_when_noisy():
+    clean = _fake_suite("DeepSeek", "gate-off", ["t1", "t2", "t4"], ["t3"])
+    noisy = _transient_suite()
+    out = format_compare(noisy, clean, "gate-on", "gate-off")
+    assert "真实能力完成率" in out                 # 自动降级到 attempted_rate
+
+
 def test_reliable_suite_has_no_banner():
     out = format_report(_fake_suite("M", "ok", ["a", "b"], ["c"]))
     assert "不可信" not in out                     # 正常基线不该有警告
@@ -296,4 +352,5 @@ def test_compare_warns_when_a_side_unreliable():
     bad = _setup_errored_suite()
     good = _fake_suite("DeepSeek", "baseline", ["t1"], ["t2"])
     out = format_compare(good, bad, "deepseek", "claude-ref")
-    assert "对比无效" in out
+    assert "网络/配置错误" in out              # 不可信侧有警告
+    assert "真实能力完成率" in out              # 自动降级到 attempted_rate

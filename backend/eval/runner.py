@@ -34,16 +34,32 @@ def _resolve_command(command: str) -> str:
     return command.replace("{py}", f'"{sys.executable}"')
 
 
+_TRANSIENT_NAMES = frozenset({
+    "ClientConnectorError", "ClientOSError", "ServerDisconnectedError",
+    "ServerTimeoutError", "ClientResponseError", "ConnectionError",
+    "TimeoutError", "OSError",
+})
+
+
 def _classify_error(exc: Exception) -> str:
-    """把 solver 抛的异常分两类，决定是「这一题的事」还是「整套的事」：
+    """把 solver 抛的异常分三类：
 
-      "setup" —— 环境/配置/权限缺失（典型：PermissionRequest，未配 relay_url）。
-                 这类错误对每道题都一样，会让整套基线全军覆没，且并非模型能力问题。
-                 → 整套应立即中止、且这些题不能算进完成率（否则配置坑会伪装成 0% 基线）。
-      "crash" —— 某一道题的 solver 偶发崩溃，是这一题自己的问题，不波及别的题。
+      "setup"     — 环境/配置/权限缺失（PermissionRequest）。对每道题都一样 → 整套中止，
+                    不算进完成率。
+      "transient" — 瞬态网络/超时（ClientConnectorError、TimeoutError 等）。solver 连 API
+                    都没摸到，不是模型能力问题 → 不算进完成率，但不中止整套（下一题可能通了）。
+      "crash"     — 真正的 solver 逻辑崩溃 → 算该题失败，不中止整套。
 
-    用类名判断而非 isinstance，避免 eval 包硬依赖 agent_base（保持离线可测）。"""
-    return "setup" if type(exc).__name__ == "PermissionRequest" else "crash"
+    用类名判断而非 isinstance，避免 eval 包硬依赖 aiohttp / agent_base（保持离线可测）。"""
+    name = type(exc).__name__
+    if name == "PermissionRequest":
+        return "setup"
+    if name in _TRANSIENT_NAMES:
+        return "transient"
+    for base in type(exc).__mro__:
+        if base.__name__ in _TRANSIENT_NAMES:
+            return "transient"
+    return "crash"
 
 
 # solver 协议：给一句任务描述 + 工作区路径 + 模型名，让 agent 干活。
@@ -61,13 +77,16 @@ class TaskResult:
     status: str = ""              # agent 自报状态（completed/unverified/error...）
     failure_summary: str = ""     # 验收失败摘要（红时）
     error: str = ""               # 跑题过程异常（solver 抛错等）
-    error_kind: str = ""          # ""=正常 / "setup"=环境配置坑 / "crash"=偶发崩 / "skipped"=整套中止后被跳过
+    error_kind: str = ""          # ""=正常 / "setup"=配置坑 / "transient"=网络抖动 / "crash"=偶发崩 / "skipped"=整套中止
 
     @property
     def attempted(self) -> bool:
-        """这道题是否真正被「跑过」。setup 错（没起跑）和 skipped（被整套中止跳过）= 没跑过，
-        不该计入能力度量。crash 算跑过（solver 真起来了只是崩了）。"""
-        return self.error_kind not in ("setup", "skipped")
+        """这道题是否真正被「跑过」。没跑过的不计入能力度量：
+        - setup: 配置坑，agent 没起跑
+        - skipped: 整套中止后被跳过
+        - transient: 网络/超时，solver 连 API 都没摸到
+        crash 算跑过（solver 真起来了只是崩了）。"""
+        return self.error_kind not in ("setup", "skipped", "transient")
 
 
 @dataclass
@@ -86,26 +105,37 @@ class SuiteResult:
         return sum(1 for r in self.results if r.passed)
 
     @property
+    def attempted_count(self) -> int:
+        """真正起跑的题数（排除 setup / transient / skipped）。"""
+        return sum(1 for r in self.results if r.attempted)
+
+    @property
     def completion_rate(self) -> float:
-        """自主完成率 = 通过题数 / 总题数。核心数。"""
+        """自主完成率 = 通过题数 / 总题数（含未起跑的）。原始数。"""
         return (self.passed / self.total) if self.total else 0.0
 
     @property
+    def attempted_rate(self) -> float:
+        """真实能力完成率 = 通过题数 / 真正起跑的题数。排除了网络/配置噪声后的干净数。
+        有未起跑的题时，这个数才是可信的能力度量；全部起跑时与 completion_rate 一致。"""
+        return (self.passed / self.attempted_count) if self.attempted_count else 0.0
+
+    @property
     def not_attempted(self) -> int:
-        """没真正起跑的题数（setup 配置坑 + 被整套中止跳过的）。> 0 即基线不可信。"""
+        """没真正起跑的题数（setup / transient / skipped）。> 0 时 completion_rate 被噪声污染。"""
         return sum(1 for r in self.results if not r.attempted)
 
     @property
     def reliable(self) -> bool:
-        """整套是否可信：所有题都真正起跑过，没有环境/配置错误把题挡在门外。
-        不可信时 completion_rate 不能当基线用——它度量的是配置坑，不是模型能力。"""
+        """整套是否可信：所有题都真正起跑过，没有环境/配置/网络错误把题挡在门外。
+        不可信时 completion_rate 度量的是基础设施，不是模型能力——看 attempted_rate 更准。"""
         return self.total > 0 and self.not_attempted == 0
 
     def setup_reasons(self) -> list[str]:
-        """去重后的 setup 错误原因（用于报告里告诉用户「该修什么配置」）。"""
+        """去重后的 setup/transient 错误原因（用于报告里告诉用户「该修什么」）。"""
         seen, out = set(), []
         for r in self.results:
-            if r.error_kind == "setup" and r.error and r.error not in seen:
+            if r.error_kind in ("setup", "transient") and r.error and r.error not in seen:
                 seen.add(r.error)
                 out.append(r.error)
         return out
@@ -114,7 +144,9 @@ class SuiteResult:
         return {
             "model": self.model, "label": self.label,
             "total": self.total, "passed": self.passed,
+            "attempted": self.attempted_count,
             "completion_rate": round(self.completion_rate, 4),
+            "attempted_rate": round(self.attempted_rate, 4),
             "not_attempted": self.not_attempted,
             "reliable": self.reliable,
             "started_at": self.started_at,
