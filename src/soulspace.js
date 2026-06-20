@@ -66,7 +66,19 @@ window.soulShowRoom = function (roomId, el) {
 // ══════════════════════════════════════════════════
 //  室一：我的命盘
 // ══════════════════════════════════════════════════
+window.soulLoadToday = async function () {
+  const el = document.getElementById('soulToday');
+  if (!el) return;
+  try {
+    const data = await fetch(`${CONFIG.api}/divination/today`, CONFIG.fetchOpts()).then(r => r.json());
+    if (data.ok && data.fortune && window.Mingli) {
+      window.Mingli.mountToday(el, data.fortune, { night: document.body.classList.contains('dark') });
+    }
+  } catch (e) { /* 今日运势失败不阻塞命盘室 */ }
+};
+
 window.soulLoadChart = async function () {
+  window.soulLoadToday();
   const birthEl = document.getElementById('soulBirthInfo');
   if (birthEl) {
     birthEl.innerHTML = '加载中…';
@@ -99,7 +111,16 @@ window.soulPaipan = async function () {
   try {
     const data = await fetch(`${CONFIG.api}/divination/paipan`, CONFIG.fetchOpts({ method: 'POST' })).then(r => r.json());
     if (data.ok) {
-      if (resultEl) resultEl.innerHTML = `<div class="soul-chart-md msg-bubble">${markdownToHtml(data.record.markdown)}</div>`;
+      if (resultEl) {
+        // 优先渲染可导航卡面（点卡片→详情）；后端旧版无 chart 时降级回 markdown
+        if (data.chart && window.Mingli && window.Mingli.mountSurface) {
+          window.Mingli.mountSurface(resultEl, { chart: data.chart }, { night: document.body.classList.contains('dark') });
+        } else if (data.chart && window.Mingli) {
+          window.Mingli.mountPoster(resultEl, data.chart, { night: document.body.classList.contains('dark') });
+        } else {
+          resultEl.innerHTML = `<div class="soul-chart-md msg-bubble">${markdownToHtml(data.record.markdown)}</div>`;
+        }
+      }
       toast('排好了，已存入历史', 'success');
       window.soulLoadChartHistory();
     } else {

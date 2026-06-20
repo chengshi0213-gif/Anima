@@ -60,6 +60,11 @@ def _tool_paipan(date=None, time=None, gender=None, calendar=None,
     try:
         chart = paipan(birth)
         try:
+            from divination.interpret import interpret_chart
+            chart["interpretation"] = interpret_chart(chart)   # 结构化解读（供海报解读区）
+        except Exception:
+            pass
+        try:
             import economy as _ec
             _ec.bump("divinations")
         except Exception:

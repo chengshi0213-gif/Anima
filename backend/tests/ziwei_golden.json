@@ -1,0 +1,6257 @@
+{
+  "meta": {
+    "oracle": "iztro (JS 社区标准库) 2.5.8",
+    "seed": 20260618,
+    "n": 60,
+    "generatedAt": "2026-06-18T08:40:25.697Z",
+    "note": "紫微差分基准。Anima 运行时用 iztro-py(纯Python移植)，此 golden 用 iztro-JS，互为独立实现。核心字段：五行局/命宫干支/身宫/紫微天府位/宫干/主星/大限起运。时辰索引=floor((hour+1)/2)。"
+  },
+  "cases": [
+    {
+      "birth": {
+        "year": 2007,
+        "month": 8,
+        "day": 1,
+        "hour": 12,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "丑",
+        "mingGanzhi": "癸丑",
+        "shenBranch": "丑",
+        "ziweiBranch": "戌",
+        "tianfuBranch": "午",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "廉贞"
+            ],
+            "startAge": 13
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 23
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "破军"
+            ],
+            "startAge": 33
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [
+              "天同"
+            ],
+            "startAge": 43
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "天府",
+              "武曲"
+            ],
+            "startAge": 53
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [
+              "太阳",
+              "太阴"
+            ],
+            "startAge": 63
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 73
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [
+              "天机",
+              "巨门"
+            ],
+            "startAge": 83
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "天相",
+              "紫微"
+            ],
+            "startAge": 93
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 103
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 113
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 3
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2012,
+        "month": 1,
+        "day": 16,
+        "hour": 22,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "寅",
+        "mingGanzhi": "庚寅",
+        "shenBranch": "子",
+        "ziweiBranch": "申",
+        "tianfuBranch": "申",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 3
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [
+              "天同"
+            ],
+            "startAge": 113
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 103
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 93
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [
+              "破军"
+            ],
+            "startAge": 83
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [
+              "天机"
+            ],
+            "startAge": 73
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 63
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 53
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 43
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 33
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 23
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 13
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1973,
+        "month": 10,
+        "day": 5,
+        "hour": 19,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "金四局",
+        "mingBranch": "子",
+        "mingGanzhi": "甲子",
+        "shenBranch": "申",
+        "ziweiBranch": "午",
+        "tianfuBranch": "戌",
+        "byBranch": {
+          "寅": {
+            "tiangan": "甲",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 24
+          },
+          "卯": {
+            "tiangan": "乙",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 34
+          },
+          "辰": {
+            "tiangan": "丙",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 44
+          },
+          "巳": {
+            "tiangan": "丁",
+            "main": [
+              "天机"
+            ],
+            "startAge": 54
+          },
+          "午": {
+            "tiangan": "戊",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 64
+          },
+          "未": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 74
+          },
+          "申": {
+            "tiangan": "庚",
+            "main": [
+              "破军"
+            ],
+            "startAge": 84
+          },
+          "酉": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 94
+          },
+          "戌": {
+            "tiangan": "壬",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 104
+          },
+          "亥": {
+            "tiangan": "癸",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 114
+          },
+          "子": {
+            "tiangan": "甲",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 4
+          },
+          "丑": {
+            "tiangan": "乙",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 14
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1995,
+        "month": 11,
+        "day": 16,
+        "hour": 6,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "未",
+        "mingGanzhi": "癸未",
+        "shenBranch": "丑",
+        "ziweiBranch": "酉",
+        "tianfuBranch": "未",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 53
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 43
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "天同"
+            ],
+            "startAge": 33
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 23
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 13
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [
+              "天府"
+            ],
+            "startAge": 3
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 113
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 103
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 93
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "天相"
+            ],
+            "startAge": 83
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 73
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 63
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2014,
+        "month": 12,
+        "day": 1,
+        "hour": 16,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "卯",
+        "mingGanzhi": "丁卯",
+        "shenBranch": "未",
+        "ziweiBranch": "巳",
+        "tianfuBranch": "亥",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [
+              "太阳",
+              "巨门"
+            ],
+            "startAge": 116
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [
+              "天相"
+            ],
+            "startAge": 6
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "天机",
+              "天梁"
+            ],
+            "startAge": 16
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "七杀",
+              "紫微"
+            ],
+            "startAge": 26
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [],
+            "startAge": 36
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 46
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [],
+            "startAge": 56
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [
+              "廉贞",
+              "破军"
+            ],
+            "startAge": 66
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [],
+            "startAge": 76
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "天府"
+            ],
+            "startAge": 86
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "天同",
+              "太阴"
+            ],
+            "startAge": 96
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "武曲",
+              "贪狼"
+            ],
+            "startAge": 106
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2009,
+        "month": 11,
+        "day": 1,
+        "hour": 10,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "巳",
+        "mingGanzhi": "己巳",
+        "shenBranch": "卯",
+        "ziweiBranch": "午",
+        "tianfuBranch": "戌",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 93
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 103
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 113
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "天机"
+            ],
+            "startAge": 3
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 13
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 23
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [
+              "破军"
+            ],
+            "startAge": 33
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 43
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 53
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 63
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 73
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 83
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2001,
+        "month": 7,
+        "day": 15,
+        "hour": 14,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "亥",
+        "mingGanzhi": "己亥",
+        "shenBranch": "丑",
+        "ziweiBranch": "子",
+        "tianfuBranch": "辰",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "破军"
+            ],
+            "startAge": 93
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 83
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 73
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 63
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 53
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 43
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 33
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 23
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 13
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "天机"
+            ],
+            "startAge": 3
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 113
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 103
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1991,
+        "month": 1,
+        "day": 23,
+        "hour": 0,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "丑",
+        "mingGanzhi": "己丑",
+        "shenBranch": "丑",
+        "ziweiBranch": "未",
+        "tianfuBranch": "酉",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [
+              "天同",
+              "天梁"
+            ],
+            "startAge": 116
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [
+              "七杀",
+              "武曲"
+            ],
+            "startAge": 106
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 96
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 86
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [
+              "天机"
+            ],
+            "startAge": 76
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [
+              "破军",
+              "紫微"
+            ],
+            "startAge": 66
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [],
+            "startAge": 56
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [
+              "天府"
+            ],
+            "startAge": 46
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 36
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "廉贞",
+              "贪狼"
+            ],
+            "startAge": 26
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 16
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [
+              "天相"
+            ],
+            "startAge": 6
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1952,
+        "month": 1,
+        "day": 1,
+        "hour": 14,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "金四局",
+        "mingBranch": "午",
+        "mingGanzhi": "甲午",
+        "shenBranch": "申",
+        "ziweiBranch": "子",
+        "tianfuBranch": "辰",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "破军"
+            ],
+            "startAge": 84
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 94
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 104
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 114
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 4
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 14
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 24
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 34
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 44
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "天机"
+            ],
+            "startAge": 54
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 64
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 74
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2011,
+        "month": 2,
+        "day": 25,
+        "hour": 11,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "申",
+        "mingGanzhi": "丙申",
+        "shenBranch": "申",
+        "ziweiBranch": "辰",
+        "tianfuBranch": "子",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 66
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [
+              "天机",
+              "巨门"
+            ],
+            "startAge": 56
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "天相",
+              "紫微"
+            ],
+            "startAge": 46
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 36
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 26
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [],
+            "startAge": 16
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [
+              "廉贞"
+            ],
+            "startAge": 6
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [],
+            "startAge": 116
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [
+              "破军"
+            ],
+            "startAge": 106
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "天同"
+            ],
+            "startAge": 96
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "天府",
+              "武曲"
+            ],
+            "startAge": 86
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [
+              "太阳",
+              "太阴"
+            ],
+            "startAge": 76
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1996,
+        "month": 2,
+        "day": 12,
+        "hour": 1,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "子",
+        "mingGanzhi": "戊子",
+        "shenBranch": "寅",
+        "ziweiBranch": "巳",
+        "tianfuBranch": "亥",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [
+              "太阳",
+              "巨门"
+            ],
+            "startAge": 106
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [
+              "天相"
+            ],
+            "startAge": 96
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "天机",
+              "天梁"
+            ],
+            "startAge": 86
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [
+              "七杀",
+              "紫微"
+            ],
+            "startAge": 76
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [],
+            "startAge": 66
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 56
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [],
+            "startAge": 46
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [
+              "廉贞",
+              "破军"
+            ],
+            "startAge": 36
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [],
+            "startAge": 26
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "天府"
+            ],
+            "startAge": 16
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "天同",
+              "太阴"
+            ],
+            "startAge": 6
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [
+              "武曲",
+              "贪狼"
+            ],
+            "startAge": 116
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2008,
+        "month": 7,
+        "day": 4,
+        "hour": 14,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "金四局",
+        "mingBranch": "子",
+        "mingGanzhi": "甲子",
+        "shenBranch": "寅",
+        "ziweiBranch": "辰",
+        "tianfuBranch": "子",
+        "byBranch": {
+          "寅": {
+            "tiangan": "甲",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 24
+          },
+          "卯": {
+            "tiangan": "乙",
+            "main": [
+              "天机",
+              "巨门"
+            ],
+            "startAge": 34
+          },
+          "辰": {
+            "tiangan": "丙",
+            "main": [
+              "天相",
+              "紫微"
+            ],
+            "startAge": 44
+          },
+          "巳": {
+            "tiangan": "丁",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 54
+          },
+          "午": {
+            "tiangan": "戊",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 64
+          },
+          "未": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 74
+          },
+          "申": {
+            "tiangan": "庚",
+            "main": [
+              "廉贞"
+            ],
+            "startAge": 84
+          },
+          "酉": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 94
+          },
+          "戌": {
+            "tiangan": "壬",
+            "main": [
+              "破军"
+            ],
+            "startAge": 104
+          },
+          "亥": {
+            "tiangan": "癸",
+            "main": [
+              "天同"
+            ],
+            "startAge": 114
+          },
+          "子": {
+            "tiangan": "甲",
+            "main": [
+              "天府",
+              "武曲"
+            ],
+            "startAge": 4
+          },
+          "丑": {
+            "tiangan": "乙",
+            "main": [
+              "太阳",
+              "太阴"
+            ],
+            "startAge": 14
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2000,
+        "month": 1,
+        "day": 22,
+        "hour": 13,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "午",
+        "mingGanzhi": "庚午",
+        "shenBranch": "申",
+        "ziweiBranch": "酉",
+        "tianfuBranch": "未",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [],
+            "startAge": 45
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [],
+            "startAge": 35
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "天同"
+            ],
+            "startAge": 25
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 15
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 5
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [
+              "天府"
+            ],
+            "startAge": 115
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 105
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 95
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 85
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "天相"
+            ],
+            "startAge": 75
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 65
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 55
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2015,
+        "month": 9,
+        "day": 11,
+        "hour": 12,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "寅",
+        "mingGanzhi": "戊寅",
+        "shenBranch": "寅",
+        "ziweiBranch": "午",
+        "tianfuBranch": "戌",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 5
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 115
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 105
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [
+              "天机"
+            ],
+            "startAge": 95
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 85
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 75
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [
+              "破军"
+            ],
+            "startAge": 65
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [],
+            "startAge": 55
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 45
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 35
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 25
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 15
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1984,
+        "month": 3,
+        "day": 19,
+        "hour": 13,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "金四局",
+        "mingBranch": "申",
+        "mingGanzhi": "壬申",
+        "shenBranch": "戌",
+        "ziweiBranch": "卯",
+        "tianfuBranch": "丑",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 64
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 74
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 84
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "天相"
+            ],
+            "startAge": 94
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 104
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 114
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [],
+            "startAge": 4
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 14
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [
+              "天同"
+            ],
+            "startAge": 24
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 34
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 44
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "天府"
+            ],
+            "startAge": 54
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1975,
+        "month": 3,
+        "day": 7,
+        "hour": 7,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "戌",
+        "mingGanzhi": "丙戌",
+        "shenBranch": "午",
+        "ziweiBranch": "午",
+        "tianfuBranch": "戌",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 85
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 75
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 65
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [
+              "天机"
+            ],
+            "startAge": 55
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 45
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 35
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [
+              "破军"
+            ],
+            "startAge": 25
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [],
+            "startAge": 15
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 5
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 115
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 105
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 95
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1941,
+        "month": 1,
+        "day": 12,
+        "hour": 7,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "水二局",
+        "mingBranch": "酉",
+        "mingGanzhi": "乙酉",
+        "shenBranch": "巳",
+        "ziweiBranch": "申",
+        "tianfuBranch": "申",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 72
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [
+              "天同"
+            ],
+            "startAge": 62
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 52
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 42
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [
+              "破军"
+            ],
+            "startAge": 32
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [
+              "天机"
+            ],
+            "startAge": 22
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 12
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 2
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 112
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 102
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 92
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 82
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1977,
+        "month": 5,
+        "day": 27,
+        "hour": 9,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "子",
+        "mingGanzhi": "壬子",
+        "shenBranch": "戌",
+        "ziweiBranch": "未",
+        "tianfuBranch": "酉",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "天同",
+              "天梁"
+            ],
+            "startAge": 103
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [
+              "七杀",
+              "武曲"
+            ],
+            "startAge": 93
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 83
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [],
+            "startAge": 73
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "天机"
+            ],
+            "startAge": 63
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [
+              "破军",
+              "紫微"
+            ],
+            "startAge": 53
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 43
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [
+              "天府"
+            ],
+            "startAge": 33
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 23
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "廉贞",
+              "贪狼"
+            ],
+            "startAge": 13
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 3
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "天相"
+            ],
+            "startAge": 113
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1971,
+        "month": 3,
+        "day": 20,
+        "hour": 4,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "丑",
+        "mingGanzhi": "辛丑",
+        "shenBranch": "巳",
+        "ziweiBranch": "巳",
+        "tianfuBranch": "亥",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "太阳",
+              "巨门"
+            ],
+            "startAge": 15
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [
+              "天相"
+            ],
+            "startAge": 25
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "天机",
+              "天梁"
+            ],
+            "startAge": 35
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "七杀",
+              "紫微"
+            ],
+            "startAge": 45
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [],
+            "startAge": 55
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [],
+            "startAge": 65
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [],
+            "startAge": 75
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "廉贞",
+              "破军"
+            ],
+            "startAge": 85
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 95
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "天府"
+            ],
+            "startAge": 105
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "天同",
+              "太阴"
+            ],
+            "startAge": 115
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [
+              "武曲",
+              "贪狼"
+            ],
+            "startAge": 5
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2012,
+        "month": 3,
+        "day": 2,
+        "hour": 10,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "金四局",
+        "mingBranch": "戌",
+        "mingGanzhi": "庚戌",
+        "shenBranch": "申",
+        "ziweiBranch": "午",
+        "tianfuBranch": "戌",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 84
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 74
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 64
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [
+              "天机"
+            ],
+            "startAge": 54
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 44
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [],
+            "startAge": 34
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [
+              "破军"
+            ],
+            "startAge": 24
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 14
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 4
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 114
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 104
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 94
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1974,
+        "month": 5,
+        "day": 26,
+        "hour": 21,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "午",
+        "mingGanzhi": "庚午",
+        "shenBranch": "辰",
+        "ziweiBranch": "寅",
+        "tianfuBranch": "寅",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 85
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 95
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 105
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 115
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 5
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 15
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 25
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [
+              "天同"
+            ],
+            "startAge": 35
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 45
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 55
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "破军"
+            ],
+            "startAge": 65
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "天机"
+            ],
+            "startAge": 75
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1963,
+        "month": 11,
+        "day": 23,
+        "hour": 10,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "午",
+        "mingGanzhi": "戊午",
+        "shenBranch": "辰",
+        "ziweiBranch": "未",
+        "tianfuBranch": "酉",
+        "byBranch": {
+          "寅": {
+            "tiangan": "甲",
+            "main": [
+              "天同",
+              "天梁"
+            ],
+            "startAge": 46
+          },
+          "卯": {
+            "tiangan": "乙",
+            "main": [
+              "七杀",
+              "武曲"
+            ],
+            "startAge": 36
+          },
+          "辰": {
+            "tiangan": "丙",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 26
+          },
+          "巳": {
+            "tiangan": "丁",
+            "main": [],
+            "startAge": 16
+          },
+          "午": {
+            "tiangan": "戊",
+            "main": [
+              "天机"
+            ],
+            "startAge": 6
+          },
+          "未": {
+            "tiangan": "己",
+            "main": [
+              "破军",
+              "紫微"
+            ],
+            "startAge": 116
+          },
+          "申": {
+            "tiangan": "庚",
+            "main": [],
+            "startAge": 106
+          },
+          "酉": {
+            "tiangan": "辛",
+            "main": [
+              "天府"
+            ],
+            "startAge": 96
+          },
+          "戌": {
+            "tiangan": "壬",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 86
+          },
+          "亥": {
+            "tiangan": "癸",
+            "main": [
+              "廉贞",
+              "贪狼"
+            ],
+            "startAge": 76
+          },
+          "子": {
+            "tiangan": "甲",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 66
+          },
+          "丑": {
+            "tiangan": "乙",
+            "main": [
+              "天相"
+            ],
+            "startAge": 56
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2014,
+        "month": 7,
+        "day": 8,
+        "hour": 16,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "亥",
+        "mingGanzhi": "乙亥",
+        "shenBranch": "卯",
+        "ziweiBranch": "卯",
+        "tianfuBranch": "丑",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 96
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 86
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 76
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "天相"
+            ],
+            "startAge": 66
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 56
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 46
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [],
+            "startAge": 36
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 26
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [
+              "天同"
+            ],
+            "startAge": 16
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 6
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 116
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "天府"
+            ],
+            "startAge": 106
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1975,
+        "month": 9,
+        "day": 18,
+        "hour": 5,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "午",
+        "mingGanzhi": "壬午",
+        "shenBranch": "子",
+        "ziweiBranch": "申",
+        "tianfuBranch": "申",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 83
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [
+              "天同"
+            ],
+            "startAge": 93
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 103
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 113
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [
+              "破军"
+            ],
+            "startAge": 3
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [
+              "天机"
+            ],
+            "startAge": 13
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 23
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 33
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 43
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 53
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 63
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 73
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1966,
+        "month": 5,
+        "day": 11,
+        "hour": 6,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "寅",
+        "mingGanzhi": "庚寅",
+        "shenBranch": "申",
+        "ziweiBranch": "申",
+        "tianfuBranch": "申",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 3
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [
+              "天同"
+            ],
+            "startAge": 13
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 23
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 33
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [
+              "破军"
+            ],
+            "startAge": 43
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [
+              "天机"
+            ],
+            "startAge": 53
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 63
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 73
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 83
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 93
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 103
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 113
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2008,
+        "month": 3,
+        "day": 23,
+        "hour": 15,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "未",
+        "mingGanzhi": "己未",
+        "shenBranch": "亥",
+        "ziweiBranch": "午",
+        "tianfuBranch": "戌",
+        "byBranch": {
+          "寅": {
+            "tiangan": "甲",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 56
+          },
+          "卯": {
+            "tiangan": "乙",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 46
+          },
+          "辰": {
+            "tiangan": "丙",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 36
+          },
+          "巳": {
+            "tiangan": "丁",
+            "main": [
+              "天机"
+            ],
+            "startAge": 26
+          },
+          "午": {
+            "tiangan": "戊",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 16
+          },
+          "未": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 6
+          },
+          "申": {
+            "tiangan": "庚",
+            "main": [
+              "破军"
+            ],
+            "startAge": 116
+          },
+          "酉": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 106
+          },
+          "戌": {
+            "tiangan": "壬",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 96
+          },
+          "亥": {
+            "tiangan": "癸",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 86
+          },
+          "子": {
+            "tiangan": "甲",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 76
+          },
+          "丑": {
+            "tiangan": "乙",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 66
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1967,
+        "month": 12,
+        "day": 6,
+        "hour": 12,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "水二局",
+        "mingBranch": "午",
+        "mingGanzhi": "丙午",
+        "shenBranch": "午",
+        "ziweiBranch": "卯",
+        "tianfuBranch": "丑",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 42
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 32
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 22
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [
+              "天相"
+            ],
+            "startAge": 12
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 2
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 112
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 102
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 92
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "天同"
+            ],
+            "startAge": 82
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 72
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 62
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "天府"
+            ],
+            "startAge": 52
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1997,
+        "month": 6,
+        "day": 14,
+        "hour": 20,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "申",
+        "mingGanzhi": "戊申",
+        "shenBranch": "辰",
+        "ziweiBranch": "卯",
+        "tianfuBranch": "丑",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 65
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 75
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 85
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [
+              "天相"
+            ],
+            "startAge": 95
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 105
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 115
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 5
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 15
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "天同"
+            ],
+            "startAge": 25
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 35
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 45
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "天府"
+            ],
+            "startAge": 55
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1982,
+        "month": 2,
+        "day": 13,
+        "hour": 7,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "金四局",
+        "mingBranch": "戌",
+        "mingGanzhi": "庚戌",
+        "shenBranch": "午",
+        "ziweiBranch": "午",
+        "tianfuBranch": "戌",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 84
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 74
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 64
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [
+              "天机"
+            ],
+            "startAge": 54
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 44
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [],
+            "startAge": 34
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [
+              "破军"
+            ],
+            "startAge": 24
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 14
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 4
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 114
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 104
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 94
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2012,
+        "month": 5,
+        "day": 12,
+        "hour": 11,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "金四局",
+        "mingBranch": "亥",
+        "mingGanzhi": "辛亥",
+        "shenBranch": "亥",
+        "ziweiBranch": "酉",
+        "tianfuBranch": "未",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [],
+            "startAge": 94
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 84
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "天同"
+            ],
+            "startAge": 74
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 64
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 54
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [
+              "天府"
+            ],
+            "startAge": 44
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 34
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 24
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 14
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "天相"
+            ],
+            "startAge": 4
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 114
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 104
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2000,
+        "month": 12,
+        "day": 13,
+        "hour": 17,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "卯",
+        "mingGanzhi": "己卯",
+        "shenBranch": "酉",
+        "ziweiBranch": "未",
+        "tianfuBranch": "酉",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [
+              "天同",
+              "天梁"
+            ],
+            "startAge": 115
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [
+              "七杀",
+              "武曲"
+            ],
+            "startAge": 5
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 15
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 25
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [
+              "天机"
+            ],
+            "startAge": 35
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [
+              "破军",
+              "紫微"
+            ],
+            "startAge": 45
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [],
+            "startAge": 55
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [
+              "天府"
+            ],
+            "startAge": 65
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 75
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "廉贞",
+              "贪狼"
+            ],
+            "startAge": 85
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 95
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [
+              "天相"
+            ],
+            "startAge": 105
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1958,
+        "month": 11,
+        "day": 23,
+        "hour": 19,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "金四局",
+        "mingBranch": "丑",
+        "mingGanzhi": "乙丑",
+        "shenBranch": "酉",
+        "ziweiBranch": "寅",
+        "tianfuBranch": "寅",
+        "byBranch": {
+          "寅": {
+            "tiangan": "甲",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 114
+          },
+          "卯": {
+            "tiangan": "乙",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 104
+          },
+          "辰": {
+            "tiangan": "丙",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 94
+          },
+          "巳": {
+            "tiangan": "丁",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 84
+          },
+          "午": {
+            "tiangan": "戊",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 74
+          },
+          "未": {
+            "tiangan": "己",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 64
+          },
+          "申": {
+            "tiangan": "庚",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 54
+          },
+          "酉": {
+            "tiangan": "辛",
+            "main": [
+              "天同"
+            ],
+            "startAge": 44
+          },
+          "戌": {
+            "tiangan": "壬",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 34
+          },
+          "亥": {
+            "tiangan": "癸",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 24
+          },
+          "子": {
+            "tiangan": "甲",
+            "main": [
+              "破军"
+            ],
+            "startAge": 14
+          },
+          "丑": {
+            "tiangan": "乙",
+            "main": [
+              "天机"
+            ],
+            "startAge": 4
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1992,
+        "month": 10,
+        "day": 27,
+        "hour": 11,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "巳",
+        "mingGanzhi": "乙巳",
+        "shenBranch": "巳",
+        "ziweiBranch": "午",
+        "tianfuBranch": "戌",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 96
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 106
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 116
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [
+              "天机"
+            ],
+            "startAge": 6
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 16
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [],
+            "startAge": 26
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [
+              "破军"
+            ],
+            "startAge": 36
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 46
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 56
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 66
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 76
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 86
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2015,
+        "month": 4,
+        "day": 7,
+        "hour": 10,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "戌",
+        "mingGanzhi": "丙戌",
+        "shenBranch": "申",
+        "ziweiBranch": "辰",
+        "tianfuBranch": "子",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 85
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [
+              "天机",
+              "巨门"
+            ],
+            "startAge": 75
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "天相",
+              "紫微"
+            ],
+            "startAge": 65
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 55
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 45
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 35
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [
+              "廉贞"
+            ],
+            "startAge": 25
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [],
+            "startAge": 15
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [
+              "破军"
+            ],
+            "startAge": 5
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "天同"
+            ],
+            "startAge": 115
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "天府",
+              "武曲"
+            ],
+            "startAge": 105
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [
+              "太阳",
+              "太阴"
+            ],
+            "startAge": 95
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1964,
+        "month": 6,
+        "day": 21,
+        "hour": 15,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "戌",
+        "mingGanzhi": "甲戌",
+        "shenBranch": "寅",
+        "ziweiBranch": "卯",
+        "tianfuBranch": "丑",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 46
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 56
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 66
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "天相"
+            ],
+            "startAge": 76
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 86
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 96
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [],
+            "startAge": 106
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 116
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [
+              "天同"
+            ],
+            "startAge": 6
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 16
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 26
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "天府"
+            ],
+            "startAge": 36
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1989,
+        "month": 4,
+        "day": 21,
+        "hour": 17,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "未",
+        "mingGanzhi": "辛未",
+        "shenBranch": "丑",
+        "ziweiBranch": "酉",
+        "tianfuBranch": "未",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [],
+            "startAge": 75
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [],
+            "startAge": 85
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "天同"
+            ],
+            "startAge": 95
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 105
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 115
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [
+              "天府"
+            ],
+            "startAge": 5
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 15
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 25
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 35
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "天相"
+            ],
+            "startAge": 45
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 55
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 65
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2003,
+        "month": 3,
+        "day": 28,
+        "hour": 2,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "水二局",
+        "mingBranch": "寅",
+        "mingGanzhi": "甲寅",
+        "shenBranch": "辰",
+        "ziweiBranch": "寅",
+        "tianfuBranch": "寅",
+        "byBranch": {
+          "寅": {
+            "tiangan": "甲",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 2
+          },
+          "卯": {
+            "tiangan": "乙",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 12
+          },
+          "辰": {
+            "tiangan": "丙",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 22
+          },
+          "巳": {
+            "tiangan": "丁",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 32
+          },
+          "午": {
+            "tiangan": "戊",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 42
+          },
+          "未": {
+            "tiangan": "己",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 52
+          },
+          "申": {
+            "tiangan": "庚",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 62
+          },
+          "酉": {
+            "tiangan": "辛",
+            "main": [
+              "天同"
+            ],
+            "startAge": 72
+          },
+          "戌": {
+            "tiangan": "壬",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 82
+          },
+          "亥": {
+            "tiangan": "癸",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 92
+          },
+          "子": {
+            "tiangan": "甲",
+            "main": [
+              "破军"
+            ],
+            "startAge": 102
+          },
+          "丑": {
+            "tiangan": "乙",
+            "main": [
+              "天机"
+            ],
+            "startAge": 112
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1967,
+        "month": 6,
+        "day": 15,
+        "hour": 7,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "金四局",
+        "mingBranch": "寅",
+        "mingGanzhi": "壬寅",
+        "shenBranch": "戌",
+        "ziweiBranch": "卯",
+        "tianfuBranch": "丑",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 4
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 114
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 104
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [
+              "天相"
+            ],
+            "startAge": 94
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 84
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 74
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 64
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 54
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "天同"
+            ],
+            "startAge": 44
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 34
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 24
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "天府"
+            ],
+            "startAge": 14
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1979,
+        "month": 12,
+        "day": 5,
+        "hour": 14,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "辰",
+        "mingGanzhi": "戊辰",
+        "shenBranch": "午",
+        "ziweiBranch": "酉",
+        "tianfuBranch": "未",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [],
+            "startAge": 103
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [],
+            "startAge": 113
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "天同"
+            ],
+            "startAge": 3
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 13
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 23
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [
+              "天府"
+            ],
+            "startAge": 33
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 43
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 53
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 63
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "天相"
+            ],
+            "startAge": 73
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 83
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 93
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1970,
+        "month": 6,
+        "day": 27,
+        "hour": 15,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "戌",
+        "mingGanzhi": "丙戌",
+        "shenBranch": "寅",
+        "ziweiBranch": "巳",
+        "tianfuBranch": "亥",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [
+              "太阳",
+              "巨门"
+            ],
+            "startAge": 45
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [
+              "天相"
+            ],
+            "startAge": 55
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "天机",
+              "天梁"
+            ],
+            "startAge": 65
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [
+              "七杀",
+              "紫微"
+            ],
+            "startAge": 75
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [],
+            "startAge": 85
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 95
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [],
+            "startAge": 105
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [
+              "廉贞",
+              "破军"
+            ],
+            "startAge": 115
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [],
+            "startAge": 5
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "天府"
+            ],
+            "startAge": 15
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "天同",
+              "太阴"
+            ],
+            "startAge": 25
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [
+              "武曲",
+              "贪狼"
+            ],
+            "startAge": 35
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2011,
+        "month": 2,
+        "day": 10,
+        "hour": 17,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "水二局",
+        "mingBranch": "巳",
+        "mingGanzhi": "癸巳",
+        "shenBranch": "亥",
+        "ziweiBranch": "巳",
+        "tianfuBranch": "亥",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "太阳",
+              "巨门"
+            ],
+            "startAge": 92
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [
+              "天相"
+            ],
+            "startAge": 102
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "天机",
+              "天梁"
+            ],
+            "startAge": 112
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "七杀",
+              "紫微"
+            ],
+            "startAge": 2
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [],
+            "startAge": 12
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [],
+            "startAge": 22
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [],
+            "startAge": 32
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "廉贞",
+              "破军"
+            ],
+            "startAge": 42
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 52
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "天府"
+            ],
+            "startAge": 62
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "天同",
+              "太阴"
+            ],
+            "startAge": 72
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [
+              "武曲",
+              "贪狼"
+            ],
+            "startAge": 82
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2000,
+        "month": 10,
+        "day": 15,
+        "hour": 3,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "水二局",
+        "mingBranch": "申",
+        "mingGanzhi": "甲申",
+        "shenBranch": "子",
+        "ziweiBranch": "戌",
+        "tianfuBranch": "午",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [
+              "廉贞"
+            ],
+            "startAge": 62
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 52
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "破军"
+            ],
+            "startAge": 42
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [
+              "天同"
+            ],
+            "startAge": 32
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [
+              "天府",
+              "武曲"
+            ],
+            "startAge": 22
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [
+              "太阳",
+              "太阴"
+            ],
+            "startAge": 12
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 2
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [
+              "天机",
+              "巨门"
+            ],
+            "startAge": 112
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [
+              "天相",
+              "紫微"
+            ],
+            "startAge": 102
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 92
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 82
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 72
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1943,
+        "month": 3,
+        "day": 8,
+        "hour": 2,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "水二局",
+        "mingBranch": "寅",
+        "mingGanzhi": "甲寅",
+        "shenBranch": "辰",
+        "ziweiBranch": "寅",
+        "tianfuBranch": "寅",
+        "byBranch": {
+          "寅": {
+            "tiangan": "甲",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 2
+          },
+          "卯": {
+            "tiangan": "乙",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 112
+          },
+          "辰": {
+            "tiangan": "丙",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 102
+          },
+          "巳": {
+            "tiangan": "丁",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 92
+          },
+          "午": {
+            "tiangan": "戊",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 82
+          },
+          "未": {
+            "tiangan": "己",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 72
+          },
+          "申": {
+            "tiangan": "庚",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 62
+          },
+          "酉": {
+            "tiangan": "辛",
+            "main": [
+              "天同"
+            ],
+            "startAge": 52
+          },
+          "戌": {
+            "tiangan": "壬",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 42
+          },
+          "亥": {
+            "tiangan": "癸",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 32
+          },
+          "子": {
+            "tiangan": "甲",
+            "main": [
+              "破军"
+            ],
+            "startAge": 22
+          },
+          "丑": {
+            "tiangan": "乙",
+            "main": [
+              "天机"
+            ],
+            "startAge": 12
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2002,
+        "month": 12,
+        "day": 16,
+        "hour": 12,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "水二局",
+        "mingBranch": "午",
+        "mingGanzhi": "丙午",
+        "shenBranch": "午",
+        "ziweiBranch": "未",
+        "tianfuBranch": "酉",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "天同",
+              "天梁"
+            ],
+            "startAge": 42
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [
+              "七杀",
+              "武曲"
+            ],
+            "startAge": 32
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 22
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [],
+            "startAge": 12
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "天机"
+            ],
+            "startAge": 2
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [
+              "破军",
+              "紫微"
+            ],
+            "startAge": 112
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 102
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [
+              "天府"
+            ],
+            "startAge": 92
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 82
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "廉贞",
+              "贪狼"
+            ],
+            "startAge": 72
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 62
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "天相"
+            ],
+            "startAge": 52
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2010,
+        "month": 9,
+        "day": 14,
+        "hour": 20,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "亥",
+        "mingGanzhi": "丁亥",
+        "shenBranch": "未",
+        "ziweiBranch": "子",
+        "tianfuBranch": "辰",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [
+              "破军"
+            ],
+            "startAge": 35
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 45
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 55
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 65
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 75
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 85
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 95
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 105
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 115
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "天机"
+            ],
+            "startAge": 5
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 15
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 25
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1979,
+        "month": 11,
+        "day": 15,
+        "hour": 20,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "水二局",
+        "mingBranch": "子",
+        "mingGanzhi": "丙子",
+        "shenBranch": "申",
+        "ziweiBranch": "寅",
+        "tianfuBranch": "寅",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 22
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 32
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 42
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 52
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 62
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 72
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 82
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [
+              "天同"
+            ],
+            "startAge": 92
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 102
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 112
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "破军"
+            ],
+            "startAge": 2
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "天机"
+            ],
+            "startAge": 12
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1956,
+        "month": 3,
+        "day": 25,
+        "hour": 8,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "亥",
+        "mingGanzhi": "己亥",
+        "shenBranch": "未",
+        "ziweiBranch": "巳",
+        "tianfuBranch": "亥",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "太阳",
+              "巨门"
+            ],
+            "startAge": 33
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [
+              "天相"
+            ],
+            "startAge": 43
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "天机",
+              "天梁"
+            ],
+            "startAge": 53
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "七杀",
+              "紫微"
+            ],
+            "startAge": 63
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [],
+            "startAge": 73
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [],
+            "startAge": 83
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [],
+            "startAge": 93
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "廉贞",
+              "破军"
+            ],
+            "startAge": 103
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 113
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "天府"
+            ],
+            "startAge": 3
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "天同",
+              "太阴"
+            ],
+            "startAge": 13
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [
+              "武曲",
+              "贪狼"
+            ],
+            "startAge": 23
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1976,
+        "month": 4,
+        "day": 28,
+        "hour": 9,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "亥",
+        "mingGanzhi": "己亥",
+        "shenBranch": "酉",
+        "ziweiBranch": "戌",
+        "tianfuBranch": "午",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "廉贞"
+            ],
+            "startAge": 33
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 43
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "破军"
+            ],
+            "startAge": 53
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "天同"
+            ],
+            "startAge": 63
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [
+              "天府",
+              "武曲"
+            ],
+            "startAge": 73
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [
+              "太阳",
+              "太阴"
+            ],
+            "startAge": 83
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 93
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "天机",
+              "巨门"
+            ],
+            "startAge": 103
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [
+              "天相",
+              "紫微"
+            ],
+            "startAge": 113
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 3
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 13
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 23
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1989,
+        "month": 2,
+        "day": 17,
+        "hour": 21,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "卯",
+        "mingGanzhi": "丁卯",
+        "shenBranch": "丑",
+        "ziweiBranch": "卯",
+        "tianfuBranch": "丑",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 16
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 6
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 116
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "天相"
+            ],
+            "startAge": 106
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 96
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 86
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [],
+            "startAge": 76
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 66
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [
+              "天同"
+            ],
+            "startAge": 56
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 46
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 36
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "天府"
+            ],
+            "startAge": 26
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1976,
+        "month": 12,
+        "day": 17,
+        "hour": 1,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "戌",
+        "mingGanzhi": "戊戌",
+        "shenBranch": "子",
+        "ziweiBranch": "戌",
+        "tianfuBranch": "午",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "廉贞"
+            ],
+            "startAge": 43
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 53
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "破军"
+            ],
+            "startAge": 63
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "天同"
+            ],
+            "startAge": 73
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [
+              "天府",
+              "武曲"
+            ],
+            "startAge": 83
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [
+              "太阳",
+              "太阴"
+            ],
+            "startAge": 93
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 103
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "天机",
+              "巨门"
+            ],
+            "startAge": 113
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [
+              "天相",
+              "紫微"
+            ],
+            "startAge": 3
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 13
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 23
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 33
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1967,
+        "month": 5,
+        "day": 12,
+        "hour": 19,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "水二局",
+        "mingBranch": "未",
+        "mingGanzhi": "丁未",
+        "shenBranch": "卯",
+        "ziweiBranch": "卯",
+        "tianfuBranch": "丑",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 52
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 42
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 32
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [
+              "天相"
+            ],
+            "startAge": 22
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 12
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 2
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 112
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 102
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "天同"
+            ],
+            "startAge": 92
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 82
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 72
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "天府"
+            ],
+            "startAge": 62
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1942,
+        "month": 6,
+        "day": 8,
+        "hour": 13,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "金四局",
+        "mingBranch": "戌",
+        "mingGanzhi": "庚戌",
+        "shenBranch": "子",
+        "ziweiBranch": "巳",
+        "tianfuBranch": "亥",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "太阳",
+              "巨门"
+            ],
+            "startAge": 84
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [
+              "天相"
+            ],
+            "startAge": 74
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "天机",
+              "天梁"
+            ],
+            "startAge": 64
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [
+              "七杀",
+              "紫微"
+            ],
+            "startAge": 54
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [],
+            "startAge": 44
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [],
+            "startAge": 34
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 24
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [
+              "廉贞",
+              "破军"
+            ],
+            "startAge": 14
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [],
+            "startAge": 4
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "天府"
+            ],
+            "startAge": 114
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "天同",
+              "太阴"
+            ],
+            "startAge": 104
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "武曲",
+              "贪狼"
+            ],
+            "startAge": 94
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1963,
+        "month": 7,
+        "day": 13,
+        "hour": 4,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "土五局",
+        "mingBranch": "辰",
+        "mingGanzhi": "丙辰",
+        "shenBranch": "申",
+        "ziweiBranch": "申",
+        "tianfuBranch": "申",
+        "byBranch": {
+          "寅": {
+            "tiangan": "甲",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 25
+          },
+          "卯": {
+            "tiangan": "乙",
+            "main": [
+              "天同"
+            ],
+            "startAge": 15
+          },
+          "辰": {
+            "tiangan": "丙",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 5
+          },
+          "巳": {
+            "tiangan": "丁",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 115
+          },
+          "午": {
+            "tiangan": "戊",
+            "main": [
+              "破军"
+            ],
+            "startAge": 105
+          },
+          "未": {
+            "tiangan": "己",
+            "main": [
+              "天机"
+            ],
+            "startAge": 95
+          },
+          "申": {
+            "tiangan": "庚",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 85
+          },
+          "酉": {
+            "tiangan": "辛",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 75
+          },
+          "戌": {
+            "tiangan": "壬",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 65
+          },
+          "亥": {
+            "tiangan": "癸",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 55
+          },
+          "子": {
+            "tiangan": "甲",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 45
+          },
+          "丑": {
+            "tiangan": "乙",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 35
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1951,
+        "month": 3,
+        "day": 21,
+        "hour": 17,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "金四局",
+        "mingBranch": "午",
+        "mingGanzhi": "甲午",
+        "shenBranch": "子",
+        "ziweiBranch": "未",
+        "tianfuBranch": "酉",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "天同",
+              "天梁"
+            ],
+            "startAge": 84
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [
+              "七杀",
+              "武曲"
+            ],
+            "startAge": 94
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 104
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [],
+            "startAge": 114
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [
+              "天机"
+            ],
+            "startAge": 4
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [
+              "破军",
+              "紫微"
+            ],
+            "startAge": 14
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [],
+            "startAge": 24
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "天府"
+            ],
+            "startAge": 34
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 44
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "廉贞",
+              "贪狼"
+            ],
+            "startAge": 54
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 64
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [
+              "天相"
+            ],
+            "startAge": 74
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2000,
+        "month": 4,
+        "day": 5,
+        "hour": 7,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "子",
+        "mingGanzhi": "戊子",
+        "shenBranch": "申",
+        "ziweiBranch": "酉",
+        "tianfuBranch": "未",
+        "byBranch": {
+          "寅": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 26
+          },
+          "卯": {
+            "tiangan": "己",
+            "main": [],
+            "startAge": 36
+          },
+          "辰": {
+            "tiangan": "庚",
+            "main": [
+              "天同"
+            ],
+            "startAge": 46
+          },
+          "巳": {
+            "tiangan": "辛",
+            "main": [
+              "武曲",
+              "破军"
+            ],
+            "startAge": 56
+          },
+          "午": {
+            "tiangan": "壬",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 66
+          },
+          "未": {
+            "tiangan": "癸",
+            "main": [
+              "天府"
+            ],
+            "startAge": 76
+          },
+          "申": {
+            "tiangan": "甲",
+            "main": [
+              "天机",
+              "太阴"
+            ],
+            "startAge": 86
+          },
+          "酉": {
+            "tiangan": "乙",
+            "main": [
+              "紫微",
+              "贪狼"
+            ],
+            "startAge": 96
+          },
+          "戌": {
+            "tiangan": "丙",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 106
+          },
+          "亥": {
+            "tiangan": "丁",
+            "main": [
+              "天相"
+            ],
+            "startAge": 116
+          },
+          "子": {
+            "tiangan": "戊",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 6
+          },
+          "丑": {
+            "tiangan": "己",
+            "main": [
+              "七杀",
+              "廉贞"
+            ],
+            "startAge": 16
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1999,
+        "month": 12,
+        "day": 10,
+        "hour": 16,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "辰",
+        "mingGanzhi": "戊辰",
+        "shenBranch": "申",
+        "ziweiBranch": "寅",
+        "tianfuBranch": "寅",
+        "byBranch": {
+          "寅": {
+            "tiangan": "丙",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 23
+          },
+          "卯": {
+            "tiangan": "丁",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 13
+          },
+          "辰": {
+            "tiangan": "戊",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 3
+          },
+          "巳": {
+            "tiangan": "己",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 113
+          },
+          "午": {
+            "tiangan": "庚",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 103
+          },
+          "未": {
+            "tiangan": "辛",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 93
+          },
+          "申": {
+            "tiangan": "壬",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 83
+          },
+          "酉": {
+            "tiangan": "癸",
+            "main": [
+              "天同"
+            ],
+            "startAge": 73
+          },
+          "戌": {
+            "tiangan": "甲",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 63
+          },
+          "亥": {
+            "tiangan": "乙",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 53
+          },
+          "子": {
+            "tiangan": "丙",
+            "main": [
+              "破军"
+            ],
+            "startAge": 43
+          },
+          "丑": {
+            "tiangan": "丁",
+            "main": [
+              "天机"
+            ],
+            "startAge": 33
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2011,
+        "month": 3,
+        "day": 4,
+        "hour": 22,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "卯",
+        "mingGanzhi": "辛卯",
+        "shenBranch": "丑",
+        "ziweiBranch": "亥",
+        "tianfuBranch": "巳",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [],
+            "startAge": 113
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [
+              "廉贞",
+              "破军"
+            ],
+            "startAge": 3
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [],
+            "startAge": 13
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "天府"
+            ],
+            "startAge": 23
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [
+              "天同",
+              "太阴"
+            ],
+            "startAge": 33
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [
+              "武曲",
+              "贪狼"
+            ],
+            "startAge": 43
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [
+              "太阳",
+              "巨门"
+            ],
+            "startAge": 53
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "天相"
+            ],
+            "startAge": 63
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [
+              "天机",
+              "天梁"
+            ],
+            "startAge": 73
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "七杀",
+              "紫微"
+            ],
+            "startAge": 83
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [],
+            "startAge": 93
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [],
+            "startAge": 103
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1997,
+        "month": 3,
+        "day": 19,
+        "hour": 21,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "火六局",
+        "mingBranch": "辰",
+        "mingGanzhi": "甲辰",
+        "shenBranch": "寅",
+        "ziweiBranch": "寅",
+        "tianfuBranch": "寅",
+        "byBranch": {
+          "寅": {
+            "tiangan": "壬",
+            "main": [
+              "天府",
+              "紫微"
+            ],
+            "startAge": 26
+          },
+          "卯": {
+            "tiangan": "癸",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 16
+          },
+          "辰": {
+            "tiangan": "甲",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 6
+          },
+          "巳": {
+            "tiangan": "乙",
+            "main": [
+              "巨门"
+            ],
+            "startAge": 116
+          },
+          "午": {
+            "tiangan": "丙",
+            "main": [
+              "天相",
+              "廉贞"
+            ],
+            "startAge": 106
+          },
+          "未": {
+            "tiangan": "丁",
+            "main": [
+              "天梁"
+            ],
+            "startAge": 96
+          },
+          "申": {
+            "tiangan": "戊",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 86
+          },
+          "酉": {
+            "tiangan": "己",
+            "main": [
+              "天同"
+            ],
+            "startAge": 76
+          },
+          "戌": {
+            "tiangan": "庚",
+            "main": [
+              "武曲"
+            ],
+            "startAge": 66
+          },
+          "亥": {
+            "tiangan": "辛",
+            "main": [
+              "太阳"
+            ],
+            "startAge": 56
+          },
+          "子": {
+            "tiangan": "壬",
+            "main": [
+              "破军"
+            ],
+            "startAge": 46
+          },
+          "丑": {
+            "tiangan": "癸",
+            "main": [
+              "天机"
+            ],
+            "startAge": 36
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 1986,
+        "month": 2,
+        "day": 12,
+        "hour": 22,
+        "minute": 30,
+        "gender": "male"
+      },
+      "ref": {
+        "wuXingJu": "木三局",
+        "mingBranch": "卯",
+        "mingGanzhi": "辛卯",
+        "shenBranch": "丑",
+        "ziweiBranch": "巳",
+        "tianfuBranch": "亥",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "太阳",
+              "巨门"
+            ],
+            "startAge": 113
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [
+              "天相"
+            ],
+            "startAge": 3
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "天机",
+              "天梁"
+            ],
+            "startAge": 13
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "七杀",
+              "紫微"
+            ],
+            "startAge": 23
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [],
+            "startAge": 33
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [],
+            "startAge": 43
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [],
+            "startAge": 53
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [
+              "廉贞",
+              "破军"
+            ],
+            "startAge": 63
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [],
+            "startAge": 73
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "天府"
+            ],
+            "startAge": 83
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "天同",
+              "太阴"
+            ],
+            "startAge": 93
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [
+              "武曲",
+              "贪狼"
+            ],
+            "startAge": 103
+          }
+        }
+      }
+    },
+    {
+      "birth": {
+        "year": 2001,
+        "month": 6,
+        "day": 1,
+        "hour": 2,
+        "minute": 30,
+        "gender": "female"
+      },
+      "ref": {
+        "wuXingJu": "水二局",
+        "mingBranch": "辰",
+        "mingGanzhi": "壬辰",
+        "shenBranch": "午",
+        "ziweiBranch": "午",
+        "tianfuBranch": "戌",
+        "byBranch": {
+          "寅": {
+            "tiangan": "庚",
+            "main": [
+              "天相",
+              "武曲"
+            ],
+            "startAge": 102
+          },
+          "卯": {
+            "tiangan": "辛",
+            "main": [
+              "天梁",
+              "太阳"
+            ],
+            "startAge": 112
+          },
+          "辰": {
+            "tiangan": "壬",
+            "main": [
+              "七杀"
+            ],
+            "startAge": 2
+          },
+          "巳": {
+            "tiangan": "癸",
+            "main": [
+              "天机"
+            ],
+            "startAge": 12
+          },
+          "午": {
+            "tiangan": "甲",
+            "main": [
+              "紫微"
+            ],
+            "startAge": 22
+          },
+          "未": {
+            "tiangan": "乙",
+            "main": [],
+            "startAge": 32
+          },
+          "申": {
+            "tiangan": "丙",
+            "main": [
+              "破军"
+            ],
+            "startAge": 42
+          },
+          "酉": {
+            "tiangan": "丁",
+            "main": [],
+            "startAge": 52
+          },
+          "戌": {
+            "tiangan": "戊",
+            "main": [
+              "天府",
+              "廉贞"
+            ],
+            "startAge": 62
+          },
+          "亥": {
+            "tiangan": "己",
+            "main": [
+              "太阴"
+            ],
+            "startAge": 72
+          },
+          "子": {
+            "tiangan": "庚",
+            "main": [
+              "贪狼"
+            ],
+            "startAge": 82
+          },
+          "丑": {
+            "tiangan": "辛",
+            "main": [
+              "天同",
+              "巨门"
+            ],
+            "startAge": 92
+          }
+        }
+      }
+    }
+  ]
+}

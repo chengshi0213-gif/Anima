@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>命理预览 · 导航卡面</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<link rel="stylesheet" href="divination-card.css?v=1.2.6">
+<style>
+  body { margin:0; min-height:100vh; background:#d9ccb0;
+    background-image:radial-gradient(120%% 90%% at 50%% -10%%, #e4d8bd, #cdbf9f);
+    padding:20px 14px 60px; font-family:"Songti SC",serif; }
+  .pv-bar { max-width:940px; margin:0 auto 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .pv-bar h1 { font-size:17px; color:#3a352e; margin:0; letter-spacing:.08em; font-weight:600; }
+  .pv-bar .pv-sub { font-size:12px; color:#6b6358; font-family:-apple-system,"Microsoft YaHei",sans-serif; margin-top:3px; }
+  .pv-toggle { font-family:-apple-system,"Microsoft YaHei",sans-serif; font-size:13px; cursor:pointer;
+    background:#211d18; color:#ece2cf; border:none; border-radius:999px; padding:7px 16px; white-space:nowrap;
+    transition:transform .15s cubic-bezier(.16,1,.3,1); }
+  .pv-toggle:active { transform:scale(.97); }
+</style>
+</head>
+<body>
+  <div class="pv-bar">
+    <div><h1>命理 · 导航卡面（点卡片跳详情）</h1>
+      <div class="pv-sub">命主 2002-02-24 辰时（真实排盘）· 总览→点卡片→详情→返回· 五行环/十神/大运为后端真实数据</div></div>
+    <button class="pv-toggle" id="pvToggle">切换 墨夜 / 宣纸</button>
+  </div>
+  <div id="app"></div>
+
+<script>
+window.__MINGLI_DATA__ = {
+  "chart": {
+    "input": {
+      "date": "2002-02-24",
+      "time": "07:30",
+      "gender": "male",
+      "calendar": "solar",
+      "place": "",
+      "time_unknown": false
+    },
+    "bazi": {
+      "solar": "2002-02-24 07:30:00",
+      "lunar": "二〇〇二年正月十三",
+      "lunar_month": 1,
+      "lunar_day": 13,
+      "day_master": "癸",
+      "day_master_wuxing": "水",
+      "pillars": {
+        "year": {
+          "ganzhi": "壬午",
+          "gan": "壬",
+          "zhi": "午",
+          "hide_gan": [
+            "丁",
+            "己"
+          ],
+          "shishen_gan": "劫财",
+          "shishen_zhi": [
+            "偏财",
+            "七杀"
+          ],
+          "nayin": "杨柳木"
+        },
+        "month": {
+          "ganzhi": "壬寅",
+          "gan": "壬",
+          "zhi": "寅",
+          "hide_gan": [
+            "甲",
+            "丙",
+            "戊"
+          ],
+          "shishen_gan": "劫财",
+          "shishen_zhi": [
+            "伤官",
+            "正财",
+            "正官"
+          ],
+          "nayin": "金箔金"
+        },
+        "day": {
+          "ganzhi": "癸亥",
+          "gan": "癸",
+          "zhi": "亥",
+          "hide_gan": [
+            "壬",
+            "甲"
+          ],
+          "shishen_gan": "日主",
+          "shishen_zhi": [
+            "劫财",
+            "伤官"
+          ],
+          "nayin": "大海水"
+        },
+        "time": {
+          "ganzhi": "丙辰",
+          "gan": "丙",
+          "zhi": "辰",
+          "hide_gan": [
+            "戊",
+            "乙",
+            "癸"
+          ],
+          "shishen_gan": "正财",
+          "shishen_zhi": [
+            "正官",
+            "食神",
+            "比肩"
+          ],
+          "nayin": "沙中土"
+        }
+      },
+      "ming_gong": "辛亥",
+      "shen_gong": "丁未",
+      "qiyun": {
+        "start_year": 3,
+        "start_month": 3,
+        "start_day": 0,
+        "start_solar": "2005-05-24"
+      },
+      "dayun": [
+        {
+          "start_age": 4,
+          "start_year": 2005,
+          "ganzhi": "癸卯"
+        },
+        {
+          "start_age": 14,
+          "start_year": 2015,
+          "ganzhi": "甲辰"
+        },
+        {
+          "start_age": 24,
+          "start_year": 2025,
+          "ganzhi": "乙巳"
+        },
+        {
+          "start_age": 34,
+          "start_year": 2035,
+          "ganzhi": "丙午"
+        },
+        {
+          "start_age": 44,
+          "start_year": 2045,
+          "ganzhi": "丁未"
+        },
+        {
+          "start_age": 54,
+          "start_year": 2055,
+          "ganzhi": "戊申"
+        },
+        {
+          "start_age": 64,
+          "start_year": 2065,
+          "ganzhi": "己酉"
+        },
+        {
+          "start_age": 74,
+          "start_year": 2075,
+          "ganzhi": "庚戌"
+        },
+        {
+          "start_age": 84,
+          "start_year": 2085,
+          "ganzhi": "辛亥"
+        }
+      ],
+      "time_unknown": false
+    },
+    "ziwei": {
+      "ming_gong": {
+        "branch": "戌",
+        "ganzhi": "庚戌"
+      },
+      "shen_gong": {
+        "branch": "午"
+      },
+      "wuxing_ju": "金四局",
+      "ju_number": 4,
+      "ziwei_branch": "寅",
+      "tianfu_branch": "寅",
+      "sihua": {
+        "化禄": "天梁",
+        "化权": "紫微",
+        "化科": "左辅",
+        "化忌": "武曲"
+      },
+      "palaces": [
+        {
+          "name": "命宫",
+          "ganzhi": "庚戌",
+          "branch": "戌",
+          "branch_index": 10,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "武曲",
+              "sihua": [
+                "化忌"
+              ]
+            },
+            {
+              "name": "右弼",
+              "sihua": []
+            },
+            {
+              "name": "陀罗",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "兄弟",
+          "ganzhi": "己酉",
+          "branch": "酉",
+          "branch_index": 9,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "天同",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "夫妻",
+          "ganzhi": "戊申",
+          "branch": "申",
+          "branch_index": 8,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "七杀",
+              "sihua": []
+            },
+            {
+              "name": "文曲",
+              "sihua": []
+            },
+            {
+              "name": "天马",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "子女",
+          "ganzhi": "丁未",
+          "branch": "未",
+          "branch_index": 7,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "天梁",
+              "sihua": [
+                "化禄"
+              ]
+            },
+            {
+              "name": "铃星",
+              "sihua": []
+            },
+            {
+              "name": "地空",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "财帛",
+          "ganzhi": "丙午",
+          "branch": "午",
+          "branch_index": 6,
+          "is_shen_gong": true,
+          "stars": [
+            {
+              "name": "廉贞",
+              "sihua": []
+            },
+            {
+              "name": "天相",
+              "sihua": []
+            },
+            {
+              "name": "文昌",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "疾厄",
+          "ganzhi": "乙巳",
+          "branch": "巳",
+          "branch_index": 5,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "巨门",
+              "sihua": []
+            },
+            {
+              "name": "天钺",
+              "sihua": []
+            },
+            {
+              "name": "火星",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "迁移",
+          "ganzhi": "甲辰",
+          "branch": "辰",
+          "branch_index": 4,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "贪狼",
+              "sihua": []
+            },
+            {
+              "name": "左辅",
+              "sihua": [
+                "化科"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "交友",
+          "ganzhi": "癸卯",
+          "branch": "卯",
+          "branch_index": 3,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "太阴",
+              "sihua": []
+            },
+            {
+              "name": "天魁",
+              "sihua": []
+            },
+            {
+              "name": "地劫",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "官禄",
+          "ganzhi": "壬寅",
+          "branch": "寅",
+          "branch_index": 2,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "紫微",
+              "sihua": [
+                "化权"
+              ]
+            },
+            {
+              "name": "天府",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "田宅",
+          "ganzhi": "癸丑",
+          "branch": "丑",
+          "branch_index": 1,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "天机",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "福德",
+          "ganzhi": "壬子",
+          "branch": "子",
+          "branch_index": 0,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "破军",
+              "sihua": []
+            },
+            {
+              "name": "擎羊",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "父母",
+          "ganzhi": "辛亥",
+          "branch": "亥",
+          "branch_index": 11,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "太阳",
+              "sihua": []
+            },
+            {
+              "name": "禄存",
+              "sihua": []
+            }
+          ]
+        }
+      ],
+      "daxian": [
+        {
+          "branch": "戌",
+          "branch_index": 10,
+          "age_range": [
+            4,
+            13
+          ]
+        },
+        {
+          "branch": "亥",
+          "branch_index": 11,
+          "age_range": [
+            14,
+            23
+          ]
+        },
+        {
+          "branch": "子",
+          "branch_index": 0,
+          "age_range": [
+            24,
+            33
+          ]
+        },
+        {
+          "branch": "丑",
+          "branch_index": 1,
+          "age_range": [
+            34,
+            43
+          ]
+        },
+        {
+          "branch": "寅",
+          "branch_index": 2,
+          "age_range": [
+            44,
+            53
+          ]
+        },
+        {
+          "branch": "卯",
+          "branch_index": 3,
+          "age_range": [
+            54,
+            63
+          ]
+        },
+        {
+          "branch": "辰",
+          "branch_index": 4,
+          "age_range": [
+            64,
+            73
+          ]
+        },
+        {
+          "branch": "巳",
+          "branch_index": 5,
+          "age_range": [
+            74,
+            83
+          ]
+        },
+        {
+          "branch": "午",
+          "branch_index": 6,
+          "age_range": [
+            84,
+            93
+          ]
+        },
+        {
+          "branch": "未",
+          "branch_index": 7,
+          "age_range": [
+            94,
+            103
+          ]
+        },
+        {
+          "branch": "申",
+          "branch_index": 8,
+          "age_range": [
+            104,
+            113
+          ]
+        },
+        {
+          "branch": "酉",
+          "branch_index": 9,
+          "age_range": [
+            114,
+            123
+          ]
+        }
+      ],
+      "time_unknown": false,
+      "year_ganzhi": "壬午"
+    },
+    "interpretation": {
+      "bazi": [
+        {
+          "title": "日主 · 癸（水）",
+          "body": "「雨露细流，润物无声」——感知力极强，情绪丰富，坚韧隐忍。癸水是八字中最'细腻'的日主——像雨露一样，存在感不强但无处不在。外表安静甚至不起眼，内心世界却极其丰富。有很强的直觉力和共情能力。 需丙火温暖（有阳光才能活泼起来，否则永远是冷冷的样子），辛金生水（有贵气和品质感来源），戊土为官（有人管才有方向）。怕己土浊水（被琐碎吞噬精力和灵性）。 癸水之人最大的力量是'润物无声'——你影响人的方式是渗透而非冲击。不要试图变成壬水的气势，你的力量在于持久和渗透。被低估不是坏事——让别人在不知不觉中被你影响，才是癸水的最高境界。"
+        },
+        {
+          "title": "格局 · 正财格",
+          "body": "月令取正财为格，定为「正财格」。 格神在time透干，格局力量更强。 月令正财——稳健之格，适合踏实经营积累财富 正财格的人务实勤劳，赚的是辛苦钱但赚得稳。理财意识强，善于在稳定中积累。不适合投机但适合长期经营。男命正财格也主婚姻稳定（正财代表妻子）。 此格喜：喜官星流通（财生官，名利双收）、身旺担财（有能力赚也有能力守）。 此格忌：忌比劫夺财（竞争消耗）、身弱不胜财（钱多人累）。"
+        },
+        {
+          "title": "旺衰 · 偏旺",
+          "body": "日主癸身强弱评估：「偏旺」（综合评分 5.0）。依据：月令中性；日支通根。 日主偏旺，有底气有能力——这是最理想的状态之一。身旺能担财官——赚钱撑得住、扛压力扛得住。适合主动出击、做需要魄力的事。"
+        },
+        {
+          "title": "四柱概览",
+          "items": [
+            "年柱 壬午；纳音「杨柳木」；天干十神为劫财；地支藏干丁·己；— 年柱主祖上和社会环境——代表家族基因、早年成长环境（0-16岁）、与社会的关系。年柱好坏看你出生在什么样的家庭和时代。",
+            "月柱 壬寅；纳音「金箔金」；天干十神为劫财；地支藏干甲·丙·戊；— 月柱主父母和事业格局——是八字中最重要的一柱。月令定格局、定用神。月柱代表青壮年（16-32岁）的运势和事业方向。",
+            "日柱 癸亥；纳音「大海水」；地支藏干壬·甲；— 日柱主自身和配偶——日干是你自己，日支是你的'内心'和'另一半'。日柱是八字的核心，所有十神都从日干推演。",
+            "时柱 丙辰；纳音「沙中土」；天干十神为正财；地支藏干戊·乙·癸；— 时柱主子女和晚年——代表后半生（48岁后）的运势、子女缘分和事业归宿。时柱也看一个人的暗面和潜意识。"
+          ]
+        },
+        {
+          "title": "五行平衡 · 水",
+          "body": "五行分布：木2.0、火2.5、土1.8、金0.0、水4.3。 五行缺金——命中金的能量不足，可从行业、方位、色彩上适度补充。 最旺五行为水，最弱为金。 日主属水，行业上可往：贸易·物流·旅游·咨询·外语·航运·渔业·水务·酒业·洗浴。"
+        },
+        {
+          "title": "调候 · 寒暖燥湿",
+          "body": "初春木气渐生，寒意未尽。虽阳气初动，但冬寒余威仍在——此时出生的人，命中仍需火来暖局。丙火（太阳）最佳，甲木助势。春天的'寒'不同于冬天，是'表暖里寒'，调候不可忽视。"
+        },
+        {
+          "title": "干支关系 · 刑冲合会",
+          "items": [
+            "地支六合：寅亥（月柱·日柱）合化木。两股力量互相吸引——合作、亲近、融合。六合代表两个地支的能量互相生助。年月合主家庭和谐，日支合主配偶关系好，月日合主事业与自身契合。合也有'绊'的意思——合住就走不动了。",
+            "地支半合：午寅（）半合火。三合缺一——力量有但不完整。半合的影响力弱于三合但仍然明显。前半合（生地+旺地）主起步阶段有力，后半合（旺地+墓地）主收尾阶段有力。"
+          ]
+        },
+        {
+          "title": "十二长生 · 癸的生命周期",
+          "items": [
+            "年支处「绝」之位——如万物绝灭——最低谷。代表彻底的结束和清零，但'绝处逢生'也从这里开始。",
+            "月支处「沐浴」之位——如少年沐浴——不稳定、容易受影响。代表成长中的试错期，桃花旺但也容易被诱惑。",
+            "日支处「帝旺」之位——如帝王之盛——达到顶峰。代表能量最强但也物极必反，过旺要防衰。",
+            "时支处「养」之位——如胎儿养育——渐渐成形。代表力量在积蓄中，耐心等待时机成熟。"
+          ]
+        },
+        {
+          "title": "月令十神 · 劫财",
+          "body": "月令天干十神为「劫财」——行动·争夺·讲义气；偏向资源/社交/冒险的路子。劫财是比肩的'激进版'——同样是同属性力量，但劫财更主动、更争抢。月令劫财主人行动力强、义气重，但容易因冲动破财或得罪人。适合在竞争激烈的领域打拼，但要管住自己的手——别什么都想抢。"
+        },
+        {
+          "title": "大运 · 十年一运",
+          "body": "大运是后天运势的十年大节奏——八字是「车」，大运是「路」。同一辆车，走平路还是上坡，体感完全不同。看大运重在两点：这十年走的是「喜用」还是「忌神」之运（顺不顺），以及被强化的是哪一种十神能量（劲往哪头使）。逐运排开，人生的起伏节律就清楚了。 你目前正走「乙巳」大运（24岁起，食神运）——这是你的喜用之运——大环境偏顺，是顺势进取、敢于出手的好时段，把握住能事半功倍。",
+          "items": [
+            "4–13岁 癸卯（比肩运 · 忌）：「自我与同辈」当令——适合独立创业、与人合伙，但也容易因争利伤和气，钱财上防被分、被借。",
+            "14–23岁 甲辰（伤官运 · 喜）：「表达与突破」当令——才思泉涌、敢破旧立新，但锋芒太露易招是非，管住嘴、收着点更稳。",
+            "24–33岁 乙巳（食神运 · 喜）　← 你正走这一步：「才华与享受」当令——适合输出、创作、靠本事变现，生活更松弛，是出作品、攒口碑的好十年。",
+            "34–43岁 丙午（正财运 · 喜）：「踏实积累」当令——适合稳定经营、攒钱置业，一分耕耘一分收获；男命亦主婚姻、家庭进入正轨。",
+            "44–53岁 丁未（偏财运 · 喜）：「机会与人脉」当令——财路活、宜开拓与投资，但来得快去得也快，见好就收、别贪多。",
+            "54–63岁 戊申（正官运 · 喜）：「责任与名位」当令——适合升职、考公、走正途，名声地位易有进展，按规矩走最顺。",
+            "64–73岁 己酉（七杀运 · 喜）：「压力与挑战」当令——竞争与压力明显加重，扛得住是大跨越，扛不住则伤身，宜主动迎上转化压力。",
+            "74–83岁 庚戌（正印运 · 忌）：「学养与庇荫」当令——适合进修、考证、靠贵人与平台，节奏放慢反而走得稳，也是养身养心的十年。",
+            "84–93岁 辛亥（偏印运 · 忌）：「钻研与独处」当令——适合做研究、专业、偏门领域，灵感多；但易想太多、偏执，留心情绪与肠胃。"
+          ]
+        }
+      ],
+      "ziwei": [
+        {
+          "title": "命宫主星 · 武曲",
+          "body": "【武曲】财富·意志·刚毅·行动力。务实果断，重效率，意志力强，不善言辞。说一不二，行动力强但缺少柔性。内心刚硬，不太会表达情感，给人'冷'的感觉——其实不是冷，是不知道怎么温柔。 长处：执行力强，财务能力好。天生的理财高手，对数字和资产有直觉。遇到困难不退缩，越挫越勇。 注意：刚硬不懂变通，在感情上理性过头。武曲为孤克之星，感情路较波折——不是不爱，是不会爱得柔软。与人沟通容易直来直去伤到人。 ⸺ 武曲坐命主财星入命，一生与钱打交道。化禄大财运，化权掌握财务决策权，化科靠专业理财，化忌则破财或因钱生烦恼。武曲最怕坐命遇煞——刚上加刚，孤克加重。\n适合方向：适合金融、军警、机械、实业。任何需要果断决策、数字敏感度和执行力的领域都是武曲的主场。"
+        },
+        {
+          "title": "命宫辅煞",
+          "items": [
+            "右弼——贵人助力星。与左辅同属贵人系统，右弼偏向暗中相助、不求回报的贵人。在命宫主人缘好、异性缘佳。",
+            "陀罗——纠缠煞星。主拖延、纠缠、暗耗。在命宫主人做事拖拉、容易被琐事缠住。与擎羊不同，陀罗的伤害是慢性的——温水煮青蛙。"
+          ]
+        },
+        {
+          "title": "参考格局",
+          "items": [
+            "可能吉格「府相朝垣」：紫微在子午，天府天相三方照命。极贵之格——帝星+库星+印星同时护命，主权贵富贵兼得。（需综合三方四正确认）",
+            "可能吉格「日月并明」：太阳太阴同宫或三方照且庙旺。格局高——日月同辉，光明正大，人生开阔。（需综合三方四正确认）",
+            "可能吉格「君臣庆会」：紫微会左辅右弼、文昌文曲。才华与权威并见——既有能力又有人辅助。（需综合三方四正确认）",
+            "可能吉格「雄宿朝垣」：七杀在子午守命，百官朝拱。武贵之格——适合军政或竞争激烈的商业环境。（需综合三方四正确认）"
+          ]
+        },
+        {
+          "title": "生年四化 · 落宫",
+          "items": [
+            "化禄（天梁）落「子女」：子女缘深，部属得力。子女听话、有出息。若做管理工作，下属也会比较配合。",
+            "化权（紫微）落「官禄」：事业强势，有权位，掌控力强。化权入官禄是事业最强的信号——适合做管理层、决策者。",
+            "化科（左辅）落「迁移」：在外名声好，有贵人相助。出门在外容易被人高看一眼。",
+            "化忌（武曲）落「命宫」：个人运势受阻，多是非，需低调行事。化忌入命是最需要注意的信号——做事容易遇到阻力，被误解、被非议。但也代表你对'自己'最认真、最在意个人发展。"
+          ]
+        },
+        {
+          "title": "事业主轴 · 命财官迁",
+          "items": [
+            "命宫（戌）：武曲",
+            "财帛（午）：廉贞、天相",
+            "官禄（寅）：紫微、天府",
+            "迁移（辰）：贪狼"
+          ],
+          "body": "人生格局主轴——命宫看你是谁、财帛看你的钱、官禄看你的事业、迁移看你在外的表现。这四个宫位的星曜和四化决定了你人生的'基本面'。"
+        },
+        {
+          "title": "人际关系 · 夫子交友",
+          "items": [
+            "夫妻（申）：七杀",
+            "子女（未）：天梁",
+            "交友（卯）：太阴"
+          ],
+          "body": "人际关系轴——夫妻看感情、子女看后代和部属、交友看社交。三个宫位联合分析判断你的'人际资源'。"
+        },
+        {
+          "title": "生活底色 · 父疾福田",
+          "items": [
+            "父母（亥）：太阳",
+            "疾厄（巳）：巨门",
+            "福德（子）：破军",
+            "田宅（丑）：天机"
+          ],
+          "body": "生活质量轴——父母看长辈缘和文书、疾厄看健康、福德看精神需求、田宅看家庭和资产。这条线决定你的'生活底色'。"
+        },
+        {
+          "title": "身宫 · 后天着力",
+          "body": "身宫落「财帛」（午），主星廉贞、天相。身宫是后天修炼的方向——30岁后逐渐显化、影响力与命宫平分秋色。身宫落何宫即你后天最用力的人生领域。"
+        }
+      ],
+      "viz": {
+        "wuxing": {
+          "elements": [
+            {
+              "wuxing": "木",
+              "value": 2.0,
+              "percent": 19,
+              "cat": "食伤",
+              "shishen_pair": "食神伤官",
+              "is_day": false,
+              "is_yong": true
+            },
+            {
+              "wuxing": "火",
+              "value": 2.5,
+              "percent": 24,
+              "cat": "财",
+              "shishen_pair": "正财偏财",
+              "is_day": false,
+              "is_yong": false
+            },
+            {
+              "wuxing": "土",
+              "value": 1.8,
+              "percent": 17,
+              "cat": "官",
+              "shishen_pair": "正官七杀",
+              "is_day": false,
+              "is_yong": false
+            },
+            {
+              "wuxing": "金",
+              "value": 0.0,
+              "percent": 0,
+              "cat": "印",
+              "shishen_pair": "正印偏印",
+              "is_day": false,
+              "is_yong": false
+            },
+            {
+              "wuxing": "水",
+              "value": 4.3,
+              "percent": 41,
+              "cat": "比劫",
+              "shishen_pair": "比肩劫财",
+              "is_day": true,
+              "is_yong": false
+            }
+          ],
+          "day_master": "癸",
+          "day_master_wx": "水",
+          "yongshen": "木",
+          "missing": [
+            "金"
+          ],
+          "strongest": "水",
+          "weakest": "金"
+        },
+        "shishen": [
+          {
+            "name": "比肩",
+            "value": 0.3,
+            "percent": 3
+          },
+          {
+            "name": "劫财",
+            "value": 3.0,
+            "percent": 31
+          },
+          {
+            "name": "食神",
+            "value": 0.5,
+            "percent": 5
+          },
+          {
+            "name": "伤官",
+            "value": 1.5,
+            "percent": 16
+          },
+          {
+            "name": "正财",
+            "value": 1.5,
+            "percent": 16
+          },
+          {
+            "name": "偏财",
+            "value": 1.0,
+            "percent": 10
+          },
+          {
+            "name": "正官",
+            "value": 1.3,
+            "percent": 14
+          },
+          {
+            "name": "七杀",
+            "value": 0.5,
+            "percent": 5
+          },
+          {
+            "name": "正印",
+            "value": 0.0,
+            "percent": 0
+          },
+          {
+            "name": "偏印",
+            "value": 0.0,
+            "percent": 0
+          }
+        ],
+        "dayun": [
+          {
+            "start_age": 4,
+            "end_age": 13,
+            "ganzhi": "癸卯",
+            "gan": "癸",
+            "zhi": "卯",
+            "shishen": "比肩",
+            "xiyong": "忌",
+            "score": 48,
+            "title": "防争防破",
+            "current": false
+          },
+          {
+            "start_age": 14,
+            "end_age": 23,
+            "ganzhi": "甲辰",
+            "gan": "甲",
+            "zhi": "辰",
+            "shishen": "伤官",
+            "xiyong": "喜",
+            "score": 80,
+            "title": "才华吐秀",
+            "current": false
+          },
+          {
+            "start_age": 24,
+            "end_age": 33,
+            "ganzhi": "乙巳",
+            "gan": "乙",
+            "zhi": "巳",
+            "shishen": "食神",
+            "xiyong": "喜",
+            "score": 86,
+            "title": "才华吐秀",
+            "current": true
+          },
+          {
+            "start_age": 34,
+            "end_age": 43,
+            "ganzhi": "丙午",
+            "gan": "丙",
+            "zhi": "午",
+            "shishen": "正财",
+            "xiyong": "喜",
+            "score": 86,
+            "title": "堆金积玉",
+            "current": false
+          },
+          {
+            "start_age": 44,
+            "end_age": 53,
+            "ganzhi": "丁未",
+            "gan": "丁",
+            "zhi": "未",
+            "shishen": "偏财",
+            "xiyong": "喜",
+            "score": 84,
+            "title": "堆金积玉",
+            "current": false
+          },
+          {
+            "start_age": 54,
+            "end_age": 63,
+            "ganzhi": "戊申",
+            "gan": "戊",
+            "zhi": "申",
+            "shishen": "正官",
+            "xiyong": "喜",
+            "score": 85,
+            "title": "名位双收",
+            "current": false
+          },
+          {
+            "start_age": 64,
+            "end_age": 73,
+            "ganzhi": "己酉",
+            "gan": "己",
+            "zhi": "酉",
+            "shishen": "七杀",
+            "xiyong": "喜",
+            "score": 78,
+            "title": "名位双收",
+            "current": false
+          },
+          {
+            "start_age": 74,
+            "end_age": 83,
+            "ganzhi": "庚戌",
+            "gan": "庚",
+            "zhi": "戌",
+            "shishen": "正印",
+            "xiyong": "忌",
+            "score": 50,
+            "title": "守静养身",
+            "current": false
+          },
+          {
+            "start_age": 84,
+            "end_age": 93,
+            "ganzhi": "辛亥",
+            "gan": "辛",
+            "zhi": "亥",
+            "shishen": "偏印",
+            "xiyong": "忌",
+            "score": 46,
+            "title": "守静养身",
+            "current": false
+          }
+        ],
+        "wangshuai": {
+          "level": "偏旺",
+          "score": 5.0
+        },
+        "geju": {
+          "name": "正财格",
+          "basis": "正财",
+          "benqi_gan": "丙",
+          "tougan": [
+            "time"
+          ],
+          "special": false
+        }
+      }
+    }
+  },
+  "fortune": {
+    "date": "2026-06-19",
+    "greeting": "今天是个顺势的日子。",
+    "almanac": {
+      "solar": "2026-06-19",
+      "weekday": "星期五",
+      "lunar_date": "二〇二六年五月初五",
+      "ganzhi": {
+        "year": "丙午",
+        "month": "甲午",
+        "day": "甲子"
+      },
+      "day_shengxiao": "鼠",
+      "overall": {
+        "level": 4,
+        "label": "吉",
+        "tone": "good"
+      },
+      "yi": [
+        "祭祀",
+        "破屋",
+        "坏垣",
+        "馀事勿取"
+      ],
+      "ji": [
+        "移徙",
+        "入宅",
+        "开仓",
+        "出货财"
+      ],
+      "ji_shen": [
+        "天恩",
+        "六仪",
+        "解神",
+        "金匮"
+      ],
+      "xiong_sha": [
+        "月破",
+        "大耗",
+        "灾煞",
+        "天火",
+        "厌对",
+        "招摇",
+        "五虚"
+      ],
+      "chong": {
+        "shengxiao": "马",
+        "desc": "(戊午)马",
+        "sha": "南"
+      },
+      "peng_zu": [
+        "甲不开仓财物耗散",
+        "子不问卜自惹祸殃"
+      ],
+      "zhixing": "破",
+      "tian_shen": {
+        "name": "金匮",
+        "type": "黄道",
+        "luck": "吉"
+      },
+      "xiu": "鬼金羊",
+      "jieqi": {
+        "prev": "芒种",
+        "next": "夏至"
+      }
+    },
+    "tarot": {
+      "date": "2026-06-19",
+      "id": 74,
+      "name_zh": "星币侍从",
+      "name_en": "Page of Pentacles",
+      "arcana": "minor",
+      "suit": "星币",
+      "rank": "侍从",
+      "orientation": "reversed",
+      "orientation_zh": "逆位",
+      "keywords": [
+        "懒散",
+        "分心",
+        "短视",
+        "拖延"
+      ],
+      "meaning": "想法若缺少执行会停在原地，先设一个具体步骤，帮助愿望落地。"
+    },
+    "personal": {
+      "available": true,
+      "day_master": "癸",
+      "shengxiao": "马",
+      "today_shishen": "伤官",
+      "wangshuai": "偏旺",
+      "chong_hit": true,
+      "tips": [
+        "今日才思外露、点子多，留意言语锋芒——话到嘴边先过一遍脑子。",
+        "今日地支冲你的生肖（马）——老话说「冲则动」，宜静不宜动，重大决定不妨缓一天再拍板。"
+      ]
+    },
+    "focus_domain": "事业学业",
+    "aspects": [
+      {
+        "domain": "事业学业",
+        "stars": 5,
+        "focus": true,
+        "text": "脑子转得开、推进力强，适合处理要紧事、做关键决定。",
+        "advice": "趁状态好，把拖着的硬骨头啃下来。"
+      },
+      {
+        "domain": "财运",
+        "stars": 4,
+        "focus": false,
+        "text": "财务平稳，宜守不宜大动。",
+        "advice": "按预算走，不为小利费神。"
+      },
+      {
+        "domain": "感情人际",
+        "stars": 3,
+        "focus": false,
+        "text": "沟通容易擦枪走火，情绪上头会伤人。",
+        "advice": "话出口前先过一遍脑子，别在气头上下结论。"
+      },
+      {
+        "domain": "健康情绪",
+        "stars": 3,
+        "focus": false,
+        "text": "容易累、容易烦，情绪和睡眠需留意。",
+        "advice": "早点歇、给自己留白，别跟自己较劲。"
+      }
+    ],
+    "lucky": {
+      "wuxing": "木",
+      "color": "青绿色",
+      "direction": "东方",
+      "numbers": "3、8"
+    }
+  }
+};
+</script>
+<script src="divination-viz.js?v=1.2.6"></script>
+<script src="divination-card.js?v=1.2.6"></script>
+<script>
+  let night = false;
+  const app = document.getElementById("app");
+  window.Mingli.mountSurface(app, window.__MINGLI_DATA__, { night });
+  document.getElementById("pvToggle").addEventListener("click", () => {
+    night = !night;
+    window.Mingli.refreshSurface(app, { night });
+  });
+</script>
+</body>
+</html>

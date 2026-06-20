@@ -7,8 +7,12 @@
 <link rel="stylesheet" href="styles.css?v=1.2.1">
 <!-- D2 组件层：新组件用设计 token，置于 styles.css 之后（级联在上）。详见 docs/anima-design-system.md §3 -->
 <link rel="stylesheet" href="components.css?v=1.2.4">
+<link rel="stylesheet" href="divination-card.css?v=1.2.6"><!-- 命理水墨皮肤（灵魂空间·我的命盘） -->
 <!-- 全局错误边界：必须最先加载，才能抓到启动期错误 -->
 <script src="/error-boundary.js"></script>
+<!-- 命理渲染层（IIFE：viz 招牌图先于 card 卡面；均挂 window.*；classic script 先于 main.js 模块执行） -->
+<script src="/divination-viz.js?v=1.2.6"></script>
+<script src="/divination-card.js?v=1.2.6"></script>
 </head>
 <body>
 
@@ -1257,6 +1261,8 @@
 
         <!-- 室一：我的命盘 -->
         <div class="soul-room active" id="soulRoom-chart">
+          <!-- 今日运势（黄历吉凶 + 今日塔罗 + 结合命盘的提点），进室即加载 -->
+          <div id="soulToday" class="soul-today"></div>
           <div class="settings-section">
             <h3>出生信息</h3>
             <div id="soulBirthInfo" class="soul-birth-info">加载中…</div>
@@ -1628,6 +1634,6 @@
 <script src="/assets/vendor/drawflow/drawflow.min.js"></script>
 <script src="/workflow-canvas.js?v=1.2.1"></script>
 
-<script type="module" src="/main.js?v=1.2.1"></script>
+<script type="module" src="/main.js?v=1.2.3"></script>
 </body>
 </html>

@@ -22,6 +22,10 @@ tokenizers>=0.15.0      # 本地分词
 
 # ── 命理排盘（晞 专用，确定性算法）──
 lunar-python>=1.4.0     # 农历/节气/八字四柱/藏干/十神/大运/纳音（纯 Python，无外部依赖）
+iztro-py==0.3.4         # 紫微斗数排盘（社区标准库 iztro 的纯 Python 移植，可 PyInstaller 打包）
+                        # 注意：必须 pin 0.3.4——divination/ziwei_engine.py 对其年界 bug
+                        # （立春 vs 正月初一）打了运行时补丁，依赖内部函数名稳定；升级前先跑
+                        # tests/test_ziwei_crossval.py 确认补丁仍生效。
 
 # ── 定时任务 ──
 apscheduler>=3.10.0

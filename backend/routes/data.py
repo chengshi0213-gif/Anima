@@ -196,7 +196,20 @@ async def divination_paipan_handler(request):
         divination_history.add_record,
         user_auth.get_birth_info(), result["markdown"], result.get("time_unknown", False),
     )
-    return web.json_response({"ok": True, "record": record}, headers=CORS_HEADERS)
+    # chart：结构化命盘，供前端水墨海报渲染（markdown 仅作历史存档/降级回退）
+    return web.json_response({"ok": True, "record": record, "chart": result.get("chart")},
+                             headers=CORS_HEADERS)
+
+
+async def divination_today_handler(request):
+    """GET /divination/today — 今日运势（今日黄历 + 今日塔罗 + 结合命盘的个人化提点）。
+    用存档出生信息做个人化；无出生信息时只出通用黄历 + 塔罗。纯本地、确定性。"""
+    import user_auth
+    from divination import daily_fortune
+    birth = user_auth.get_birth_info()
+    fortune = await asyncio.to_thread(
+        daily_fortune, birth if birth.get("date") else None)
+    return web.json_response({"ok": True, "fortune": fortune}, headers=CORS_HEADERS)
 
 
 async def divination_history_handler(request):
@@ -348,6 +361,7 @@ def register(app):
     app.router.add_delete("/memory/entries/{id}",          memory_delete_handler)
     # M6 灵魂空间·我的命盘
     app.router.add_post("/divination/paipan",              divination_paipan_handler)
+    app.router.add_get("/divination/today",                divination_today_handler)
     app.router.add_get("/divination/history",              divination_history_handler)
     app.router.add_delete("/divination/history/{id}",      divination_history_delete_handler)
     # Projects — 注意：固定路径 deactivate 必须在参数路径 {name} 之前
