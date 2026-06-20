@@ -59,13 +59,13 @@ def _run(coro):
 
 def test_strips_json_fence():
     payload = {"name": "调研流", "steps": [
-        {"type": "sequential", "agent": "researcher", "prompt": "查 {{主题}}"}
+        {"type": "sequential", "agent": "xi", "prompt": "查 {{主题}}"}
     ], "explanation": "先查后写"}
     gen = _FakeGen(content="这是结果：\n```json\n" + json.dumps(payload, ensure_ascii=False) + "\n```\n搞定")
     out = _run(wa.ai_build_workflow(gen, "调研一个主题"))
     assert out["ok"] is True
     assert out["name"] == "调研流"
-    assert out["steps"][0]["agent"] == "researcher"
+    assert out["steps"][0]["agent"] == "xi"
     assert out["variables"] == ["主题"]
 
 

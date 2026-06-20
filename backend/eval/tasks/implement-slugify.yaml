@@ -1,0 +1,28 @@
+id: implement-slugify
+title: 实现 slugify
+category: add-feature
+prompt: |
+  textutil.py 里的 slugify(s) 还没实现（现在返回 None）。
+  请实现它：把字符串转成 URL slug——小写、单词间用单个连字符连接、去掉首尾连字符、
+  丢弃字母数字以外的字符。test_textutil.py 定义了精确行为，请让它全部通过，不要改测试。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    textutil.py: |
+      def slugify(s):
+          pass  # TODO: 待实现
+    test_textutil.py: |
+      from textutil import slugify
+
+      def test_basic():
+          assert slugify("Hello World") == "hello-world"
+
+      def test_punctuation():
+          assert slugify("Hello, World!") == "hello-world"
+
+      def test_collapse_spaces():
+          assert slugify("  a   b  ") == "a-b"
+
+      def test_empty():
+          assert slugify("") == ""

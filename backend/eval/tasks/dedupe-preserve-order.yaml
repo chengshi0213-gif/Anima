@@ -1,0 +1,24 @@
+id: dedupe-preserve-order
+title: 去重并保持原顺序
+category: bug-fix
+prompt: |
+  seq.py 的 dedupe(items) 用 set 去重，结果丢失了原始顺序。
+  请改成保持首次出现顺序的去重。test_seq.py 验证顺序，让它全过，不要改测试。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    seq.py: |
+      def dedupe(items):
+          return list(set(items))
+    test_seq.py: |
+      from seq import dedupe
+
+      def test_order_preserved():
+          assert dedupe([3, 1, 3, 2, 1]) == [3, 1, 2]
+
+      def test_no_dups():
+          assert dedupe([1, 2, 3]) == [1, 2, 3]
+
+      def test_empty():
+          assert dedupe([]) == []

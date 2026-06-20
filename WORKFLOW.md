@@ -50,10 +50,16 @@ Claude × Codex × Hermes 分工协议。
 # 默认只读沙箱 — 只能看，不能改文件
 codex exec "prompt"
 
-# 可写模式（需要改文件时必须用这个）
-codex exec --approval never --sandbox none "prompt"
+# 可写模式（需要改文件时用这个）
+codex exec -s workspace-write "prompt"
 
-# 或交互式（需要人工确认每步操作时）
+# 指定工作目录（非 Anima 主仓库时必须指定）
+codex exec -s workspace-write -C "E:/AI/workspace/目标目录" "prompt"
+
+# 完全不限制（谨慎用）
+codex exec -s danger-full-access "prompt"
+
+# 或交互式（需要人工确认每步时）
 codex "prompt"
 ```
 
@@ -129,3 +135,6 @@ JS检查：node --check src/*.js
 | 2026-06-05 | v1.1.1 UI整改 | Codex | ✅ 已提交 4ec2f6d |
 | 2026-06-05 | v1.1.1 console.html删除 | Claude | ✅ 已提交 2a309b5 |
 | 2026-06-05 | CLAUDE.md / .clignore / AGENTS.md / HERMES_RULES.md / WORKFLOW.md | Claude | ✅ 已提交 |
+| 2026-06-05 | shell_run 安全检测 + 应用图标重新生成 | Claude | ✅ 已提交 4db75b1 |
+| 2026-06-05 | anima-site GitHub 仓库建立 + Pages + Release 上传 + 主仓库私有化 | Hermes | ✅ 完成 |
+| 2026-06-05 | landing 落地页改版 | Codex | 🔄 进行中 |

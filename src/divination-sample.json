@@ -1,0 +1,639 @@
+{
+  "chart": {
+    "input": {
+      "date": "2002-02-24",
+      "time": "07:30",
+      "gender": "male",
+      "calendar": "solar",
+      "place": "",
+      "time_unknown": false
+    },
+    "bazi": {
+      "solar": "2002-02-24 07:30:00",
+      "lunar": "二〇〇二年正月十三",
+      "lunar_month": 1,
+      "lunar_day": 13,
+      "day_master": "癸",
+      "day_master_wuxing": "水",
+      "pillars": {
+        "year": {
+          "ganzhi": "壬午",
+          "gan": "壬",
+          "zhi": "午",
+          "hide_gan": [
+            "丁",
+            "己"
+          ],
+          "shishen_gan": "劫财",
+          "shishen_zhi": [
+            "偏财",
+            "七杀"
+          ],
+          "nayin": "杨柳木"
+        },
+        "month": {
+          "ganzhi": "壬寅",
+          "gan": "壬",
+          "zhi": "寅",
+          "hide_gan": [
+            "甲",
+            "丙",
+            "戊"
+          ],
+          "shishen_gan": "劫财",
+          "shishen_zhi": [
+            "伤官",
+            "正财",
+            "正官"
+          ],
+          "nayin": "金箔金"
+        },
+        "day": {
+          "ganzhi": "癸亥",
+          "gan": "癸",
+          "zhi": "亥",
+          "hide_gan": [
+            "壬",
+            "甲"
+          ],
+          "shishen_gan": "日主",
+          "shishen_zhi": [
+            "劫财",
+            "伤官"
+          ],
+          "nayin": "大海水"
+        },
+        "time": {
+          "ganzhi": "丙辰",
+          "gan": "丙",
+          "zhi": "辰",
+          "hide_gan": [
+            "戊",
+            "乙",
+            "癸"
+          ],
+          "shishen_gan": "正财",
+          "shishen_zhi": [
+            "正官",
+            "食神",
+            "比肩"
+          ],
+          "nayin": "沙中土"
+        }
+      },
+      "ming_gong": "辛亥",
+      "shen_gong": "丁未",
+      "qiyun": {
+        "start_year": 3,
+        "start_month": 3,
+        "start_day": 0,
+        "start_solar": "2005-05-24"
+      },
+      "dayun": [
+        {
+          "start_age": 4,
+          "start_year": 2005,
+          "ganzhi": "癸卯"
+        },
+        {
+          "start_age": 14,
+          "start_year": 2015,
+          "ganzhi": "甲辰"
+        },
+        {
+          "start_age": 24,
+          "start_year": 2025,
+          "ganzhi": "乙巳"
+        },
+        {
+          "start_age": 34,
+          "start_year": 2035,
+          "ganzhi": "丙午"
+        },
+        {
+          "start_age": 44,
+          "start_year": 2045,
+          "ganzhi": "丁未"
+        },
+        {
+          "start_age": 54,
+          "start_year": 2055,
+          "ganzhi": "戊申"
+        },
+        {
+          "start_age": 64,
+          "start_year": 2065,
+          "ganzhi": "己酉"
+        },
+        {
+          "start_age": 74,
+          "start_year": 2075,
+          "ganzhi": "庚戌"
+        },
+        {
+          "start_age": 84,
+          "start_year": 2085,
+          "ganzhi": "辛亥"
+        }
+      ],
+      "time_unknown": false
+    },
+    "ziwei": {
+      "ming_gong": {
+        "branch": "戌",
+        "ganzhi": "庚戌"
+      },
+      "shen_gong": {
+        "branch": "午"
+      },
+      "wuxing_ju": "金四局",
+      "ju_number": 4,
+      "ziwei_branch": "寅",
+      "tianfu_branch": "寅",
+      "sihua": {
+        "化禄": "天梁",
+        "化权": "紫微",
+        "化科": "左辅",
+        "化忌": "武曲"
+      },
+      "palaces": [
+        {
+          "name": "命宫",
+          "ganzhi": "庚戌",
+          "branch": "戌",
+          "branch_index": 10,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "武曲",
+              "sihua": [
+                "化忌"
+              ]
+            },
+            {
+              "name": "右弼",
+              "sihua": []
+            },
+            {
+              "name": "陀罗",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "兄弟",
+          "ganzhi": "己酉",
+          "branch": "酉",
+          "branch_index": 9,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "天同",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "夫妻",
+          "ganzhi": "戊申",
+          "branch": "申",
+          "branch_index": 8,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "七杀",
+              "sihua": []
+            },
+            {
+              "name": "文曲",
+              "sihua": []
+            },
+            {
+              "name": "天马",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "子女",
+          "ganzhi": "丁未",
+          "branch": "未",
+          "branch_index": 7,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "天梁",
+              "sihua": [
+                "化禄"
+              ]
+            },
+            {
+              "name": "铃星",
+              "sihua": []
+            },
+            {
+              "name": "地空",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "财帛",
+          "ganzhi": "丙午",
+          "branch": "午",
+          "branch_index": 6,
+          "is_shen_gong": true,
+          "stars": [
+            {
+              "name": "廉贞",
+              "sihua": []
+            },
+            {
+              "name": "天相",
+              "sihua": []
+            },
+            {
+              "name": "文昌",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "疾厄",
+          "ganzhi": "乙巳",
+          "branch": "巳",
+          "branch_index": 5,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "巨门",
+              "sihua": []
+            },
+            {
+              "name": "天钺",
+              "sihua": []
+            },
+            {
+              "name": "火星",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "迁移",
+          "ganzhi": "甲辰",
+          "branch": "辰",
+          "branch_index": 4,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "贪狼",
+              "sihua": []
+            },
+            {
+              "name": "左辅",
+              "sihua": [
+                "化科"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "交友",
+          "ganzhi": "癸卯",
+          "branch": "卯",
+          "branch_index": 3,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "太阴",
+              "sihua": []
+            },
+            {
+              "name": "天魁",
+              "sihua": []
+            },
+            {
+              "name": "地劫",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "官禄",
+          "ganzhi": "壬寅",
+          "branch": "寅",
+          "branch_index": 2,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "紫微",
+              "sihua": [
+                "化权"
+              ]
+            },
+            {
+              "name": "天府",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "田宅",
+          "ganzhi": "癸丑",
+          "branch": "丑",
+          "branch_index": 1,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "天机",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "福德",
+          "ganzhi": "壬子",
+          "branch": "子",
+          "branch_index": 0,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "破军",
+              "sihua": []
+            },
+            {
+              "name": "擎羊",
+              "sihua": []
+            }
+          ]
+        },
+        {
+          "name": "父母",
+          "ganzhi": "辛亥",
+          "branch": "亥",
+          "branch_index": 11,
+          "is_shen_gong": false,
+          "stars": [
+            {
+              "name": "太阳",
+              "sihua": []
+            },
+            {
+              "name": "禄存",
+              "sihua": []
+            }
+          ]
+        }
+      ],
+      "daxian": [
+        {
+          "branch": "戌",
+          "branch_index": 10,
+          "age_range": [
+            4,
+            13
+          ]
+        },
+        {
+          "branch": "亥",
+          "branch_index": 11,
+          "age_range": [
+            14,
+            23
+          ]
+        },
+        {
+          "branch": "子",
+          "branch_index": 0,
+          "age_range": [
+            24,
+            33
+          ]
+        },
+        {
+          "branch": "丑",
+          "branch_index": 1,
+          "age_range": [
+            34,
+            43
+          ]
+        },
+        {
+          "branch": "寅",
+          "branch_index": 2,
+          "age_range": [
+            44,
+            53
+          ]
+        },
+        {
+          "branch": "卯",
+          "branch_index": 3,
+          "age_range": [
+            54,
+            63
+          ]
+        },
+        {
+          "branch": "辰",
+          "branch_index": 4,
+          "age_range": [
+            64,
+            73
+          ]
+        },
+        {
+          "branch": "巳",
+          "branch_index": 5,
+          "age_range": [
+            74,
+            83
+          ]
+        },
+        {
+          "branch": "午",
+          "branch_index": 6,
+          "age_range": [
+            84,
+            93
+          ]
+        },
+        {
+          "branch": "未",
+          "branch_index": 7,
+          "age_range": [
+            94,
+            103
+          ]
+        },
+        {
+          "branch": "申",
+          "branch_index": 8,
+          "age_range": [
+            104,
+            113
+          ]
+        },
+        {
+          "branch": "酉",
+          "branch_index": 9,
+          "age_range": [
+            114,
+            123
+          ]
+        }
+      ],
+      "time_unknown": false,
+      "year_ganzhi": "壬午"
+    },
+    "interpretation": {
+      "bazi": [
+        {
+          "title": "日主 · 癸（水）",
+          "body": "雨露细流，感知力极强，情绪丰富，坚韧隐忍，需丙火温暖。这是你天生的底色。"
+        },
+        {
+          "title": "月令取向 · 劫财",
+          "body": "行动·争夺·讲义气；偏向资源/同辈的路子。（月令是八字的'格'，最能看你天然吃哪碗饭）"
+        },
+        {
+          "title": "调候 · 寒暖燥湿",
+          "body": "初春木气渐生，寒意未尽，仍喜火暖局。"
+        },
+        {
+          "title": "五行取用 · 水",
+          "body": "五行属水，行业上可往：贸易·物流·旅游·咨询·外语。"
+        }
+      ],
+      "ziwei": [
+        {
+          "title": "命宫主星 · 武曲",
+          "body": "武曲——财富·意志·刚毅·行动力。务实果断，重效率，意志力强，不善言辞；长处在执行力强，财务能力好，行动力强，要留意刚硬，不懂变通，感情上较理性。"
+        },
+        {
+          "title": "命宫辅煞",
+          "body": "右弼（贵人助力，增强主星正面特质）、陀罗（拖延·纠缠·暗耗，在命宫主事情拖拉）。"
+        },
+        {
+          "title": "生年四化 · 落宫",
+          "items": [
+            "化禄（天梁）落「子女」：子女缘深·部属得力",
+            "化权（紫微）落「官禄」：事业强势·有权位·掌控力强",
+            "化科（左辅）落「迁移」：在外名声佳·贵人相助",
+            "化忌（武曲）落「命宫」：个人运势受阻·多是非·需低调"
+          ]
+        },
+        {
+          "title": "事业主轴 · 命财官迁",
+          "items": [
+            "命宫（戌）：武曲",
+            "财帛（午）：廉贞、天相",
+            "官禄（寅）：紫微、天府",
+            "迁移（辰）：贪狼"
+          ]
+        },
+        {
+          "title": "身宫 · 后天着力",
+          "body": "身宫落「财帛」（午），主星廉贞、天相——中年后逐渐显化、是你后天用力的方向。"
+        }
+      ]
+    }
+  },
+  "fortune": {
+    "date": "2026-06-18",
+    "greeting": "今天是平常的一天，平常心走就好。",
+    "almanac": {
+      "solar": "2026-06-18",
+      "weekday": "星期四",
+      "lunar_date": "二〇二六年五月初四",
+      "ganzhi": {
+        "year": "丙午",
+        "month": "甲午",
+        "day": "癸亥"
+      },
+      "day_shengxiao": "猪",
+      "overall": {
+        "level": 3,
+        "label": "平",
+        "tone": "neutral"
+      },
+      "yi": [
+        "畋猎",
+        "捕捉",
+        "结网",
+        "取渔",
+        "祭祀",
+        "沐浴",
+        "馀事勿取"
+      ],
+      "ji": [
+        "嫁娶",
+        "开市",
+        "安葬",
+        "启钻",
+        "行丧"
+      ],
+      "ji_shen": [
+        "五富",
+        "不将",
+        "福生"
+      ],
+      "xiong_sha": [
+        "劫煞",
+        "小耗",
+        "四废",
+        "重日",
+        "朱雀"
+      ],
+      "chong": {
+        "shengxiao": "蛇",
+        "desc": "(丁巳)蛇",
+        "sha": "西"
+      },
+      "peng_zu": [
+        "癸不词讼理弱敌强",
+        "亥不嫁娶不利新郎"
+      ],
+      "zhixing": "执",
+      "tian_shen": {
+        "name": "朱雀",
+        "type": "黑道",
+        "luck": "凶"
+      },
+      "xiu": "井木犴",
+      "jieqi": {
+        "prev": "芒种",
+        "next": "夏至"
+      }
+    },
+    "tarot": {
+      "date": "2026-06-18",
+      "id": 55,
+      "name_zh": "宝剑六",
+      "name_en": "Six of Swords",
+      "arcana": "minor",
+      "suit": "宝剑",
+      "rank": "六",
+      "orientation": "upright",
+      "orientation_zh": "正位",
+      "keywords": [
+        "过渡",
+        "远离",
+        "迁移",
+        "疗愈"
+      ],
+      "meaning": "你正从困难处境慢慢过渡，虽然不轻松，但方向是在走向更平静。"
+    },
+    "personal": {
+      "available": true,
+      "day_master": "癸",
+      "shengxiao": "马",
+      "today_shishen": "比肩",
+      "chong_hit": false,
+      "tips": [
+        "今日人际与协作的能量旺，主见也强；与人分工分利时多让一分，少些较劲。"
+      ]
+    }
+  }
+}

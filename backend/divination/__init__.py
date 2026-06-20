@@ -3,12 +3,15 @@ Anima 命理排盘引擎（晞 专用）
 ====================================
 确定性算法排盘，不依赖 LLM 猜测：
 - bazi_engine: 基于 lunar-python 的八字四柱/藏干/十神/大运/纳音
-- ziwei_engine: 自研纯 Python 紫微斗数引擎（命宫/身宫/十四主星/辅星/四化/大限）
+- ziwei_engine: 基于 iztro-py（社区标准库 iztro 的纯 Python 移植）排盘，薄适配成 Anima 结构
+  （命宫/身宫/十四主星/辅星煞星/生年四化/大限）；含年界 bug 运行时补丁
 
 统一入口 paipan(birth) → 返回结构化命盘 dict，可直接灌给 worker 渲染 Markdown 命盘表。
 """
 from .bazi_engine import bazi_paipan
 from .ziwei_engine import ziwei_paipan
+from .daily import daily_fortune
+from .interpret import interpret_chart
 
 
 def paipan(birth: dict) -> dict:
@@ -44,4 +47,4 @@ def _normalize_input(birth: dict) -> dict:
     }
 
 
-__all__ = ["paipan", "bazi_paipan", "ziwei_paipan"]
+__all__ = ["paipan", "bazi_paipan", "ziwei_paipan", "daily_fortune", "interpret_chart"]

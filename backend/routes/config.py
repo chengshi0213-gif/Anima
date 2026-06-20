@@ -566,6 +566,67 @@ async def diagnostics_export(request):
                                  status=500, headers=CORS_HEADERS)
 
 
+# ══════════════════════════════════════════════════════
+#  工作目录（C3: 编程模式工作目录配置）
+# ══════════════════════════════════════════════════════
+
+async def workspace_get(request):
+    """GET /config/workspace — 当前工作目录"""
+    import config as _cfg
+    return web.json_response({
+        "workspace": str(_cfg.WORKSPACE_DIR),
+    }, headers=CORS_HEADERS)
+
+
+async def workspace_set(request):
+    """POST /config/workspace — 设置工作目录 {path}"""
+    try:
+        body = await request.json()
+    except Exception:
+        return _json_error("invalid json", 400)
+    import config as _cfg
+    path = (body.get("path") or "").strip().strip('"')
+    if not path:
+        return _json_error("path 为空", 400)
+    from pathlib import Path as _Path
+    try:
+        p = _Path(path).expanduser()
+        if not p.is_absolute():
+            return _json_error("请使用绝对路径", 400)
+        p.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        return _json_error(f"路径无效：{e}", 400)
+    _cfg.save_user_config({"workspace": str(p)})
+    _cfg.WORKSPACE_DIR = p
+    return web.json_response({"ok": True, "workspace": str(p)}, headers=CORS_HEADERS)
+
+
+# ══════════════════════════════════════════════════════
+#  区域设置（C1: cn/global 切换影响 MCP 默认开关和搜索路由）
+# ══════════════════════════════════════════════════════
+
+async def region_get(request):
+    """GET /config/region — 当前区域"""
+    import config as _cfg
+    return web.json_response({
+        "region": _cfg._get("region", "cn"),
+    }, headers=CORS_HEADERS)
+
+
+async def region_set(request):
+    """POST /config/region — 设置区域 {region: "cn"|"global"}"""
+    try:
+        body = await request.json()
+    except Exception:
+        return _json_error("invalid json", 400)
+    import config as _cfg
+    region = (body.get("region") or "").strip().lower()
+    if region not in ("cn", "global"):
+        return _json_error("region 必须是 cn 或 global", 400)
+    _cfg.save_user_config({"region": region})
+    return web.json_response({"ok": True, "region": region}, headers=CORS_HEADERS)
+
+
 def register(app):
     # Agent 配置
     app.router.add_get("/config/agents",           agent_config_get)
@@ -591,6 +652,12 @@ def register(app):
     app.router.add_get("/config/data-home",        data_home_get)
     app.router.add_post("/config/data-home",       data_home_set)
     app.router.add_post("/config/data-home/reset", data_home_reset)
+    # 工作目录（编程模式）
+    app.router.add_get("/config/workspace",        workspace_get)
+    app.router.add_post("/config/workspace",       workspace_set)
+    # 区域 / region
+    app.router.add_get("/config/region",           region_get)
+    app.router.add_post("/config/region",          region_set)
     # 诊断 / 崩溃上报
     app.router.add_get("/diagnostics/status",      diagnostics_status)
     app.router.add_post("/diagnostics/export",     diagnostics_export)

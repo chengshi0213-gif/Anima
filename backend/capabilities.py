@@ -17,6 +17,7 @@ worker 用 build() 把它们组装成 tool_defs / dispatch / 提示词。
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -52,10 +53,40 @@ _ORCH_FRAGMENT = """
 收回结果你来合成、把关。小事自己顺手做，不必动用队伍。你是拿主意和兜底的那个。
 """
 
+_MEMORY_FRAGMENT = """
+## 记忆（remember / recall / forget）
+
+记忆是关系的底子，不是任务清单，别什么都往里塞。
+
+什么值得记，按四级分类，写入时用 category 标注：
+- A 身份恒定：生日、家人、职业、出生信息——近乎不变的事实。
+- B 偏好习惯：用户自己说出来的喜恶、习惯、雷点，如不吃香菜、讨厌被催、习惯夜里工作。
+- C 近期状态：正在做的事、近期计划、近期情绪，如下周出差、最近失眠——这类信息会过期，标 C。
+  如果带具体日期（评审、截止、出差当天），顺手填上 remind_at="YYYY-MM-DD"，
+  到点前一天会被自动整理出来，让你能主动提一句。
+- D 关系记忆：你们之间发生的事——她许过的承诺、用户的反馈、吵过的架、自己说错过的话。
+  这层最容易被忽略，但最造人感："上次你说那句话太冲，我记着呢"比记一百条偏好都像人，遇到了别漏。
+
+什么不记：一次性指令、寒暄客套、聊天里随时能重建的信息。
+健康、财务等敏感细节，先问一句"这个要记下来吗"，用户确认了再写。
+
+写完用"记下了。"这类口头禅简短确认，不解释存哪、用了什么分类。
+聊到相关的事先 recall 一下，让记忆自然渗入，别摆着不用；信息过时或用户要求忘掉的就 forget。
+
+如果 remember 返回 conflict（新旧记忆对不上），别硬塞、别解释系统原理，
+直接问出来，比如"咦，你之前说的是 X，现在变了？"——等用户确认了再 remember 一次。
+"""
+
 
 # ── 能力工厂（惰性 import 真实实现）──────────────────────
 def _execution_cap(agent_id: str) -> Capability:
-    from xi_worker import _list_dir, _read_file, _write_file, _edit_file, _search_code, _shell_run
+    from xi_worker import (_list_dir, _read_file, _write_file, _edit_file,
+                           _search_code, _shell_run, _glob_files, _map_project,
+                           _update_plan)
+    from native_tools import _http_request, _read_pdf, _read_image, _install_pkg
+    from git_tools import GIT_TOOL_DEFS, build_git_dispatch
+    from task_runner import TASK_TOOL_DEFS, build_task_dispatch
+    from code_intel import CODE_INTEL_TOOL_DEFS, CODE_INTEL_DISPATCH
     defs = [
         {"type": "function", "function": {
             "name": "list_dir", "description": "列出目录内容（递归，可指定深度）",
@@ -63,6 +94,23 @@ def _execution_cap(agent_id: str) -> Capability:
                 "path": {"type": "string"},
                 "max_depth": {"type": "integer", "description": "最大深度（默认2）"},
             }, "required": ["path"]}}},
+        {"type": "function", "function": {
+            "name": "glob_files",
+            "description": "按文件名 glob 模式查找文件（支持 ** 递归，如 '**/*.test.py'）。"
+                           "找文件用它，搜文件内容用 search_code。",
+            "parameters": {"type": "object", "properties": {
+                "pattern": {"type": "string", "description": "glob 模式，如 '**/*.py'"},
+                "path": {"type": "string", "description": "搜索根目录，默认当前目录"},
+                "limit": {"type": "integer", "description": "最多返回文件数（默认100）"},
+            }, "required": ["pattern"]}}},
+        {"type": "function", "function": {
+            "name": "map_project",
+            "description": "获取项目全景目录树（自动跳过 node_modules/.git 等噪声）。"
+                           "进入一个陌生项目时第一步先调它，快速建立结构认知。",
+            "parameters": {"type": "object", "properties": {
+                "root": {"type": "string", "description": "项目根目录，默认当前目录"},
+                "max_depth": {"type": "integer", "description": "树最大深度（默认3）"},
+            }, "required": []}}},
         {"type": "function", "function": {
             "name": "file_read", "description": "读取文件内容（支持行范围）",
             "parameters": {"type": "object", "properties": {
@@ -90,15 +138,78 @@ def _execution_cap(agent_id: str) -> Capability:
             "parameters": {"type": "object", "properties": {
                 "command": {"type": "string"}, "timeout": {"type": "integer"}, "cwd": {"type": "string"},
             }, "required": ["command"]}}},
+        {"type": "function", "function": {
+            "name": "http_request",
+            "description": "直调任意 REST API（GET/POST/PUT/PATCH/DELETE）。安全版：只允许 "
+                           "http/https，自动拦截解析到内网/环回地址的 URL（防 SSRF）。"
+                           "body 传 dict 时按 JSON 发送。访问本机服务请改用 shell_run + curl。",
+            "parameters": {"type": "object", "properties": {
+                "method": {"type": "string", "description": "GET/POST/PUT/PATCH/DELETE，默认 GET"},
+                "url": {"type": "string"},
+                "body": {"description": "请求体；dict/list 自动按 JSON 发送，字符串原样发送"},
+                "headers": {"type": "object", "description": "可选请求头"},
+                "timeout": {"type": "integer", "description": "秒，默认 30，上限 120"},
+            }, "required": ["url"]}}},
+        {"type": "function", "function": {
+            "name": "read_pdf",
+            "description": "读取 PDF 文件的文本内容（需求文档/论文/合同等）。"
+                           "超 100 页时必须用 start_page/end_page 指定范围。"
+                           "纯扫描件/图片 PDF 无法提取文本。",
+            "parameters": {"type": "object", "properties": {
+                "path": {"type": "string", "description": "PDF 文件路径"},
+                "start_page": {"type": "integer", "description": "起始页码（从 1 开始）"},
+                "end_page": {"type": "integer", "description": "结束页码（含）"},
+            }, "required": ["path"]}}},
+        {"type": "function", "function": {
+            "name": "read_image",
+            "description": "读取图片文件（截图/设计稿/图表/照片）供视觉分析。"
+                           "支持 png/jpg/gif/webp/bmp/svg，超 5MB 拒绝。",
+            "parameters": {"type": "object", "properties": {
+                "path": {"type": "string", "description": "图片文件路径"},
+            }, "required": ["path"]}}},
+        {"type": "function", "function": {
+            "name": "install_pkg",
+            "description": "安装 Python（pip）或 Node（npm）包。仅允许官方源，"
+                           "禁止自定义 --index-url/--registry（防供应链攻击）。",
+            "parameters": {"type": "object", "properties": {
+                "package": {"type": "string", "description": "包名（可含版本如 pandas==2.0）"},
+                "manager": {"type": "string", "enum": ["pip", "npm"],
+                            "description": "包管理器，默认 pip"},
+            }, "required": ["package"]}}},
+        {"type": "function", "function": {
+            "name": "update_plan",
+            "description": "维护执行计划（用户可见的 todo 清单）。3 步以上的任务，动手前先调它；"
+                           "每完成一步更新状态。steps 数组里每项 {text, status: pending/doing/done}。",
+            "parameters": {"type": "object", "properties": {
+                "steps": {"type": "array", "items": {"type": "object", "properties": {
+                    "text": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "doing", "done"]},
+                }}, "description": "计划步骤列表"},
+            }, "required": ["steps"]}}},
     ]
     dispatch = {
         "list_dir":    lambda **kw: _list_dir(kw["path"], kw.get("max_depth", 2)),
+        "glob_files":  lambda **kw: _glob_files(kw["pattern"], kw.get("path", "."), kw.get("limit", 100)),
+        "map_project": lambda **kw: _map_project(kw.get("root", "."), kw.get("max_depth", 3)),
         "file_read":   lambda **kw: _read_file(kw["path"], kw.get("offset", 0), kw.get("limit", 200)),
         "file_write":  lambda **kw: _write_file(kw["path"], kw["content"]),
         "file_edit":   lambda **kw: _edit_file(kw["path"], kw["old_string"], kw["new_string"], kw.get("replace_all", False)),
         "search_code": lambda **kw: _search_code(kw["pattern"], kw.get("path", "."), kw.get("file_glob", "*"), kw.get("limit", 30)),
         "shell_run":   lambda **kw: _shell_run(kw["command"], kw.get("timeout", 60), kw.get("cwd")),
+        "http_request": lambda **kw: _http_request(kw.get("method", "GET"), kw["url"],
+                                                    kw.get("body"), kw.get("headers"),
+                                                    kw.get("timeout", 30)),
+        "read_pdf": lambda **kw: _read_pdf(kw["path"], kw.get("start_page"),
+                                           kw.get("end_page")),
+        "read_image": lambda **kw: _read_image(kw["path"]),
+        "install_pkg": lambda **kw: _install_pkg(kw["package"], kw.get("manager", "pip")),
+        "update_plan": lambda **kw: _update_plan(kw["steps"], kw.get("session_id", "")),
     }
+    defs.extend(GIT_TOOL_DEFS)
+    dispatch.update(build_git_dispatch())
+    defs.extend(TASK_TOOL_DEFS)
+    dispatch.update(build_task_dispatch())
+    defs.extend(CODE_INTEL_TOOL_DEFS)
+    dispatch.update(CODE_INTEL_DISPATCH)
     return Capability("execution", defs, dispatch, _EXEC_FRAGMENT)
 
 
@@ -138,22 +249,157 @@ def _orchestration_cap(agent_id: str) -> Capability:
                       build_orchestration_dispatch(), _ORCH_FRAGMENT)
 
 
+def _memory_cap(agent_id: str) -> Capability:
+    """第 6 块积木（M1）：记忆能力——remember / recall / forget。
+    接到 memory_injector 现成的 write/search/delete/list 接口，
+    写入分级（A/B/C/D）见 _MEMORY_FRAGMENT（§3.1）。"""
+    from memory_injector import write_memory_gated, search_memory, delete_memory, list_memory
+
+    defs = [
+        {"type": "function", "function": {
+            "name": "remember",
+            "description": "把值得长期记住的事实写入记忆。同一 key 再写会更新而非重复。"
+                           "写完用简短口头禅确认（如「记下了。」），不必解释存哪、用了什么分类。",
+            "parameters": {"type": "object", "properties": {
+                "key": {"type": "string", "description": "记忆要点的简短标题，如 '常驻城市' '下周行程' '不吃香菜'"},
+                "value": {"type": "string", "description": "记忆内容正文"},
+                "category": {"type": "string", "enum": ["A", "B", "C", "D"],
+                             "description": "A=身份恒定 B=偏好习惯 C=近期状态(会过期) D=关系记忆(承诺/反馈/吵过的架)"},
+                "importance": {"type": "integer", "description": "重要度 1-5，默认 3"},
+                "remind_at": {"type": "string",
+                              "description": "可选，'YYYY-MM-DD'。仅 C 层(近期状态)用——"
+                                              "用户提到一个有具体日期的事(评审/截止/出差)时填上，"
+                                              "到期前一天会被自动收进每日整理，让你能主动提一句。"},
+            }, "required": ["key", "value", "category"]}}},
+        {"type": "function", "function": {
+            "name": "recall",
+            "description": "搜索已有记忆。聊到相关话题时主动用一下，让记忆自然渗入对话，别摆着不用。",
+            "parameters": {"type": "object", "properties": {
+                "query": {"type": "string", "description": "搜索关键词或话题"},
+            }, "required": ["query"]}}},
+        {"type": "function", "function": {
+            "name": "forget",
+            "description": "按 key 精确删除一条记忆。用户明确要求忘掉，或信息已过时无需保留时用。",
+            "parameters": {"type": "object", "properties": {
+                "key": {"type": "string", "description": "要删除的记忆 key（需与写入时一致）"},
+            }, "required": ["key"]}}},
+    ]
+
+    def _remember(**kw):
+        key, value = kw["key"], kw["value"]
+        category = kw.get("category", "C")
+        if category not in ("A", "B", "C", "D"):
+            category = "C"
+        try:
+            importance = max(1, min(5, int(kw.get("importance", 3))))
+        except Exception:
+            importance = 3
+        remind_at = kw.get("remind_at") or None
+        if remind_at and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", remind_at):
+            remind_at = None
+        result = write_memory_gated(key=key, value=value, category=category,
+                                    agent_id=agent_id, importance=importance,
+                                    remind_at=remind_at)
+        if result["ok"]:
+            return {"ok": True, "id": result["id"], "key": result["key"], "category": category}
+        if result["reason"] == "conflict":
+            return {"ok": False, "conflict": True,
+                    "existing_key": result["existing_key"],
+                    "existing_value": result["existing_value"],
+                    "new_value": result["new_value"],
+                    "hint": "别静默改写，先用一句「咦，你之前说的是…现在变了？」跟用户确认，"
+                            "确认后再 remember 一次。"}
+        return {"ok": False, "reason": result["reason"], "message": result["message"]}
+
+    def _recall(**kw):
+        query = kw.get("query", "")
+        if not query:
+            return {"error": "query 为空"}
+        entries = search_memory(query, agent_id=agent_id)
+        return {"results": [
+            {"key": e.key, "value": e.value, "category": e.category,
+             "importance": e.importance, "updated_at": e.updated_at}
+            for e in entries
+        ]}
+
+    def _forget(**kw):
+        key = kw.get("key", "")
+        if not key:
+            return {"error": "key 为空"}
+        target = next((e for e in list_memory(agent_id=agent_id) if e.key == key), None)
+        if not target:
+            return {"ok": False, "error": f"未找到记忆: {key}"}
+        return {"ok": delete_memory(target.id), "key": key}
+
+    dispatch = {"remember": _remember, "recall": _recall, "forget": _forget}
+    return Capability("memory", defs, dispatch, _MEMORY_FRAGMENT)
+
+
+def _mcp_cap(agent_id: str) -> Capability:
+    """第 5 块积木（M11）：已连接的 MCP 外部工具。
+    构造期 snapshot 多为空（boot 可能晚于 worker 构造，用户也可能运行中加 server）；
+    真正的工具集由 worker 每轮 run 前 _sync_mcp_tools() 刷新，
+    提示词片段由 dynamic_prompt 每轮取最新——靠 mcp__ 前缀只换 MCP 子集，不碰原生工具。"""
+    from mcp_client import MCPManager, _compose_mcp_fragment
+    snap = MCPManager.snapshot()
+    return Capability("mcp", snap.tool_defs, snap.dispatch,
+                      prompt_fragment="",
+                      dynamic_prompt=lambda: _compose_mcp_fragment(MCPManager._tools))
+
+
+# ── N5: 安全分级（v1.2.1）──────────────────────────────────
+# Anima 跑在用户真机上（非沙箱），不追求 Codex 式无确认全自动。
+# 等级越高越谨慎。confirm 机制（M14）据此决定是否弹卡片。
+SAFETY_READ = "read"           # 只读，无确认，全自动
+SAFETY_WRITE = "write"         # 写操作，默认自动；多文件改动前强制 checkpoint
+SAFETY_DANGEROUS = "dangerous" # 高危（删除/覆盖大文件/危险 shell），走 confirm 卡片
+SAFETY_IRREVERSIBLE = "irreversible"  # 不可逆（push/发布），永远需用户确认
+
+TOOL_SAFETY: dict[str, str] = {
+    # read
+    "list_dir": SAFETY_READ, "glob_files": SAFETY_READ, "map_project": SAFETY_READ,
+    "file_read": SAFETY_READ, "search_code": SAFETY_READ, "read_pdf": SAFETY_READ,
+    "read_image": SAFETY_READ, "git_status": SAFETY_READ, "git_diff": SAFETY_READ,
+    "git_log": SAFETY_READ, "git_branch": SAFETY_READ,
+    "web_search": SAFETY_READ, "fetch_url": SAFETY_READ,
+    "recall": SAFETY_READ, "list_subagents": SAFETY_READ,
+    "task_poll": SAFETY_READ, "update_plan": SAFETY_READ,
+    "http_request": SAFETY_READ,
+    # write
+    "file_write": SAFETY_WRITE, "file_edit": SAFETY_WRITE,
+    "git_commit": SAFETY_WRITE, "git_create_branch": SAFETY_WRITE,
+    "remember": SAFETY_WRITE, "forget": SAFETY_WRITE,
+    "install_pkg": SAFETY_WRITE,
+    # dangerous
+    "shell_run": SAFETY_DANGEROUS, "long_run": SAFETY_DANGEROUS,
+    "task_kill": SAFETY_DANGEROUS,
+    "delegate": SAFETY_DANGEROUS, "delegate_parallel": SAFETY_DANGEROUS,
+}
+
+
 _FACTORIES: dict[str, Callable[[str], Capability]] = {
     "execution":     _execution_cap,
     "web":           _web_cap,
     "divination":    _divination_cap,
     "orchestration": _orchestration_cap,
+    "memory":        _memory_cap,
+    "mcp":           _mcp_cap,
 }
 
 
-def build(cap_ids: list[str], *, agent_id: str = "xi") -> dict:
+def build(cap_ids: list[str], *, agent_id: str = "xi",
+          register: str | None = None) -> dict:
     """把一组能力积木组装成 worker 需要的零件。
     返回 {tool_defs, dispatch, fragments:[str], dynamic:[callable]}。
+    register: D8 房间语气片段 key（"companion"/"focused"），会置于 fragments 最前面。
     未知能力 id 跳过（容错）。"""
+    from room import REGISTER_FRAGMENTS
     tool_defs: list = []
     dispatch: dict = {}
     fragments: list[str] = []
     dynamic: list[Callable[[], str]] = []
+    if register and register in REGISTER_FRAGMENTS:
+        fragments.append(REGISTER_FRAGMENTS[register])
     for cid in cap_ids:
         factory = _FACTORIES.get(cid)
         if not factory:

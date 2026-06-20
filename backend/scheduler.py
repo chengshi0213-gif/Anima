@@ -26,6 +26,18 @@ SCHED_DIR.mkdir(parents=True, exist_ok=True)
 MAX_LOGS = 200   # 最多保留的执行记录条数
 
 
+def result_to_text(result) -> str:
+    """把 _run_fn 的返回值摊平成可落日志的字符串。
+
+    AgentBase.run() / run_daily_sop() 返回 dict（status/summary/error 等字段），
+    旧的 file_watcher 风格回调可能直接返回字符串——两种都兼容。
+    """
+    if isinstance(result, dict):
+        return str(result.get("summary") or result.get("error")
+                   or result.get("status") or result)
+    return str(result)
+
+
 class TaskScheduler:
     def __init__(self):
         self._scheduler = AsyncIOScheduler()
@@ -88,6 +100,17 @@ class TaskScheduler:
         self._save_tasks()
         self._schedule_job(task)
         return task
+
+    def add_task_if_missing(self, name: str, agent: str, prompt: str,
+                            trigger_type: str, trigger_value: str) -> dict | None:
+        """幂等注册系统任务：已存在同名任务则跳过，否则新建。
+
+        供启动流程注册周期性系统任务（M2a 每日 SOP / M2b 每周升格 / M10
+        偏好学习等）共用，避免每次重启重复注册。
+        """
+        if any(t["name"] == name for t in self._tasks.values()):
+            return None
+        return self.add_task(name, agent, prompt, trigger_type, trigger_value)
 
     def toggle_task(self, task_id: str) -> dict:
         task = self._tasks.get(task_id)
@@ -193,7 +216,7 @@ class TaskScheduler:
             "task_name": task["name"],
             "agent":    task["agent"],
             "started":  started,
-            "output":   output[:2000],
+            "output":   result_to_text(output)[:2000],
             "ok":       ok,
         }
         self._logs.append(log_entry)

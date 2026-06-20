@@ -118,12 +118,12 @@ function handleAgentMessage(agentId, msg) {
   }
   if (msg.type === 'response' && msg.data?.status) {
     window.removeThinking?.(agentId);
-    window.removeStreamingMsg?.(agentId);
+    // upgrade-in-place：流式气泡不销毁，直接渲染最终内容（零闪烁）
+    window.finalizeStreamingMsg?.(agentId, msg.data);
     chatState[agentId].pending = false;
     wsStatus[agentId].busy     = false;
     window.setInputState?.(agentId, false);
     window.updateAgentUI?.(agentId);
-    window.appendAssistantMsg?.(agentId, msg.data);
     toast(`${AGENTS[agentId].icon} ${AGENTS[agentId].name} 已回复`, 'success');
     window.loadSidebarHistory?.();
     return;
@@ -133,7 +133,17 @@ function handleAgentMessage(agentId, msg) {
     return;
   }
   if (msg.type === 'tool_done') {
-    window.markThinkingStep?.(agentId, msg.data?.tool, msg.data?.ok, msg.data?.hint);
+    window.markThinkingStep?.(agentId, msg.data?.tool, msg.data?.ok, msg.data?.hint, msg.data);
+    return;
+  }
+  if (msg.type === 'confirm_request') {
+    // M14 内核3：危险操作确认。后端默认策略全 off，故平时不触发；
+    // 用户在 config 开 ask 后，这里渲染 ConfirmCard 让其决定放行/拒绝。
+    window.showConfirmRequest?.(agentId, msg.data);
+    return;
+  }
+  if (msg.type === 'ask_user') {
+    window.showAskUserCard?.(agentId, msg);
     return;
   }
   if (msg.type === 'permission_request') {

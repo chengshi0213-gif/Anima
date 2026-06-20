@@ -4,16 +4,20 @@
  */
 
 // ── Module imports (side effects: each module registers its window.* functions) ──
-import { CONFIG, AGENTS, runtime } from './state.js';
-import { checkBackend, wsSend } from './ws.js';
-import './invite-gate.js';
-import './auth.js';
-import './chat.js';
-import './overview.js';
-import './workflow.js';
-import './settings.js';
-import './economy.js';
-import './anim.js';   // GSAP 编排层（必须最后 import：包装其它模块已注册的 window.* 函数）
+// ?v=1.2.1 强制浏览器跳过 ES module 缓存（开发期 cache-bust，生产 Tauri 直接读磁盘无需关心）
+import { CONFIG, AGENTS, runtime } from './state.js?v=1.2.1';
+import { checkBackend, wsSend } from './ws.js?v=1.2.3';
+import './invite-gate.js?v=1.2.1';
+import './auth.js?v=1.2.1';
+import './chat.js?v=1.2.3';
+import './overview.js?v=1.2.1';
+import './workflow.js?v=1.2.4';
+import './settings.js?v=1.2.1';
+import './soulspace.js?v=1.2.4';
+import './mcp-panel.js?v=1.2.1';
+import './economy.js?v=1.2.1';
+import './lingxi.js?v=1.2.1';
+import './anim.js?v=1.2.3';   // GSAP 编排层（必须最后 import：包装其它模块已注册的 window.* 函数）
 
 // ══════════════════════════════════════════════════
 //  命令面板 (Ctrl+K)
@@ -25,6 +29,7 @@ const CMD_LIST = [
   { icon:'✏️', label:'新对话',           sub:'打开新会话',   action:()=>window.newChat() },
   { icon:'↺',  label:'刷新总览',         sub:'',             action:()=>{window.switchTab('overview',document.querySelector('[data-tab=overview]'));window.loadOverview?.();} },
   { icon:'⚙️', label:'设置',            sub:'端口·快捷键',  action:()=>window.switchTab('settings', document.querySelector('[data-tab=settings]')) },
+  { icon:'🔮', label:'灵魂空间',        sub:'命盘·画像·我们的时刻', action:()=>window.switchTab('soulspace', document.querySelector('[data-tab=soulspace]')) },
 ];
 
 let cmdItems = CMD_LIST;

@@ -1,0 +1,366 @@
+/* ═══════════════════════════════════════════════════════════════
+   divination-card.css — 命理「今日运势卡 + 命盘海报」水墨皮肤
+   美学方向：宣纸 × 墨 × 朱砂（heritage manuscript，命书本色，非默认 serif 偷懒）
+   盘面结构借鉴 iztro 官方 react-iztro（4×4 宫格 + 中宫；四化色 禄红/权蓝/科绿/忌墨）
+   再定制：配色改宣纸朱砂、加水墨晕染与纸纤理、克制入场动效。
+   作用域全部收在 .mingli 下，嵌进 Anima 不污染既有样式。
+   ═══════════════════════════════════════════════════════════════ */
+
+.mingli {
+  /* —— 宣纸·墨·朱砂 调色（命书本色；深色见 .mingli.is-night）—— */
+  --ml-paper:    #ece2cf;   /* 宣纸暖白 */
+  --ml-paper-2:  #e3d6bd;   /* 浅赭，分隔/底纹 */
+  --ml-ink:      #211d18;   /* 浓墨（正文） */
+  --ml-ink-2:    #4a4339;   /* 焦墨（次级） */
+  --ml-ink-3:    #847a68;   /* 淡墨（注脚） */
+  --ml-line:     #c3b698;   /* 界栏线 */
+  --ml-line-2:   #d6c8aa;
+  --ml-cinnabar: #a8362a;   /* 朱砂（印·重点·忌） */
+  --ml-cinnabar-soft:#bf5346;
+  /* 四化语义色（沿用 iztro 约定，调入宣纸调性） */
+  --ml-lu:  #9e3b30;  /* 禄·朱 */
+  --ml-quan:#2f5470;  /* 权·靛 */
+  --ml-ke:  #3f6b4a;  /* 科·青 */
+  --ml-ji:  #4f4636;  /* 忌·墨 */
+  /* 吉凶色 */
+  --ml-good: #3f6b4a;
+  --ml-bad:  #a8362a;
+  --ml-neutral:#7a6f59;
+
+  --ml-serif: "Songti SC","STSong","Source Han Serif SC","Noto Serif SC",Georgia,serif;
+  --ml-sans:  -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  --ml-ease:  cubic-bezier(.16,1,.3,1);
+
+  color: var(--ml-ink);
+  font-family: var(--ml-serif);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 容器：宣纸底 + 水墨晕染四角 + 纸纤维理 */
+.mingli-sheet {
+  position: relative;
+  max-width: 940px;
+  margin: 0 auto;
+  padding: clamp(20px, 4vw, 40px);
+  background:
+    radial-gradient(120% 80% at 0% 0%,   rgba(33,29,24,.06), transparent 42%),
+    radial-gradient(120% 80% at 100% 100%, rgba(168,54,42,.05), transparent 46%),
+    repeating-linear-gradient(91deg, rgba(132,122,104,.05) 0 1px, transparent 1px 4px),
+    var(--ml-paper);
+  border: 1px solid var(--ml-line);
+  box-shadow: 0 12px 40px rgba(60,40,20,.16), inset 0 0 60px rgba(132,122,104,.10);
+  border-radius: 3px;
+}
+.mingli-sheet::after { /* 内细框，命书装裱感 */
+  content:""; position:absolute; inset:10px; border:1px solid var(--ml-line-2);
+  border-radius:2px; pointer-events:none;
+}
+
+.mingli h2, .mingli h3 { margin:0; font-weight:600; letter-spacing:.04em; }
+.mingli-rule { display:flex; align-items:center; gap:12px; margin:26px 0 16px; }
+.mingli-rule__t { font-size:17px; color:var(--ml-ink); white-space:nowrap; letter-spacing:.12em; }
+.mingli-rule__l { flex:1; height:1px; background:linear-gradient(90deg,var(--ml-line),transparent); }
+.mingli-rule__seal { color:var(--ml-cinnabar); font-size:13px; border:1px solid var(--ml-cinnabar);
+  padding:1px 6px; border-radius:2px; letter-spacing:.1em; }
+
+/* ── 今日运势卡 ───────────────────────────────────────────── */
+.mingli-today { position:relative; z-index:1; }
+.mingli-today__hd {
+  display:flex; justify-content:space-between; align-items:flex-start; gap:16px;
+  padding-bottom:14px; border-bottom:1px dashed var(--ml-line);
+}
+.mingli-today__date .d-greg { font-size:30px; font-weight:600; letter-spacing:.02em; }
+.mingli-today__date .d-week { font-size:14px; color:var(--ml-ink-3); margin-left:8px; }
+.mingli-today__date .d-lunar { margin-top:4px; font-size:15px; color:var(--ml-ink-2); }
+.mingli-today__date .d-gz { margin-top:2px; font-size:13px; color:var(--ml-ink-3); letter-spacing:.16em; }
+
+/* 吉凶印：朱砂方印质感 */
+.mingli-seal {
+  flex:none; width:74px; height:74px; display:grid; place-items:center; text-align:center;
+  border:2px solid var(--ml-cinnabar); border-radius:4px; color:var(--ml-cinnabar);
+  background:radial-gradient(circle at 50% 40%, rgba(168,54,42,.10), transparent 70%);
+  box-shadow: inset 0 0 0 3px rgba(168,54,42,.12);
+  transform: rotate(-3deg);
+}
+.mingli-seal b { font-size:22px; line-height:1; letter-spacing:.06em; }
+.mingli-seal span { display:block; font-size:10px; margin-top:5px; letter-spacing:.3em; opacity:.8; }
+.mingli-seal.is-good { --ml-cinnabar:var(--ml-good); color:var(--ml-good); border-color:var(--ml-good); }
+.mingli-seal.is-bad  { --ml-cinnabar:var(--ml-bad);  }
+.mingli-seal.is-neutral { --ml-cinnabar:var(--ml-neutral); color:var(--ml-neutral); border-color:var(--ml-neutral); }
+
+/* 宜 / 忌 */
+.mingli-yiji { display:grid; grid-template-columns:1fr 1fr; gap:1px; margin:16px 0;
+  background:var(--ml-line); border:1px solid var(--ml-line); border-radius:3px; overflow:hidden; }
+.mingli-yiji__col { background:var(--ml-paper); padding:12px 14px; }
+.mingli-yiji__h { display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:8px; letter-spacing:.1em; }
+.mingli-yiji__badge { width:24px; height:24px; border-radius:50%; display:grid; place-items:center;
+  color:var(--ml-paper); font-size:14px; font-family:var(--ml-sans); }
+.mingli-yiji--yi  .mingli-yiji__badge { background:var(--ml-good); }
+.mingli-yiji--ji  .mingli-yiji__badge { background:var(--ml-cinnabar); }
+.mingli-yiji__items { display:flex; flex-wrap:wrap; gap:6px 10px; font-size:14px; color:var(--ml-ink-2); }
+
+/* 细节签：冲煞/值神/二十八宿/彭祖 */
+.mingli-chips { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0; }
+.mingli-chip { font-family:var(--ml-sans); font-size:12px; color:var(--ml-ink-2);
+  background:var(--ml-paper-2); border:1px solid var(--ml-line-2); border-radius:999px; padding:4px 11px; }
+.mingli-chip b { color:var(--ml-ink); font-weight:600; }
+.mingli-chip.is-warn { color:var(--ml-cinnabar); border-color:var(--ml-cinnabar-soft); background:rgba(168,54,42,.06); }
+
+/* 今日塔罗 */
+.mingli-tarot { display:flex; gap:18px; align-items:stretch; margin-top:4px; }
+.mingli-tcard { flex:none; width:124px; display:flex; flex-direction:column; align-items:center; gap:5px; }
+.mingli-tcard__frame {
+  position:relative; width:124px; height:212px; border-radius:8px; overflow:hidden;
+  border:1.5px solid var(--ml-ink-2); background:linear-gradient(160deg,#f3ead7,#e6d8bd);
+  box-shadow:0 6px 18px rgba(60,40,20,.20); display:grid; place-items:center;
+}
+.mingli-tcard__img { width:100%; height:100%; object-fit:cover; display:block; position:relative; z-index:1; }
+.mingli-tcard__img.is-rev { transform:rotate(180deg); }          /* 逆位：牌面倒置（经典画法） */
+.mingli-tcard__img.img-fail { display:none; }                    /* 图缺失则露出底层字形 */
+.mingli-tcard__glyph { position:absolute; inset:0; z-index:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:6px; font-size:40px; color:var(--ml-ink); }
+.mingli-tcard__glyph small { font-size:12px; font-family:var(--ml-sans); color:var(--ml-ink-3); letter-spacing:.1em; }
+.mingli-tcard__rev { position:absolute; top:6px; right:6px; z-index:2; font-size:10px; font-family:var(--ml-sans);
+  color:#fff; background:var(--ml-cinnabar); border-radius:3px; padding:1px 5px; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+.mingli-tcard__cap { font-size:15px; font-weight:600; text-align:center; }
+.mingli-tcard__en { font-size:10px; font-family:var(--ml-sans); color:var(--ml-ink-3); letter-spacing:.04em; text-align:center; }
+.mingli-tarot__body { flex:1; display:flex; flex-direction:column; justify-content:center; }
+.mingli-tarot__title { font-size:16px; margin-bottom:8px; }
+.mingli-tarot__title .ori { font-size:13px; color:var(--ml-cinnabar); margin-left:8px; }
+.mingli-tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.mingli-tag { font-family:var(--ml-sans); font-size:12px; color:var(--ml-ink-2);
+  border:1px dashed var(--ml-line); border-radius:3px; padding:2px 8px; }
+.mingli-tarot__meaning { font-size:14px; color:var(--ml-ink-2); line-height:1.7; }
+
+/* 她的提点 */
+.mingli-tips { margin-top:16px; padding:14px 16px; background:rgba(168,54,42,.045);
+  border-left:3px solid var(--ml-cinnabar); border-radius:0 4px 4px 0; }
+.mingli-tips__greet { font-size:15px; color:var(--ml-ink); margin-bottom:6px; }
+.mingli-tips__li { font-size:14px; color:var(--ml-ink-2); line-height:1.75; margin-top:4px; }
+
+/* 今日运程：四维分项 + 幸运物 */
+.mingli-aspects { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.mingli-aspect { padding:10px 13px; background:var(--ml-paper-2); border:1px solid var(--ml-line-2);
+  border-radius:4px; border-left:3px solid var(--ml-line); }
+.mingli-aspect.is-focus { border-left-color:var(--ml-cinnabar); background:rgba(168,54,42,.05); }
+.mingli-aspect__top { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
+.mingli-aspect__name { font-size:14px; font-weight:600; color:var(--ml-ink); letter-spacing:.04em; }
+.mingli-aspect__focus { font-family:var(--ml-sans); font-size:10px; color:var(--ml-paper);
+  background:var(--ml-cinnabar); border-radius:2px; padding:1px 5px; margin-left:6px; letter-spacing:.05em; }
+.mingli-aspect__stars { font-size:13px; letter-spacing:1px; white-space:nowrap; }
+.mingli-aspect__stars .on { color:var(--ml-cinnabar); }
+.mingli-aspect__stars .off { color:var(--ml-line); }
+.mingli-aspect__read { font-size:13px; color:var(--ml-ink-2); line-height:1.65; }
+.mingli-aspect__adv { font-size:12.5px; color:var(--ml-ink-3); margin-top:4px; font-family:var(--ml-sans); }
+.mingli-lucky { display:flex; flex-wrap:wrap; gap:8px 10px; margin-top:12px; }
+.mingli-lucky__i { font-family:var(--ml-sans); font-size:12.5px; color:var(--ml-ink-2);
+  background:var(--ml-paper); border:1px solid var(--ml-line-2); border-radius:999px; padding:5px 13px; }
+.mingli-lucky__i b { color:var(--ml-cinnabar); font-weight:600; }
+@media (max-width:640px){ .mingli-aspects{ grid-template-columns:1fr; } }
+
+/* ── 命理浅释（解读区）─────────────────────────────────────── */
+.mingli-read { display:grid; gap:12px; }
+.mingli-read__item { padding:11px 14px; background:var(--ml-paper-2); border:1px solid var(--ml-line-2);
+  border-radius:4px; border-left:3px solid var(--ml-cinnabar); }
+.mingli-read__h { font-size:14px; font-weight:600; color:var(--ml-ink); margin-bottom:5px; letter-spacing:.04em; }
+.mingli-read__body { margin:0; font-size:13.5px; color:var(--ml-ink-2); line-height:1.8; }
+.mingli-read__list { margin:0; padding-left:18px; }
+.mingli-read__list li { font-size:13.5px; color:var(--ml-ink-2); line-height:1.8; margin:2px 0; }
+
+/* ── 八字四柱 ─────────────────────────────────────────────── */
+.mingli-bazi-meta { font-size:13px; color:var(--ml-ink-3); margin-bottom:10px; letter-spacing:.04em; }
+.mingli-bazi-meta b { color:var(--ml-ink-2); }
+.mingli-pillars { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.mingli-pillar { border:1px solid var(--ml-line); border-radius:4px; background:var(--ml-paper);
+  text-align:center; padding:10px 6px; }
+.mingli-pillar__label { font-size:12px; color:var(--ml-ink-3); margin-bottom:6px; letter-spacing:.2em; }
+.mingli-pillar__gz { font-size:26px; font-weight:600; line-height:1.15; }
+.mingli-pillar__gz .gan { color:var(--ml-ink); }
+.mingli-pillar__gz .zhi { color:var(--ml-ink-2); }
+.mingli-pillar__sub { margin-top:6px; font-size:11px; color:var(--ml-ink-3); font-family:var(--ml-sans); }
+.mingli-pillar__sub div { margin-top:2px; }
+.mingli-pillar__sub .nayin { color:var(--ml-cinnabar); }
+.mingli-dayun { margin-top:10px; font-size:13px; color:var(--ml-ink-2); display:flex; flex-wrap:wrap; gap:6px 14px; }
+.mingli-dayun span b { color:var(--ml-cinnabar); font-weight:600; }
+
+/* ── 紫微十二宫盘（fork react-iztro 4×4 + 中宫）──────────── */
+.mingli-ziwei {
+  display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(4,minmax(96px,auto));
+  gap:1px; background:var(--ml-line); border:1px solid var(--ml-line); border-radius:4px; overflow:hidden;
+}
+.mingli-pal { background:var(--ml-paper); padding:7px 8px 6px; position:relative; display:flex; flex-direction:column;
+  min-height:0; transition:background .2s var(--ml-ease); }
+.mingli-pal__stars { flex:1; display:flex; flex-direction:column; gap:1px; }
+.mingli-star { display:flex; align-items:baseline; gap:3px; line-height:1.3; }
+.mingli-star.major { font-size:15px; color:var(--ml-ink); font-weight:600; }
+.mingli-star.minor { font-size:12.5px; color:var(--ml-ink-2); }
+.mingli-sihua { font-family:var(--ml-sans); font-size:10px; color:#fff; border-radius:2px; padding:0 3px; line-height:1.5; transform:translateY(-1px); }
+.mingli-sihua.s-禄{background:var(--ml-lu);} .mingli-sihua.s-权{background:var(--ml-quan);}
+.mingli-sihua.s-科{background:var(--ml-ke);} .mingli-sihua.s-忌{background:var(--ml-ji);}
+.mingli-pal__ft { display:flex; justify-content:space-between; align-items:flex-end; margin-top:4px;
+  font-size:11px; color:var(--ml-ink-3); font-family:var(--ml-sans); }
+.mingli-pal__name { font-family:var(--ml-serif); font-size:13px; color:var(--ml-ink); letter-spacing:.06em; }
+.mingli-pal__name .shen { color:var(--ml-cinnabar); font-size:11px; margin-left:2px; }
+.mingli-pal__gz { letter-spacing:.08em; }
+.mingli-pal__dx { color:var(--ml-ink-3); }
+.mingli-pal.is-ming { background:rgba(168,54,42,.07); }
+.mingli-pal.is-ming .mingli-pal__name { color:var(--ml-cinnabar); }
+@media (hover:hover) and (pointer:fine){ .mingli-pal:hover{ background:rgba(132,122,104,.10);} }
+
+/* 中宫信息块 */
+.mingli-center { grid-row:2 / 4; grid-column:2 / 4; background:var(--ml-paper-2);
+  display:flex; flex-direction:column; justify-content:center; gap:7px; padding:14px 16px; text-align:center; }
+.mingli-center__ju { font-size:20px; font-weight:600; color:var(--ml-cinnabar); letter-spacing:.08em; }
+.mingli-center__row { font-size:13px; color:var(--ml-ink-2); }
+.mingli-center__row b { color:var(--ml-ink); }
+.mingli-center__sihua { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:4px; font-size:12px; }
+.mingli-center__sihua span { color:var(--ml-ink-2); }
+
+.mingli-note { font-size:12px; color:var(--ml-ink-3); margin-top:10px; font-family:var(--ml-sans); }
+
+/* ── 入场动效（克制：一次性 reveal；尊重 reduce-motion）──── */
+.mingli [data-reveal] { opacity:0; transform:translateY(10px); }
+.mingli.revealed [data-reveal] { opacity:1; transform:none; transition:opacity .5s var(--ml-ease), transform .5s var(--ml-ease); }
+@media (prefers-reduced-motion: reduce){
+  .mingli [data-reveal]{ opacity:1!important; transform:none!important; transition:none!important; }
+}
+
+/* ── 深色「墨夜」变体 ─────────────────────────────────────── */
+.mingli.is-night {
+  --ml-paper:#1a1712; --ml-paper-2:#23201a; --ml-ink:#ece2cf; --ml-ink-2:#c7bca6;
+  --ml-ink-3:#8d8268; --ml-line:#3a342a; --ml-line-2:#2c2820;
+  --ml-cinnabar:#d2604f; --ml-cinnabar-soft:#b8503f;
+  --ml-lu:#d2604f; --ml-quan:#6f9bc4; --ml-ke:#7bb288; --ml-ji:#a99e84;
+  --ml-good:#7bb288; --ml-bad:#d2604f; --ml-neutral:#a99e84;
+}
+
+/* 响应式：窄屏塔罗与宜忌堆叠 */
+@media (max-width:640px){
+  .mingli-yiji{ grid-template-columns:1fr; }
+  .mingli-tarot{ flex-direction:column; }
+  .mingli-tcard{ width:100%; flex-direction:row; gap:14px; justify-content:flex-start; padding:12px 16px; }
+  .mingli-ziwei{ grid-template-rows:repeat(4,minmax(112px,auto)); }
+  .mingli-pillar__gz{ font-size:22px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   v3 设计令牌 + 招牌可视化 + 导航卡面（master-detail）
+   口径：水墨进化——保留宣纸/墨/朱砂本色，新增五行/十神语义色驱动数据可视化。
+   ═══════════════════════════════════════════════════════════════ */
+
+/* —— 五行 / 十神 语义色（宣纸调，克制不刺眼）—— */
+.mingli {
+  --ml-wx-mu:#5f8a5a; --ml-wx-huo:#b0503f; --ml-wx-tu:#b18948; --ml-wx-jin:#8c8a84; --ml-wx-shui:#3f5f78;
+  --ml-ss-bi:#3f5f78; --ml-ss-shi:#5f8a5a; --ml-ss-cai:#b0503f; --ml-ss-guan:#7a6a52; --ml-ss-yin:#b18948;
+  --ml-radius:12px; --ml-radius-sm:7px;
+}
+.mingli.is-night {
+  --ml-wx-mu:#7bb083; --ml-wx-huo:#d2604f; --ml-wx-tu:#cba35f; --ml-wx-jin:#b3b0a4; --ml-wx-shui:#6f9bc4;
+  --ml-ss-bi:#6f9bc4; --ml-ss-shi:#7bb083; --ml-ss-cai:#d2604f; --ml-ss-guan:#a99175; --ml-ss-yin:#cba35f;
+}
+
+/* —— 五行生克环形图 —— */
+.ml-ring { display:block; width:100%; max-width:340px; height:auto; margin:0 auto; }
+.ml-ring__sheng { stroke:var(--ml-cinnabar-soft); stroke-width:1.4; opacity:.5; }
+.ml-ring__sheng-head { fill:var(--ml-cinnabar-soft); opacity:.7; }
+.ml-ring__ke { stroke:var(--ml-ink-3); stroke-width:1; stroke-dasharray:3 3; opacity:.32; }
+.ml-ring__ke-head { fill:var(--ml-ink-3); opacity:.45; }
+.ml-ring__disc { fill:var(--wx); fill-opacity:.14; stroke:var(--wx); stroke-width:1.5; }
+.ml-ring__node.is-yong .ml-ring__disc { stroke-width:2.2; fill-opacity:.2; }
+.ml-ring__halo { fill:none; stroke:var(--ml-cinnabar); stroke-width:1.4; stroke-dasharray:2.5 3; opacity:.7; }
+.ml-ring__wx { text-anchor:middle; font-family:var(--ml-serif); font-size:17px; font-weight:600; fill:var(--wx); }
+.ml-ring__pct { text-anchor:middle; font-family:var(--ml-sans); font-size:10px; fill:var(--ml-ink-3); }
+.ml-ring__day { text-anchor:middle; font-family:var(--ml-sans); font-size:9px; fill:var(--ml-cinnabar); letter-spacing:.05em; }
+.ml-ring__pair { text-anchor:middle; font-family:var(--ml-serif); font-size:9.5px; fill:var(--ml-ink-3); }
+
+/* —— 十神占比柱状图 —— */
+.ml-bars { display:block; width:100%; max-width:380px; height:auto; margin:0 auto; }
+.ml-bars__axis { stroke:var(--ml-line); stroke-width:1; }
+.ml-bar__rect { fill:var(--ss); }
+.ml-bar.is-zero .ml-bar__rect { fill:var(--ml-line); }
+.ml-bar__pct { text-anchor:middle; font-family:var(--ml-sans); font-size:9.5px; fill:var(--ml-ink-2); }
+.ml-bar.is-zero .ml-bar__pct { fill:var(--ml-ink-3); }
+.ml-bar__name { text-anchor:middle; font-family:var(--ml-serif); font-size:11px; fill:var(--ml-ink-2); }
+.ml-bar.is-zero .ml-bar__name { fill:var(--ml-ink-3); }
+
+/* —— 大运评分时间轴 —— */
+.ml-dy-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
+.ml-dy-svg { display:block; height:auto; }
+.ml-dy__cur { fill:var(--ml-cinnabar); opacity:.07; stroke:var(--ml-cinnabar); stroke-opacity:.3; }
+.ml-dy__bar { fill:var(--ml-cinnabar-soft); }
+.ml-dy.is-xi .ml-dy__bar { fill:var(--ml-cinnabar); }
+.ml-dy.is-ping .ml-dy__bar { fill:var(--ml-neutral); }
+.ml-dy.is-ji .ml-dy__bar { fill:var(--ml-ink-3); }
+.ml-dy__title { text-anchor:middle; font-family:var(--ml-serif); font-size:12.5px; font-weight:600; fill:var(--ml-ink); }
+.ml-dy__score { text-anchor:middle; font-family:var(--ml-sans); font-size:13px; font-weight:600; fill:var(--ml-ink-2); }
+.ml-dy__age { text-anchor:middle; font-family:var(--ml-serif); font-size:10.5px; fill:var(--ml-ink-2); }
+.ml-dy__gz { text-anchor:middle; font-family:var(--ml-sans); font-size:9.5px; fill:var(--ml-ink-3); }
+.ml-dy__nowtag { text-anchor:middle; font-family:var(--ml-sans); font-size:9px; fill:var(--ml-cinnabar); }
+.ml-dy.is-now .ml-dy__title, .ml-dy.is-now .ml-dy__score { fill:var(--ml-cinnabar); }
+
+/* —— 命主身份条 —— */
+.mlx-id { margin-bottom:6px; }
+.mlx-id__title { font-family:var(--ml-serif); font-size:22px; font-weight:600; color:var(--ml-ink); letter-spacing:.04em; }
+.mlx-id__sub { font-size:13.5px; color:var(--ml-ink-2); margin-top:3px; }
+.mlx-id__sub b { color:var(--ml-cinnabar); }
+
+/* —— 区段标题 —— */
+.mlx-sec { display:flex; align-items:center; gap:10px; margin:22px 0 12px; }
+.mlx-sec__t { font-size:15px; color:var(--ml-ink); letter-spacing:.14em; white-space:nowrap; }
+.mlx-sec__l { flex:1; height:1px; background:linear-gradient(90deg,var(--ml-line),transparent); }
+
+/* —— 卡片网格 + 卡片 —— */
+.mlx-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.mlx-card { grid-column:auto; display:flex; align-items:center; gap:11px; text-align:left;
+  padding:13px 13px; background:var(--ml-paper); border:1px solid var(--ml-line-2); border-radius:var(--ml-radius);
+  cursor:pointer; width:100%; font:inherit; color:inherit;
+  transition:transform .14s var(--ml-ease), box-shadow .14s var(--ml-ease), border-color .14s var(--ml-ease); }
+.mlx-card.is-wide { grid-column:1 / -1; }
+@media (hover:hover){ .mlx-card:hover{ border-color:var(--ml-line); box-shadow:0 6px 18px rgba(60,40,20,.10); transform:translateY(-1px);} }
+.mlx-card:active { transform:translateY(0) scale(.99); }
+.mlx-card__seal { flex:none; width:38px; height:38px; display:grid; place-items:center;
+  border:1.5px solid var(--ml-cinnabar); border-radius:5px; color:var(--ml-cinnabar);
+  font-family:var(--ml-serif); font-size:18px; transform:rotate(-2deg);
+  background:radial-gradient(circle at 50% 38%, rgba(168,54,42,.08), transparent 70%); }
+.mlx-card__body { flex:1; min-width:0; }
+.mlx-card__top { display:flex; align-items:center; gap:7px; }
+.mlx-card__title { font-family:var(--ml-serif); font-size:14.5px; font-weight:600; color:var(--ml-ink); }
+.mlx-card__sum { font-size:12px; color:var(--ml-ink-3); margin-top:3px; line-height:1.5;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.mlx-card__chev { flex:none; color:var(--ml-ink-3); font-size:18px; font-family:var(--ml-sans); }
+/* 分数徽 */
+.mlx-score { flex:none; margin-left:auto; font-family:var(--ml-sans); font-size:12.5px; font-weight:600;
+  padding:1px 8px; border-radius:999px; }
+.mlx-score--good { color:var(--ml-good); background:color-mix(in srgb,var(--ml-good) 14%, transparent); }
+.mlx-score--warn { color:var(--ml-bad); background:color-mix(in srgb,var(--ml-bad) 14%, transparent); }
+.mlx-score--neutral { color:var(--ml-neutral); background:color-mix(in srgb,var(--ml-neutral) 16%, transparent); }
+.mlx-tag { flex:none; margin-left:auto; font-family:var(--ml-sans); font-size:11px; color:var(--ml-ink-2);
+  background:var(--ml-paper-2); border:1px solid var(--ml-line-2); border-radius:999px; padding:2px 9px; }
+
+/* —— 详情页 —— */
+.mlx-back { display:flex; align-items:center; gap:12px; margin:-4px 0 16px;
+  padding-bottom:12px; border-bottom:1px dashed var(--ml-line); }
+.mlx-back__btn { display:inline-flex; align-items:center; gap:5px; cursor:pointer; font:inherit;
+  font-family:var(--ml-sans); font-size:13px; color:var(--ml-ink-2); background:var(--ml-paper-2);
+  border:1px solid var(--ml-line-2); border-radius:999px; padding:6px 13px;
+  transition:transform .14s var(--ml-ease), background .14s var(--ml-ease); }
+.mlx-back__btn:hover { background:var(--ml-paper); }
+.mlx-back__btn:active { transform:scale(.97); }
+.mlx-back__title { font-family:var(--ml-serif); font-size:17px; font-weight:600; color:var(--ml-ink); letter-spacing:.06em; }
+.mlx-hero { margin:4px 0 18px; padding:16px; background:var(--ml-paper); border:1px solid var(--ml-line-2);
+  border-radius:var(--ml-radius); }
+.mlx-hero__cap { font-size:12.5px; color:var(--ml-ink-3); font-family:var(--ml-sans); text-align:center; margin-top:10px; line-height:1.6; }
+.mlx-legend { display:flex; justify-content:center; flex-wrap:wrap; gap:6px 14px; margin-top:8px;
+  font-family:var(--ml-sans); font-size:11px; color:var(--ml-ink-3); }
+.mlx-legend i { font-style:normal; }
+/* 喜用幸运物（详情内）*/
+.mlx-yong { text-align:center; margin-top:12px; padding-top:12px; border-top:1px dashed var(--ml-line); }
+.mlx-yong__h { font-family:var(--ml-serif); font-size:15px; color:var(--ml-cinnabar); letter-spacing:.06em; margin-bottom:10px; }
+.mlx-yong__row { display:flex; justify-content:center; flex-wrap:wrap; gap:8px 10px; }
+.mlx-yong__i { font-family:var(--ml-sans); font-size:12.5px; color:var(--ml-ink-2);
+  background:var(--ml-paper-2); border:1px solid var(--ml-line-2); border-radius:999px; padding:5px 13px; }
+.mlx-yong__i b { color:var(--ml-cinnabar); }
+
+@media (max-width:560px){ .mlx-grid{ grid-template-columns:1fr; } }

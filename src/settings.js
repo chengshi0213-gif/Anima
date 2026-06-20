@@ -342,7 +342,130 @@ window.exportDiagnostics = async function() {
   }
 };
 
-// 切换到设置 tab 时加载记忆后端状态 + 诊断状态
+// ── 区域 + 工作目录（C1/C3）──
+window.regionLoad = async function() {
+  try {
+    const d = await fetch(`${CONFIG.api}/config/region`).then(r => r.json());
+    const sel = document.getElementById('regionSelect');
+    if (sel) sel.value = d.region || 'cn';
+  } catch (_) {}
+};
+
+window.regionSave = async function(region) {
+  try {
+    await fetch(`${CONFIG.api}/config/region`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ region }),
+    });
+    toast(`区域已切换到${region === 'cn' ? '中国大陆' : '全球'}`, 'success');
+  } catch (e) { toast('保存失败: ' + e.message, 'error'); }
+};
+
+let _workspaceDir = '';
+
+window.workspaceLoad = async function() {
+  try {
+    const d = await fetch(`${CONFIG.api}/config/workspace`).then(r => r.json());
+    _workspaceDir = d.workspace || '';
+    const el = document.getElementById('workspaceCurrent');
+    if (el) el.textContent = d.workspace || '（默认）';
+  } catch (_) {
+    const el = document.getElementById('workspaceCurrent');
+    if (el) el.textContent = '读取失败';
+  }
+};
+
+window.workspaceSave = async function() {
+  const path = document.getElementById('workspaceInput')?.value.trim();
+  if (!path) { toast('请填写工作目录路径', 'error'); return; }
+  try {
+    const d = await fetch(`${CONFIG.api}/config/workspace`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    }).then(r => r.json());
+    if (d.ok) {
+      toast('工作目录已更新', 'success');
+      workspaceLoad();
+    } else {
+      toast(d.error || '保存失败', 'error');
+    }
+  } catch (e) { toast('保存失败: ' + e.message, 'error'); }
+};
+
+// ── A6: 项目记忆（ANIMA.md）查看 / 编辑 ──
+window.animaMdOpen = async function() {
+  if (!_workspaceDir) { toast('请先设置编程工作目录', 'error'); return; }
+  document.getElementById('animaMdDialog')?.remove();
+  const dialog = document.createElement('div');
+  dialog.id = 'animaMdDialog';
+  dialog.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:9999';
+  dialog.innerHTML = `
+    <div style="background:var(--bg-card);border-radius:16px;padding:24px 28px;width:620px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+      <div style="font-size:18px;font-weight:700;margin-bottom:4px">📄 项目记忆 <span id="animaMdFilename" style="font-size:12px;color:var(--text-muted);font-weight:400"></span></div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">${escHtml(_workspaceDir)}</div>
+      <textarea id="animaMdContent" rows="16" placeholder="（尚未生成，可点击「分析项目生成」或手动编写）" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-main);color:var(--text-main);font-size:13px;font-family:monospace;resize:vertical;box-sizing:border-box">加载中…</textarea>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button onclick="document.getElementById('animaMdDialog').remove()" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:none;color:var(--text-muted);cursor:pointer">关闭</button>
+        <button id="animaMdGenBtn" onclick="animaMdGenerate()" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:none;color:var(--text-main);cursor:pointer">🔍 分析项目生成</button>
+        <button onclick="animaMdSave()" style="padding:8px 20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer">💾 保存</button>
+      </div>
+    </div>`;
+  document.body.appendChild(dialog);
+  await animaMdLoad();
+};
+
+async function animaMdLoad() {
+  const ta = document.getElementById('animaMdContent');
+  const fn = document.getElementById('animaMdFilename');
+  try {
+    const d = await fetch(`${CONFIG.api}/agent/executor/anima_md?work_dir=${encodeURIComponent(_workspaceDir)}`).then(r => r.json());
+    if (d.error) { toast(d.error, 'error'); if (ta) ta.value = ''; return; }
+    if (ta) ta.value = d.content || '';
+    if (fn) fn.textContent = d.exists ? `（${d.filename}）` : '（未生成）';
+  } catch (e) {
+    toast(`读取失败: ${e.message}`, 'error');
+    if (ta) ta.value = '';
+  }
+}
+
+window.animaMdGenerate = async function() {
+  const btn = document.getElementById('animaMdGenBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '分析中…'; }
+  try {
+    const d = await fetch(`${CONFIG.api}/agent/executor/init`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ work_dir: _workspaceDir }),
+    }).then(r => r.json());
+    if (d.error) { toast(d.error, 'error'); return; }
+    const ta = document.getElementById('animaMdContent');
+    if (ta) ta.value = d.content || '';
+    toast('已生成草稿，确认无误后点击「保存」写入 ANIMA.md', 'success');
+  } catch (e) {
+    toast(`生成失败: ${e.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 分析项目生成'; }
+  }
+};
+
+window.animaMdSave = async function() {
+  const content = document.getElementById('animaMdContent')?.value ?? '';
+  try {
+    const d = await fetch(`${CONFIG.api}/agent/executor/anima_md`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ work_dir: _workspaceDir, content }),
+    }).then(r => r.json());
+    if (d.ok) {
+      toast('✅ ANIMA.md 已保存', 'success');
+      document.getElementById('animaMdDialog')?.remove();
+    } else {
+      toast(d.error || '保存失败', 'error');
+    }
+  } catch (e) {
+    toast(`保存失败: ${e.message}`, 'error');
+  }
+};
+
+// 切换到设置 tab 时加载记忆后端状态 + 诊断状态 + 区域/工作目录
 (function() {
   const _prevSwitch = window.switchTab;
   window.switchTab = function(tabId, el) {
@@ -350,6 +473,8 @@ window.exportDiagnostics = async function() {
     if (tabId === 'settings') {
       setTimeout(memLoadStatus, 100);
       setTimeout(window.diagLoadStatus, 120);
+      setTimeout(window.regionLoad, 130);
+      setTimeout(window.workspaceLoad, 140);
     }
   };
 })();

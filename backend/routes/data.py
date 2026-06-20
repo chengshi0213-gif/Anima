@@ -179,6 +179,58 @@ async def memory_delete_handler(request):
 
 
 # ══════════════════════════════════════════════════════
+#  M6 灵魂空间 ·「我的命盘」：排盘 + 历史
+# ══════════════════════════════════════════════════════
+
+async def divination_paipan_handler(request):
+    """POST /divination/paipan — 用存档出生信息排盘，并存入历史"""
+    from cap_divination import _tool_paipan
+    import user_auth
+    import divination_history
+
+    result = await asyncio.to_thread(_tool_paipan, use_saved=True)
+    if result.get("error"):
+        return web.json_response(result, status=400, headers=CORS_HEADERS)
+
+    record = await asyncio.to_thread(
+        divination_history.add_record,
+        user_auth.get_birth_info(), result["markdown"], result.get("time_unknown", False),
+    )
+    # chart：结构化命盘，供前端水墨海报渲染（markdown 仅作历史存档/降级回退）
+    return web.json_response({"ok": True, "record": record, "chart": result.get("chart")},
+                             headers=CORS_HEADERS)
+
+
+async def divination_today_handler(request):
+    """GET /divination/today — 今日运势（今日黄历 + 今日塔罗 + 结合命盘的个人化提点）。
+    用存档出生信息做个人化；无出生信息时只出通用黄历 + 塔罗。纯本地、确定性。"""
+    import user_auth
+    from divination import daily_fortune
+    birth = user_auth.get_birth_info()
+    fortune = await asyncio.to_thread(
+        daily_fortune, birth if birth.get("date") else None)
+    return web.json_response({"ok": True, "fortune": fortune}, headers=CORS_HEADERS)
+
+
+async def divination_history_handler(request):
+    """GET /divination/history?limit=20 — 历次排盘记录（最新在前）"""
+    import divination_history
+    limit = int(request.rel_url.query.get("limit", 20))
+    records = await asyncio.to_thread(divination_history.list_history, limit)
+    return web.json_response({"records": records}, headers=CORS_HEADERS)
+
+
+async def divination_history_delete_handler(request):
+    """DELETE /divination/history/{id}"""
+    import divination_history
+    record_id = request.match_info.get("id", "")
+    ok = await asyncio.to_thread(divination_history.delete_record, record_id)
+    if ok:
+        return web.json_response({"ok": True}, headers=CORS_HEADERS)
+    return web.json_response({"ok": False, "message": "记录未找到"}, status=404, headers=CORS_HEADERS)
+
+
+# ══════════════════════════════════════════════════════
 #  项目上下文管理
 # ══════════════════════════════════════════════════════
 
@@ -307,6 +359,11 @@ def register(app):
     app.router.add_get("/memory/entries",                  memory_list_handler)
     app.router.add_get("/memory/search",                   memory_search_handler)
     app.router.add_delete("/memory/entries/{id}",          memory_delete_handler)
+    # M6 灵魂空间·我的命盘
+    app.router.add_post("/divination/paipan",              divination_paipan_handler)
+    app.router.add_get("/divination/today",                divination_today_handler)
+    app.router.add_get("/divination/history",              divination_history_handler)
+    app.router.add_delete("/divination/history/{id}",      divination_history_delete_handler)
     # Projects — 注意：固定路径 deactivate 必须在参数路径 {name} 之前
     app.router.add_get("/projects",                        projects_list_handler)
     app.router.add_post("/projects",                       project_create_handler)

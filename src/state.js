@@ -34,6 +34,19 @@ export const WORKER_DETAILS = {
   critic:   { name:'评审',   icon:'🔍', model:'DeepSeek-R1',         desc:'质量检查 · 批判思维 · 风险评估', cls:'critic-bg',   tools:2 },
 };
 
+// M-P2：delegate 时前端展示用的"能力"映射（角色 → 名称/图标/主题色）。
+// 不切独立头像/气泡——只在「她」自己的消息流里显示她正在调用的能力角标，
+// 弱化"一群 AI"观感，同时保留能力角标与主题色（与各 *-bg 配色呼应）。
+export const DELEGATE_CAPS = {
+  executor:        { name:'执行者',   icon:'⚡',  cls:'executor-bg'   },
+  writer:          { name:'写手',     icon:'✍️',  cls:'writer-bg'     },
+  reader:          { name:'阅读者',   icon:'📖',  cls:'reader-bg'     },
+  critic:          { name:'评审',     icon:'🔍',  cls:'critic-bg'     },
+  researcher:      { name:'研究员',   icon:'🌐',  cls:'researcher-bg' },
+  analyst:         { name:'分析师',   icon:'📊',  cls:'analyst-bg'    },
+  product_manager: { name:'产品经理', icon:'🗂️',  cls:'pm-bg'         },
+};
+
 // ══════════════════════════════════════════════════
 //  运行时状态（可变共享）
 // ══════════════════════════════════════════════════

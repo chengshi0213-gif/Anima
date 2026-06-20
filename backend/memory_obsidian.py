@@ -125,10 +125,12 @@ class ObsidianMemoryBackend(MemoryBackend):
               value: str,
               category: str = "general",
               agent_id: Optional[str] = None,
-              importance: int = 3) -> str:
+              importance: int = 3,
+              remind_at: Optional[str] = None) -> str:
         """
         将结构化条目追加到 Memory/USER.md（Obsidian 可读格式）。
         如果同 key 已存在则更新该行（行内替换）。
+        remind_at（M8 式④）：Obsidian 后端暂不支持到期提醒，接收但忽略。
         """
         f = self._user_md()
         ts = time.strftime("%Y-%m-%d %H:%M")

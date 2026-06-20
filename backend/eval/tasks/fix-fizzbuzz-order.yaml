@@ -1,0 +1,33 @@
+id: fix-fizzbuzz-order
+title: 修正 fizzbuzz 判定顺序
+category: bug-fix
+prompt: |
+  fizzbuzz.py 的 fizzbuzz(n) 逻辑顺序错了：能同时被 3 和 5 整除时应返回 "FizzBuzz"，
+  但现在因为先判了 3 而只返回 "Fizz"。请修正，让 test_fizzbuzz.py 通过，不要改测试。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    fizzbuzz.py: |
+      def fizzbuzz(n):
+          if n % 3 == 0:
+              return "Fizz"
+          if n % 5 == 0:
+              return "Buzz"
+          if n % 15 == 0:
+              return "FizzBuzz"
+          return str(n)
+    test_fizzbuzz.py: |
+      from fizzbuzz import fizzbuzz
+
+      def test_fizz():
+          assert fizzbuzz(3) == "Fizz"
+
+      def test_buzz():
+          assert fizzbuzz(5) == "Buzz"
+
+      def test_fizzbuzz():
+          assert fizzbuzz(15) == "FizzBuzz"
+
+      def test_plain():
+          assert fizzbuzz(7) == "7"

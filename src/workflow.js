@@ -332,6 +332,7 @@ window.wfRun = async function() {
   const useKb   = document.getElementById('wfUseKb')?.checked || false;
 
   _wfRows = []; _wfRowIdx = {}; _wfGate = null;
+  window.PersonaWF?.clearExecState?.();   // W1: 清除上次执行痕迹
   if (btn) btn.disabled = true;
   if (cbtn) cbtn.style.display = '';
   if (status) status.textContent = '连接中…';
@@ -364,6 +365,7 @@ window.wfRun = async function() {
         break;
       case 'step_start':
         _wfUpsertRow(ev.step, { type: ev.type, agent: ev.agent, status: 'running' });
+        window.PersonaWF?.setNodeExecState?.(ev.step, 'running');  // W1
         _wfRenderRows();
         break;
       case 'step_retry':
@@ -378,15 +380,18 @@ window.wfRun = async function() {
         if (status) status.textContent = `Anima 展开「${ev.name||''}」为 ${ev.sub_count} 步…`;
         _wfRenderRows();
         break;
-      case 'step_done':
+      case 'step_done': {
+        const _stepStatus = ev.ok === false ? 'error' : 'done';
         _wfUpsertRow(ev.step, {
-          type: ev.type, status: ev.ok === false ? 'error' : 'done',
+          type: ev.type, status: _stepStatus,
           output: ev.output, elapsed: ev.elapsed,
           note: { ...(_wfRows[_wfRowIdx[ev.step]]?.note||{}), ...(ev.extra||{}) },
           retryNote: '',
         });
+        window.PersonaWF?.setNodeExecState?.(ev.step, _stepStatus, ev.output);  // W1
         _wfRenderRows();
         break;
+      }
       case 'human_gate':
         _wfGate = { label: ev.step, message: ev.message, preview: ev.preview };
         if (status) status.textContent = '⏸ 等待人工审核…';
@@ -1366,7 +1371,89 @@ window.gcSaveSettings = function() {
 // ════════════════════════════════════════════════════
 window.wfAiAssist = function() {
   const panel = document.getElementById('wfAiPanel');
-  if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  if (!panel) return;
+  // getComputedStyle で実際の表示状態を読む（inline style の '' 問題を回避）
+  const visible = getComputedStyle(panel).display !== 'none';
+  panel.style.display = visible ? 'none' : 'block';
+};
+
+// W2: 一句话动态生成 + 自动执行（完全自洽，不再依赖隐藏面板）
+window.wfDynamoRun = async function() {
+  const input  = document.getElementById('wfDynamoInput');
+  const desc   = input?.value.trim();
+  if (!desc) { toast('请输入一句话目标', 'error'); return; }
+
+  const btn    = document.querySelector('.wf-dynamo-btn');
+  const status = document.getElementById('wfDynamoStatus');
+
+  // ── loading state ──────────────────────────────────────────────
+  if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+  if (status) {
+    status.className = 'wf-dynamo-status';
+    status.textContent = '⏳ Anima 正在规划工作流…';
+    status.style.display = '';
+  }
+
+  try {
+    const r = await fetch(`${WF_API()}/ai_build`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: desc }),
+    });
+    const data = await r.json();
+
+    if (!data.ok) {
+      if (status) {
+        status.className = 'wf-dynamo-status error';
+        status.textContent = `❌ ${data.error || '生成失败，请换个说法重试'}`;
+      }
+      toast('工作流生成失败', 'error');
+      return;
+    }
+
+    // ── 落到 Drawflow 画布（GSAP 节点入场动画）──────────────────
+    if (window.PersonaWF?.importGraph) {
+      window.PersonaWF.importGraph(data.steps);
+      wfStepList.length = 0;
+      data.steps.forEach(s => wfStepList.push(s));
+    } else {
+      wfLoadFromSteps(data.steps);
+    }
+    const nameEl = document.getElementById('wfName');
+    if (nameEl && data.name) nameEl.value = data.name;
+    // 同步到 AI 辅助面板，保持一致
+    const syncDesc = document.getElementById('wfAiDesc');
+    if (syncDesc) syncDesc.value = desc;
+
+    // ── 内联成功反馈 ───────────────────────────────────────────
+    const varNote = data.variables?.length
+      ? `，需填变量：${data.variables.join('、')}`
+      : '';
+    if (status) {
+      status.className = 'wf-dynamo-status success';
+      status.textContent = `✅ 已生成 ${data.steps.length} 步${varNote}，正在执行…`;
+    }
+    if (input) input.value = '';   // 清空输入框
+
+    // ── 等 GSAP 入场动画完成后自动执行 ────────────────────────
+    setTimeout(() => {
+      window.wfRun();
+      setTimeout(() => {
+        if (status && status.classList.contains('success')) {
+          status.style.display = 'none';
+        }
+      }, 3000);
+    }, 520);
+
+  } catch(e) {
+    if (status) {
+      status.className = 'wf-dynamo-status error';
+      status.textContent = `❌ 网络错误：${e.message}`;
+    }
+    toast(`生成失败：${e.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '生成并执行'; }
+  }
 };
 
 window.wfAiGenerate = async function() {
@@ -1395,8 +1482,14 @@ window.wfAiGenerate = async function() {
       return;
     }
 
-    // 落到画布 + 同步工作流名
-    wfLoadFromSteps(data.steps);
+    // 落到 Drawflow 画布（W1：节点动画入场 + 执行时可见状态）
+    if (window.PersonaWF?.importGraph) {
+      window.PersonaWF.importGraph(data.steps);  // 线性 steps → Drawflow 节点链 + GSAP 入场
+      wfStepList.length = 0;
+      data.steps.forEach(s => wfStepList.push(s));
+    } else {
+      wfLoadFromSteps(data.steps);   // 降级：旧 HTML 列表
+    }
     const nameEl = document.getElementById('wfName');
     if (nameEl && data.name) nameEl.value = data.name;
 

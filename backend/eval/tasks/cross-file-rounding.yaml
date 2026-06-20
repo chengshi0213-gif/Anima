@@ -1,0 +1,39 @@
+id: cross-file-rounding
+title: 发票分位四舍五入错（bug 在另一个文件）
+category: bug-fix
+prompt: |
+  invoice.py 的 total_with_tax(subtotal) 算含税总额，但分位（两位小数）不对——
+  该四舍五入的地方变成了直接截断。test_invoice.py 是红的。
+  注意：症状在 invoice.py，但真正的 bug 未必在那个文件里。请定位并修好，让测试通过，不要改测试文件。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    money.py: |
+      def round_cents(amount):
+          # 应把金额四舍五入到 2 位小数（分）
+          # bug: int() 直接截断，没有四舍五入 → 21.6391 变 21.63 而非 21.64
+          return int(amount * 100) / 100
+    invoice.py: |
+      from money import round_cents
+
+      TAX_RATE = 0.0825
+
+      def total_with_tax(subtotal):
+          return round_cents(subtotal + subtotal * TAX_RATE)
+    test_invoice.py: |
+      from pytest import approx
+      from invoice import total_with_tax
+
+      def test_clean():
+          # 200 * 1.0825 = 216.50
+          assert total_with_tax(200) == approx(216.50)
+
+      def test_rounds_to_cent():
+          # 19.99 * 1.0825 = 21.639175 → 四舍五入到分应是 21.64（截断会错成 21.63）
+          assert total_with_tax(19.99) == approx(21.64)
+solution:
+  files:
+    money.py: |
+      def round_cents(amount):
+          return round(amount, 2)

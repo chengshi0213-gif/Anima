@@ -14,22 +14,14 @@ import aiohttp
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+# ── Mixin 分层（历史压缩 / 日志 / 韧性 / 工具咽喉）──────────────────────────────
+from agent_compress    import AgentCompressMixin
+from agent_logging     import AgentLoggingMixin
+from agent_resilience  import AgentResilienceMixin
+# PermissionRequest 现定义在 agent_tools（工具/权限同源）；此处 re-export 保持
+# 外部 `from agent_base import PermissionRequest` 不变。
+from agent_tools       import AgentToolGateMixin, PermissionRequest
 
-# ── 权限请求异常（Agent 发现缺少 API 时抛出）─────────────
-class PermissionRequest(Exception):
-    """
-    Agent 在执行任务时发现缺少某个 API Key 或权限时抛出。
-    前端捕获后显示权限请求卡片，引导用户配置。
-    """
-    def __init__(self, api_name: str, reason: str,
-                 signup_url: str = "", alternatives: list = None,
-                 related: list = None):
-        self.api_name    = api_name       # 例：「搜索 API」
-        self.reason      = reason         # 例：「执行网络搜索需要配置搜索服务」
-        self.signup_url  = signup_url     # 官网注册链接
-        self.alternatives = alternatives or []   # 备选 API
-        self.related      = related or []        # 同类配置建议
-        super().__init__(f"需要权限: {api_name} — {reason}")
 from config import (
     LOG_DIR, WORKSPACE_DIR,
     DEEPSEEK_KEY, OPENAI_KEY, ANTHROPIC_KEY,
@@ -38,12 +30,10 @@ from config import (
 )
 
 # ── 模型注册表：前端显示名 → API 参数 ──────────────────────────────────────
-# 格式: display_name → (api_key_var, base_url, api_model_id)
-# OpenRouter 作为 Claude/Gemini 的兜底（兼容 OpenAI 协议）
+# 格式: display_name → (api_key_fn, base_url, api_model_id)
 # 中转站地址：可在 config.yaml 中通过 api.relay_url 自定义
 def _get_relay():
-    """中转站地址。仅从配置读取，未配置则返回空字符串——
-    不再兜底到任何硬编码服务器（避免裸 IP 单点 + 流量外泄面）。"""
+    """中转站地址。仅从配置读取，未配置则返回空字符串。"""
     try:
         from config import _get as _cfg_get
         url = _cfg_get("api.relay_url", "")
@@ -57,57 +47,42 @@ _RELAY = _get_relay()
 _DS    = "https://api.deepseek.com"
 _QWEN  = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 _KIMI  = "https://api.moonshot.cn/v1"
-_GLM   = GLM_URL    # 智谱 GLM（open.bigmodel.cn，OpenAI 兼容）
-_MIMO  = MIMO_URL   # 小米 MiMo（OpenAI 兼容，base_url 可在 config.yaml 覆盖）
+_GLM   = GLM_URL
+_MIMO  = MIMO_URL
 
 MODEL_REGISTRY: dict[str, tuple] = {
-    # ── DeepSeek 直连 ─────────────────────────────────────────────────────
-    "DeepSeek-V4-Pro":   (lambda: DEEPSEEK_KEY, _DS, "deepseek-v4-pro"),    # 最强
-    "DeepSeek-V4-Flash": (lambda: DEEPSEEK_KEY, _DS, "deepseek-v4-flash"),  # 最快
-    "DeepSeek-R1":       (lambda: DEEPSEEK_KEY, _DS, "deepseek-reasoner"),  # 推理
-    "DeepSeek-V3":       (lambda: DEEPSEEK_KEY, _DS, "deepseek-chat"),      # 经济/兼容
-
-    # ── 阿里 Qwen 直连（DashScope）────────────────────────────────────────
-    "Qwen3.7-Max":       (lambda: QWEN_KEY, _QWEN, "qwen3.7-max"),          # 最新旗舰
-    "Qwen3.6-Plus":      (lambda: QWEN_KEY, _QWEN, "qwen3.6-plus"),         # 高性价比
-    "Qwen3.6-Flash":     (lambda: QWEN_KEY, _QWEN, "qwen3.6-flash"),        # 最快
-    "Qwen3.5-Plus":      (lambda: QWEN_KEY, _QWEN, "qwen3.5-plus"),         # 稳定
-    "Qwen3-Max":         (lambda: QWEN_KEY, _QWEN, "qwen3-max"),            # 上代旗舰
-    "QwQ-Plus":          (lambda: QWEN_KEY, _QWEN, "qwq-plus"),             # 深度推理
-    "Qwen-Long":         (lambda: QWEN_KEY, _QWEN, "qwen-long"),            # 超长文
-
-    # ── Moonshot Kimi 直连 ────────────────────────────────────────────────
-    "Kimi-K2.6":         (lambda: KIMI_KEY, _KIMI, "kimi-k2.6"),            # 最新旗舰
-    "Kimi-K2.5":         (lambda: KIMI_KEY, _KIMI, "kimi-k2.5"),            # 上一代旗舰
-    "Kimi-Auto":         (lambda: KIMI_KEY, _KIMI, "moonshot-v1-auto"),     # 自动选档
-    "Kimi-128K":         (lambda: KIMI_KEY, _KIMI, "moonshot-v1-128k"),     # 超长上下文
-    "Kimi-32K":          (lambda: KIMI_KEY, _KIMI, "moonshot-v1-32k"),      # 均衡
-    "Kimi-8K":           (lambda: KIMI_KEY, _KIMI, "moonshot-v1-8k"),       # 经济
-
-    # ── 智谱 GLM 直连（open.bigmodel.cn）─────────────────────────────────
-    "GLM-4.6":           (lambda: GLM_KEY, _GLM, "glm-4.6"),                # 最新旗舰
-    "GLM-4-Plus":        (lambda: GLM_KEY, _GLM, "glm-4-plus"),             # 高性能
-    "GLM-4-Air":         (lambda: GLM_KEY, _GLM, "glm-4-air"),              # 高性价比
-    "GLM-4-Flash":       (lambda: GLM_KEY, _GLM, "glm-4-flash"),            # 免费/最快
-
-    # ── 小米 MiMo 直连（OpenAI 兼容）──────────────────────────────────────
-    "MiMo-7B":           (lambda: MIMO_KEY, _MIMO, "mimo-7b-rl"),           # 推理强化
-    "MiMo-VL":           (lambda: MIMO_KEY, _MIMO, "mimo-vl-7b-rl"),        # 多模态
-
-    # ── GPT（via 中转，需配置 OpenRouter Key）────────────────────────────
-    "GPT-5.5":            (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.5"),                  # 旗舰
-    "GPT-5.5-Compact":    (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.5-openai-compact"),   # 快速
-    "GPT-5.4":            (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.4"),                  # 均衡
-
-    # ── Claude（via 中转，需配置 OpenRouter Key）─────────────────────────
-    "Claude-Opus-4.6":       (lambda: OPENROUTER_KEY, _RELAY, "claude-opus-4.6"),          # 最强
-    "Claude-Opus-4.6-Think": (lambda: OPENROUTER_KEY, _RELAY, "claude-opus-4-6-thinking"), # 深度推理
-    "Claude-Sonnet-4.6":     (lambda: OPENROUTER_KEY, _RELAY, "claude-sonnet-4.6"),        # 均衡
-    "Claude-Haiku-4.5":      (lambda: OPENROUTER_KEY, _RELAY, "claude-haiku-4-5-20251001"),# 最快
+    "DeepSeek-V4-Pro":   (lambda: DEEPSEEK_KEY, _DS, "deepseek-v4-pro"),
+    "DeepSeek-V4-Flash": (lambda: DEEPSEEK_KEY, _DS, "deepseek-v4-flash"),
+    "DeepSeek-R1":       (lambda: DEEPSEEK_KEY, _DS, "deepseek-reasoner"),
+    "DeepSeek-V3":       (lambda: DEEPSEEK_KEY, _DS, "deepseek-chat"),
+    "Qwen3.7-Max":       (lambda: QWEN_KEY, _QWEN, "qwen3.7-max"),
+    "Qwen3.6-Plus":      (lambda: QWEN_KEY, _QWEN, "qwen3.6-plus"),
+    "Qwen3.6-Flash":     (lambda: QWEN_KEY, _QWEN, "qwen3.6-flash"),
+    "Qwen3.5-Plus":      (lambda: QWEN_KEY, _QWEN, "qwen3.5-plus"),
+    "Qwen3-Max":         (lambda: QWEN_KEY, _QWEN, "qwen3-max"),
+    "QwQ-Plus":          (lambda: QWEN_KEY, _QWEN, "qwq-plus"),
+    "Qwen-Long":         (lambda: QWEN_KEY, _QWEN, "qwen-long"),
+    "Kimi-K2.6":         (lambda: KIMI_KEY, _KIMI, "kimi-k2.6"),
+    "Kimi-K2.5":         (lambda: KIMI_KEY, _KIMI, "kimi-k2.5"),
+    "Kimi-Auto":         (lambda: KIMI_KEY, _KIMI, "moonshot-v1-auto"),
+    "Kimi-128K":         (lambda: KIMI_KEY, _KIMI, "moonshot-v1-128k"),
+    "Kimi-32K":          (lambda: KIMI_KEY, _KIMI, "moonshot-v1-32k"),
+    "Kimi-8K":           (lambda: KIMI_KEY, _KIMI, "moonshot-v1-8k"),
+    "GLM-4.6":           (lambda: GLM_KEY, _GLM, "glm-4.6"),
+    "GLM-4-Plus":        (lambda: GLM_KEY, _GLM, "glm-4-plus"),
+    "GLM-4-Air":         (lambda: GLM_KEY, _GLM, "glm-4-air"),
+    "GLM-4-Flash":       (lambda: GLM_KEY, _GLM, "glm-4-flash"),
+    "MiMo-7B":           (lambda: MIMO_KEY, _MIMO, "mimo-7b-rl"),
+    "MiMo-VL":           (lambda: MIMO_KEY, _MIMO, "mimo-vl-7b-rl"),
+    "GPT-5.5":            (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.5"),
+    "GPT-5.5-Compact":    (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.5-openai-compact"),
+    "GPT-5.4":            (lambda: OPENROUTER_KEY, _RELAY, "gpt-5.4"),
+    "Claude-Opus-4.6":       (lambda: OPENROUTER_KEY, _RELAY, "claude-opus-4.6"),
+    "Claude-Opus-4.6-Think": (lambda: OPENROUTER_KEY, _RELAY, "claude-opus-4-6-thinking"),
+    "Claude-Sonnet-4.6":     (lambda: OPENROUTER_KEY, _RELAY, "claude-sonnet-4.6"),
+    "Claude-Haiku-4.5":      (lambda: OPENROUTER_KEY, _RELAY, "claude-haiku-4-5-20251001"),
 }
 
-# 单 key 即可用全功能：任何模型/agent 拿不到 key 时，落到「首个已配 provider」的稳健默认模型。
-# 优先级：DeepSeek > Kimi > Qwen > 中转(GPT/Claude)。
 _FALLBACK_CHAIN = [
     (lambda: DEEPSEEK_KEY,   _DS,   "deepseek-chat"),
     (lambda: KIMI_KEY,       _KIMI, "kimi-k2.5"),
@@ -116,6 +91,7 @@ _FALLBACK_CHAIN = [
     (lambda: MIMO_KEY,       _MIMO, "mimo-7b-rl"),
     (lambda: OPENROUTER_KEY, _RELAY, "claude-sonnet-4.6"),
 ]
+
 def first_available_model() -> tuple[str, str, str]:
     """返回首个已配置 provider 的 (api_key, base_url, model_id)；都没配则返回空。"""
     for key_fn, base_url, model_id in _FALLBACK_CHAIN:
@@ -125,8 +101,9 @@ def first_available_model() -> tuple[str, str, str]:
     return "", "", ""
 
 
-class AgentBase:
-    """所有数字员工的基类。提供 ReAct 循环、三层压缩、日志。"""
+class AgentBase(AgentCompressMixin, AgentLoggingMixin, AgentResilienceMixin,
+                AgentToolGateMixin):
+    """所有数字员工的基类。提供 ReAct 循环、三层压缩、日志、工具咽喉。"""
 
     def __init__(self, name: str, api_key: str, model: str, base_url: str,
                  system_prompt: str, tool_defs: list[dict], tool_dispatch: dict,
@@ -148,6 +125,8 @@ class AgentBase:
         # 压缩 & 去重（去重集合改为 per-run 局部，避免并发会话相互污染）
         self._compress_semaphore = asyncio.Semaphore(1)
         self._compression_pending = False
+        # H1: 运行中的 session 控制信箱（steer/cancel）
+        self._steering: dict[str, dict] = {}   # session_id → {"cancel": bool, "messages": []}
 
         # 飞书推送（可选）
         self._feishu_app_id     = os.getenv("FEISHU_APP_ID", "")
@@ -162,12 +141,10 @@ class AgentBase:
 
         # 运行时
         self.max_turns         = 60
-        self.compress_every    = 5
+        self.compress_every    = 5       # 已废弃，保留兼容；H2 改用阈值触发
+        self.compress_threshold = 0.7    # H2: 累计字符 > max_total_chars * 此值时才压缩
         self.context_cap_chars = 8000
-        # 累计输入预算（字符）：每轮 API 调用都会重发整个 messages，
-        # 累计成本 ≈ Σ(每轮 messages 大小)。超出则优雅收尾，
-        # 防止大文件循环 / 失控 ReAct 在 180s 超时前烧光额度。约 ~200k tokens。
-        self.max_total_chars   = 800_000
+        self.max_total_chars   = 800_000  # 累计输入预算（字符），超出则优雅收尾
         # 工具结果回传给模型时的截断上限（per-agent 可覆盖）。
         # 默认值对聊天型人格友好（控制上下文膨胀）；编程/阅读型子类需调大，
         # 否则看不全代码 = 半瞎改 = 花架子。
@@ -175,6 +152,12 @@ class AgentBase:
         #   file_read_cap   : file_read 内容超此值则只回指纹（设大才能真读代码）
         self.tool_result_cap = 500
         self.file_read_cap   = 2048
+        # H7: 分级工具预算——关键工具给大窗口，杂项工具收紧，替代单一 cap
+        self.tool_budgets: dict[str, int] = {
+            "file_read": 8192, "search_code": 4096, "shell_run": 6144,
+            "list_dir": 2048, "map_project": 3072, "web_search": 3072,
+            "fetch_url": 3072, "git_diff": 6144, "git_log": 4096,
+        }
         # 编程向历史压缩（M9 Part 3）：默认 False = 旧行为（中间段落直接丢成占位符）。
         # 编程型子类（executor）置 True：压缩时从被丢弃的中间消息里提炼一份
         # "已改文件 + 关键命令/退出码" 摘要塞进占位符，长会话里不会忘记自己改过什么。
@@ -185,6 +168,11 @@ class AgentBase:
         self.humanize_output = False
         # 采样温度：None = 用供应商默认；聊天人格略调高，回复更自然不刻板。
         self.temperature = None
+        # V (v1.3): Verify 闸门。默认 False = 聊天人格零影响。
+        # 编程型子类（executor）置 True：声称完成且改过文件却没跑过绿色验证时，
+        # 闸门主动跑测试 → 红则结构化报错回灌、自修复，最多 max_repair_rounds 轮。
+        self.verify_gate = False
+        self.max_repair_rounds = 3
 
     # ── 子类必须实现 ──
     def get_identity_files(self) -> dict[str, Path]:
@@ -245,6 +233,7 @@ class AgentBase:
 
     async def _handle_stream(self, resp, on_delta=None) -> dict:
         content = reasoning = ""
+        _usage = {}
         tool_calls: list[dict] = []
         async for line in resp.content:
             line_text = line.decode("utf-8", errors="replace").strip()
@@ -258,9 +247,11 @@ class AgentBase:
             except json.JSONDecodeError:
                 continue
             # 某些供应商（DeepSeek/Qwen 等）会发 choices 为空的统计 chunk（仅含 usage），
-            # 此时 [0] 会越界——空 choices 直接跳过。
+            # 此时 [0] 会越界——空 choices 跳过，但先捕获 usage（H2 缓存命中率追踪）。
             choices = chunk.get("choices") or []
             if not choices:
+                if "usage" in chunk:
+                    _usage = chunk["usage"]
                 continue
             delta = choices[0].get("delta", {})
             if delta.get("reasoning_content"):
@@ -282,7 +273,7 @@ class AgentBase:
                             tool_calls[idx]["function"]["name"] = tc["function"]["name"]
                         tool_calls[idx]["function"]["arguments"] += tc["function"].get("arguments", "")
         return {"content": content, "reasoning_content": reasoning,
-                "tool_calls": tool_calls or None}
+                "tool_calls": tool_calls or None, "usage": _usage or None}
 
     def _extract_response(self, data: dict) -> dict:
         msg = data.get("choices", [{}])[0].get("message", {})
@@ -306,8 +297,12 @@ class AgentBase:
             from memory_injector import (
                 get_memory_injection, get_project_context,
                 get_active_project_context, get_memory_self_description,
+                reset_session_writes,
             )
-            memory_ctx = get_memory_injection(self.name) + get_memory_self_description(self.name)
+            import pref_learning
+            reset_session_writes(self.name)   # M3：每次 run() 重置单会话写入计数
+            memory_ctx = get_memory_injection(self.name, query=task) + get_memory_self_description(self.name)
+            memory_ctx += pref_learning.get_work_room_injection(self.name)  # M10：E 程序层偏好规则（仅工作房间）
             # 优先：明确传入的 project 参数；其次：当前活跃项目；最后：无
             if project:
                 project_ctx = get_project_context(project)
@@ -323,9 +318,14 @@ class AgentBase:
             {"role": "user",   "content": f"## 任务\n\n{self._normalize(task)}"},
         ]
         files_changed: list[str] = []
-        seen_hashes: set[str] = set()   # 本次运行专属的工具结果去重集合
-        total_chars = 0                 # 累计已发送给 API 的输入字符（预算护栏）
-        # 记录实际使用的模型（用于日志）
+        seen_hashes: set[str] = set()
+        self._file_state: dict[str, float] = {}
+        _fail_counts: dict[str, int] = {}
+        total_chars = 0
+        # V (v1.3): 验证闸门会话状态。verified_green = 最后一次文件改动之后跑过绿验证。
+        # 改文件 → 置假（旧绿作废）；shell 跑验证且 exit 0 → 置真。
+        verified_green = False
+        repair_rounds = 0
         _used_key, _used_url, _used_model = self._resolve_model(model)
         self._log(session_id, "session_start", {"task": task[:200], "model": _used_model})
 
@@ -344,12 +344,33 @@ class AgentBase:
                 await _ws_send({"type": "assistant_delta", "data": {"content": chunk}})
             on_delta = _on_delta
 
+        # 内核3：工具上下文（确认/钩子用）。默认策略全 off + 默认无钩子 → 零行为变化。
+        tool_ctx = {"ws": ws, "session_id": session_id, "agent": self.name}
+
         for turn in range(1, self.max_turns + 1):
-            if turn > 1 and turn % self.compress_every == 0:
+            # H1: 每轮检查控制信箱（cancel / steer）
+            ctl = self._steering.get(session_id, {})
+            if ctl.get("cancel"):
+                self._steering.pop(session_id, None)
+                self._log(session_id, "graceful_stop", {"turn": turn})
+                return {"status": "stopped",
+                        "summary": f"用户在第 {turn} 轮叫停。已改文件: {', '.join(files_changed) or '无'}",
+                        "files_changed": files_changed, "turn_count": turn}
+            for steer_msg in ctl.pop("messages", []):
+                messages.append({"role": "user",
+                                 "content": f"[用户插话] {steer_msg}"})
+            # H2: 阈值压缩——累计字符接近预算上限时才压缩（一次到位），
+            # 绝大多数任务全程零压缩，前缀始终稳定，prompt cache 持续命中。
+            msg_chars = sum(len(json.dumps(m, ensure_ascii=False)) for m in messages)
+            if msg_chars > self.max_total_chars * self.compress_threshold:
                 old = len(messages)
-                messages = self._compress_history(messages)
+                messages = await self._structured_compress(messages, session_id)
                 if len(messages) < old:
-                    self._log(session_id, "compress", {"turn": turn, "before": old, "after": len(messages)})
+                    self._log(session_id, "compress", {
+                        "turn": turn, "before": old, "after": len(messages),
+                        "trigger": "structured",
+                        "chars": msg_chars,
+                    })
 
             # ── token 预算护栏：累计输入超限则优雅收尾 ──
             total_chars += sum(len(json.dumps(m, ensure_ascii=False)) for m in messages)
@@ -361,7 +382,16 @@ class AgentBase:
                 return {"status": "budget_exceeded", "summary": summary,
                         "files_changed": files_changed, "turn_count": turn}
 
-            resp = await self._call_api(messages, tools=self.tool_defs, override_model=model, on_delta=on_delta)
+            resp = await self._call_api_resilient(messages, tools=self.tool_defs, override_model=model,
+                                                     on_delta=on_delta, session_id=session_id, turn=turn)
+            # H2: 记录缓存命中率（DeepSeek/Kimi 的 prompt_cache_hit_tokens）
+            usage = resp.get("usage") or {}
+            if usage.get("prompt_cache_hit_tokens"):
+                self._log(session_id, "cache_stats", {
+                    "turn": turn,
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "cache_hit": usage["prompt_cache_hit_tokens"],
+                })
             if "error" in resp:
                 self._log(session_id, "api_error", {"turn": turn, "error": resp["error"]})
                 return {"status": "error", "error": resp["error"], "turn_count": turn}
@@ -380,6 +410,22 @@ class AgentBase:
             # 无工具调用 = 完成
             if not resp.get("tool_calls"):
                 summary = resp.get("content", "")
+                # V (v1.3): Verify 闸门——改过文件却没跑过绿验证就声称完成 → 拦下自修复
+                if self.verify_gate and files_changed and not verified_green:
+                    action, repair_rounds = await self._run_verify_gate(
+                        project, repair_rounds, messages, session_id)
+                    if action == "repair":
+                        continue   # 已注入结构化报错，回循环让模型修
+                    if action == "pass":
+                        verified_green = True
+                    elif action == "unverified":
+                        if self.humanize_output:
+                            summary = self._humanize(summary)
+                        self._log(session_id, "session_complete_unverified",
+                                  {"turns": turn, "files_changed": files_changed})
+                        return {"status": "unverified",
+                                "summary": "⚠️ 改动未通过自动验证（已达修复上限）。\n\n" + summary,
+                                "files_changed": files_changed, "turn_count": turn}
                 if self.humanize_output:
                     summary = self._humanize(summary)
                 self._log(session_id, "session_complete", {"turns": turn, "files_changed": files_changed})
@@ -388,65 +434,94 @@ class AgentBase:
                 return {"status": "completed", "summary": summary,
                         "files_changed": files_changed, "turn_count": turn}
 
-            # ── 执行工具（含实时推流）──
-            for tc in resp["tool_calls"]:
-                name = tc["function"]["name"]
-                try:
-                    args = json.loads(tc["function"]["arguments"])
-                except json.JSONDecodeError:
-                    args = {}
-                    result = {"error": f"参数解析失败: {tc['function']['arguments'][:200]}"}
-                else:
-                    # 推送 tool_start 事件（截断参数值避免过长）
-                    safe_args = {k: (str(v)[:120] + "…" if len(str(v)) > 120 else str(v))
-                                 for k, v in args.items()}
-                    await _ws_send({
-                        "type": "tool_start",
-                        "data": {"tool": name, "args": safe_args, "turn": turn},
-                    })
-                    result = self._execute_tool(name, args)
-
+            # ── 执行工具（H5: 只读工具并行 / 否则串行）──
+            batch = await self._execute_tools_maybe_parallel(
+                resp["tool_calls"], _fail_counts, tool_ctx)
+            for tc, name, args, result in batch:
                 if name in ("file_write", "file_edit") and "error" not in result:
                     if p := result.get("path"):
                         files_changed.append(p)
-
-                # 推送 tool_done 事件
-                await _ws_send({
-                    "type": "tool_done",
-                    "data": {
-                        "tool": name,
-                        "ok":   "error" not in result,
-                        "turn": turn,
-                        "hint": str(result.get("error", ""))[:80] if "error" in result else "",
-                    },
-                })
-
+                    verified_green = False   # V: 改了代码 → 之前的绿验证作废
+                elif name == "shell_run" and self.verify_gate and "error" not in result \
+                        and result.get("exit_code") == 0:
+                    # V: 模型自己跑了验证命令且全绿 → 记一次绿，闸门免重复跑
+                    from verify_gate import looks_like_verify
+                    if looks_like_verify(args.get("command", "")):
+                        verified_green = True
+                td = {"tool": name, "ok": "error" not in result, "turn": turn,
+                      "hint": str(result.get("error", ""))[:80] if "error" in result else ""}
+                if name in ("file_write", "file_edit") and td["ok"]:
+                    td["file"] = str(result.get("path", ""))
+                    diff = result.pop("diff", None)
+                    if diff:
+                        td["diff"] = diff
+                elif name == "git_commit" and td["ok"]:
+                    td["files_committed"] = result.get("files_committed", 0)
+                elif name == "task_poll" and td["ok"]:
+                    td["task_status"] = result.get("status", "")
+                await _ws_send({"type": "tool_done", "data": td})
                 self._log(session_id, "tool_call", {
-                    "turn": turn, "tool": name, "success": "error" not in result,
-                })
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.get("id", f"call_{turn}"),
-                    "content": self._trim_result(name, result, seen_hashes),
-                })
+                    "turn": turn, "tool": name, "success": "error" not in result})
+                tool_msg = {"role": "tool", "tool_call_id": tc.get("id", f"call_{turn}")}
+                if isinstance(result, dict) and "_vision_block" in result:
+                    tool_msg["content"] = result["_vision_block"]
+                else:
+                    tool_msg["content"] = self._trim_result(name, result, seen_hashes)
+                messages.append(tool_msg)
 
-            if sum(len(json.dumps(m, ensure_ascii=False)) for m in messages) > self.context_cap_chars * 3:
+            # H2: 紧急压缩保底（超硬上限时）
+            if sum(len(json.dumps(m, ensure_ascii=False)) for m in messages) > self.max_total_chars * 0.95:
                 messages = self._compress_history(messages)
 
         return {"status": "max_turns_reached",
                 "summary": f"达到最大轮数 {self.max_turns}", "turn_count": self.max_turns}
 
-    def _execute_tool(self, name: str, args: dict) -> dict:
-        if name not in self.tool_dispatch:
-            return {"error": f"未知工具: {name}"}
+    async def _run_verify_gate(self, project: str | None, repair_rounds: int,
+                               messages: list[dict], session_id: str) -> tuple[str, int]:
+        """V (v1.3): 完成前验证闸门。在子进程跑探测到的验证命令，不阻塞事件循环。
+
+        返回 (action, repair_rounds)：
+          "pass"        放行（验证绿 / 探测不到命令无法把关）
+          "repair"      验证红且仍有修复额度，已注入结构化报错，调用方应 continue
+          "unverified"  修复额度用尽仍红，调用方应标记未验证完成
+        """
+        from verify_gate import run_verification, format_repair_message
+        result = await asyncio.to_thread(run_verification, project or ".")
+        if not result["ran"]:
+            self._log(session_id, "verify_gate_skip", {"reason": result.get("note", "")})
+            return ("pass", repair_rounds)
+        if result["ok"]:
+            self._log(session_id, "verify_gate_pass", {"command": result["command"]})
+            return ("pass", repair_rounds)
+        # R (v1.3): 跨会话失败记忆——先 recall 历史（含本次之前），再 record 本次失败。
+        recall_hint = ""
         try:
-            return self.tool_dispatch[name](**args)
-        except PermissionRequest:
-            raise   # 权限请求必须向上传播，由 websocket_server 捕获并推送卡片
-        except TypeError as e:
-            return {"error": f"工具参数错误: {e}"}
-        except Exception as e:
-            return {"error": f"工具执行异常: {e}"}
+            from failure_memory import get_failure_memory, format_recall_hint
+            fm = get_failure_memory()
+            category = "verify:" + (result.get("kind") or "")
+            prior = fm.recall(category, result["failure_summary"])
+            if prior and prior.get("count", 0) >= 1:
+                recall_hint = format_recall_hint(prior)
+            fm.record(category, result["failure_summary"],
+                      summary=result["failure_summary"])
+        except Exception:
+            pass
+        if repair_rounds >= self.max_repair_rounds:
+            self._log(session_id, "verify_gate_exhausted",
+                      {"rounds": repair_rounds, "command": result["command"]})
+            return ("unverified", repair_rounds)
+        repair_rounds += 1
+        messages.append({"role": "user",
+                         "content": format_repair_message(result, repair_rounds, self.max_repair_rounds)
+                                    + recall_hint})
+        self._log(session_id, "verify_gate_repair",
+                  {"round": repair_rounds, "command": result["command"],
+                   "exit_code": result["exit_code"], "recalled": bool(recall_hint)})
+        return ("repair", repair_rounds)
+
+    # ── 工具咽喉 _execute_tool / _guard_tool / _post_tool / _file_gate
+    # 已移入 AgentToolGateMixin（agent_tools.py）
+    # ──────────────────────────────────────────────────────────────────────────────
 
     # ── 工具 ──
     @staticmethod
@@ -506,156 +581,11 @@ class AgentBase:
                                        "note": "文件过大已压缩"}, ensure_ascii=False)
             except Exception:
                 pass
-        cap = self.tool_result_cap
+        cap = self.tool_budgets.get(tool_name, self.tool_result_cap)
         return text[:cap] + f"…[截断,原长{len(text)}字符]" if len(text) > cap else text
 
-    def _compress_history(self, messages: list[dict]) -> list[dict]:
-        if len(messages) <= 10:
-            return messages
-        sys_msgs = [m for m in messages if m["role"] == "system"]
-        rest = [m for m in messages if m["role"] != "system"]
-        first_user = next((m for m in rest if m["role"] == "user"), None)
-        tail = rest[-6:] if len(rest) > 6 else rest
-        # 防止 tail 从工具调用序列中间切断：若开头是孤儿 tool 消息（其对应的
-        # assistant.tool_calls 已被压缩掉），供应商会报 400
-        # "tool must be a response to a preceding message with tool_calls"。
-        # 剥掉开头所有悬空的 tool 消息。
-        while tail and tail[0].get("role") == "tool":
-            tail = tail[1:]
-        result = sys_msgs[:]
-        if first_user and first_user not in tail:
-            result.append(first_user)
-            placeholder = "[中间对话已压缩]"
-            if self.coding_compress:
-                dropped = [m for m in rest if m is not first_user and m not in tail]
-                digest = self._coding_digest(dropped)
-                if digest:
-                    placeholder = placeholder + "\n\n" + digest
-            result.append({"role": "assistant", "content": placeholder})
-        return result + tail
+    # ── _compress_history / _coding_digest / _async_compress / _scan_previous_summary
+    # 已移入 AgentCompressMixin（agent_compress.py）
+    # ──────────────────────────────────────────────────────────────────────────────
 
-    def _coding_digest(self, dropped: list[dict]) -> str:
-        """从被压缩掉的中间消息里提炼"已改文件 + 关键命令/退出码"摘要，
-        让编程 agent 在长会话里不会忘记前面已经动过什么、测试通没通过。"""
-        files: list[str] = []           # 保序去重
-        seen_files: set[str] = set()
-        commands: list[str] = []        # (command, exit_code?) 文本，保留最近若干条
-        pending_cmd: str | None = None  # 上一条 assistant 发起的 shell_run，等其结果配退出码
-
-        for m in dropped:
-            role = m.get("role")
-            if role == "assistant":
-                for tc in (m.get("tool_calls") or []):
-                    fn = tc.get("function", {})
-                    name = fn.get("name", "")
-                    try:
-                        args = json.loads(fn.get("arguments") or "{}")
-                    except Exception:
-                        args = {}
-                    if name in ("file_write", "file_edit") and args.get("path"):
-                        p = args["path"]
-                        if p not in seen_files:
-                            seen_files.add(p)
-                            files.append(p)
-                    elif name == "shell_run" and args.get("command"):
-                        pending_cmd = str(args["command"])[:80]
-            elif role == "tool":
-                if pending_cmd is not None:
-                    code = ""
-                    try:
-                        d = json.loads(m.get("content") or "{}")
-                        if isinstance(d, dict) and "exit_code" in d:
-                            code = f" → exit={d['exit_code']}"
-                    except Exception:
-                        pass
-                    commands.append(pending_cmd + code)
-                    pending_cmd = None
-
-        parts: list[str] = []
-        if files:
-            shown = files[-20:]
-            parts.append("## 期间已改文件\n" + "\n".join(f"- {p}" for p in shown))
-        if commands:
-            shown = commands[-8:]
-            parts.append("## 期间关键命令\n" + "\n".join(f"- {c}" for c in shown))
-        return "\n\n".join(parts)
-
-    async def _async_compress(self, session_id, messages, summary, files_changed, turns):
-        async with self._compress_semaphore:
-            for attempt in range(1, 4):
-                try:
-                    key_msgs = []
-                    for m in messages[-15:]:
-                        c = m.get("content", "") or ""
-                        if len(c) > 600:
-                            c = c[:600] + "…"
-                        key_msgs.append(f"[{m['role']}] {c}")
-                    prompt = (
-                        f"请生成9段式任务摘要（每段2-3句，总计800字内）。\n"
-                        f"任务: {summary[:500]}\n轮数: {turns}\n文件: {', '.join(files_changed) or '无'}\n"
-                        f"历史:\n{'  '.join(key_msgs)}\n\n"
-                        "输出格式: 1.会话目标 2.已完成 3.未完成 4.关键决策 5.代码变更 6.发现问题 7.待验证 8.用户偏好 9.上下文"
-                    )
-                    resp = await self._call_api([{"role": "user", "content": prompt}],
-                                                tools=None, stream=False)
-                    if "error" in resp or not resp.get("content", "").strip():
-                        raise RuntimeError(resp.get("error", "空摘要"))
-                    out_path = self._notes_dir / f"{datetime.now().strftime('%Y-%m-%d')}_{session_id}.md"
-                    header = (f"# {self.name} · {session_id}\n"
-                              f"- 时间: {datetime.now().isoformat()}\n"
-                              f"- 轮数: {turns}\n"
-                              f"- 文件: {', '.join(files_changed) or '无'}\n\n")
-                    out_path.write_text(header + resp["content"], encoding="utf-8")
-                    self._log(session_id, "compress_ok", {"path": str(out_path)})
-                    return
-                except Exception:
-                    await asyncio.sleep(2 ** attempt)
-            self._log(session_id, "compress_failed", {})
-
-    def _scan_previous_summary(self) -> str:
-        try:
-            files = sorted(self._notes_dir.glob(f"*_{self.name}-*.md"),
-                           key=lambda f: f.stat().st_mtime, reverse=True)
-            if not files:
-                return ""
-            content = files[0].read_text(encoding="utf-8")
-            segs = re.findall(r"\d+\.[会已未关代发待用上].*?(?=\n\d+\.|$)", content, re.DOTALL)
-            head4 = "\n".join(segs[:4])[:500]
-            return f"\n\n## 上次任务回顾\n{head4}" if head4 else ""
-        except Exception:
-            return ""
-
-    def _log(self, session_id: str, event: str, data: dict):
-        log_file = self.log_dir / f"{self.name}-{datetime.now().strftime('%Y%m%d')}.jsonl"
-        record = {"session_id": session_id, "timestamp": datetime.now().isoformat(),
-                  "event": event, "agent": self.name, **data}
-        try:
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(record, ensure_ascii=False) + "\n")
-        except Exception:
-            pass
-
-    async def _notify_feishu(self, session_id, status, turns, files_changed):
-        if not self._feishu_app_id or not self._feishu_app_secret:
-            return
-        try:
-            async with aiohttp.ClientSession() as s:
-                r = await s.post(
-                    "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
-                    json={"app_id": self._feishu_app_id, "app_secret": self._feishu_app_secret},
-                    timeout=aiohttp.ClientTimeout(total=10))
-                token = (await r.json()).get("tenant_access_token", "")
-                if not token:
-                    return
-                emoji = "✅" if status == "completed" else "⚠️"
-                text = (f"{emoji} {self.name} {status}\n"
-                        f"会话: {session_id}\n轮数: {turns}\n"
-                        f"文件:\n" + "\n".join(f"• {f}" for f in files_changed[:5]))
-                await s.post(
-                    "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
-                    headers={"Authorization": f"Bearer {token}"},
-                    json={"receive_id": self._feishu_chat_id, "msg_type": "text",
-                          "content": json.dumps({"text": text})},
-                    timeout=aiohttp.ClientTimeout(total=10))
-        except Exception:
-            pass
+    # ── _log / _notify_feishu 已移入 AgentLoggingMixin（agent_logging.py）──────

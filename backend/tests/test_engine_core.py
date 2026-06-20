@@ -323,11 +323,45 @@ def test_trim_result_caps_are_per_agent(tmp_path):
     assert "fingerprint" not in full_out
     assert "c" * 6000 in full_out
 
-    # 普通工具结果同样受 tool_result_cap 控制
+
+# ════════════════════════════════════════════════════════════════════
+#  H2: 缓存友好压缩——阈值触发
+# ════════════════════════════════════════════════════════════════════
+
+def test_h2_compress_threshold_attr(tmp_path):
+    agent = _make_agent(tmp_path)
+    assert hasattr(agent, "compress_threshold")
+    assert agent.compress_threshold == 0.7
+
+
+def test_h2_compress_history_still_works(tmp_path):
+    """_compress_history 本身行为不变：>10 条就压缩。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"}]
+    for i in range(20):
+        msgs.append({"role": "assistant", "content": f"a{i}"})
+        msgs.append({"role": "user", "content": f"q{i}"})
+    out = agent._compress_history(msgs)
+    assert len(out) < len(msgs)
+
+
+def test_h2_short_history_no_compress(tmp_path):
+    """<= 10 条消息不压缩（旧行为保持）。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"},
+            {"role": "assistant", "content": "a"},
+            {"role": "user", "content": "q"}]
+    out = agent._compress_history(msgs)
+    assert len(out) == len(msgs)
+
+    # 普通工具结果受 tool_budgets 分级控制（H7）
     small = _make_agent(tmp_path / "b")
-    long_text = {"results": "y" * 3000}
-    assert "[截断" in small._trim_result("search_code", long_text, set())  # 默认 500 截断
-    small.tool_result_cap = 16000
+    long_text = {"results": "y" * 5000}
+    # search_code 预算 4096，5000 字符应截断
+    assert "[截断" in small._trim_result("search_code", long_text, set())
+    small.tool_budgets["search_code"] = 16000
     assert "[截断" not in small._trim_result("search_code", long_text, set())
 
 
@@ -408,6 +442,416 @@ def test_reindex_dedup(engine):
     engine.index_session("s1", "xi", msgs)
     # 去重生效：apple 只在 s1 出现一次，不翻倍
     assert len(engine.search("apple")) == 1
+
+
+# ════════════════════════════════════════════════════════════════════
+#  H3: 结构化压缩 _structured_compress
+# ════════════════════════════════════════════════════════════════════
+
+def test_h3_short_history_unchanged(tmp_path):
+    """<= 10 条消息直接原样返回，不触发 LLM。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"},
+            {"role": "assistant", "content": "a"}]
+    out = asyncio.run(agent._structured_compress(msgs))
+    assert out is msgs
+
+
+def test_h3_fallback_on_llm_failure(tmp_path, monkeypatch):
+    """LLM 调用失败时回退到三档渐进压缩（F2 升级后的行为）。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "sys"}]
+    msgs.append({"role": "user", "content": "first question"})
+    for i in range(20):
+        msgs.append({"role": "assistant", "content": f"ans-{i}"})
+        msgs.append({"role": "user", "content": f"q-{i}"})
+
+    async def _fail_api(*a, **k):
+        raise RuntimeError("LLM down")
+    monkeypatch.setattr(agent, "_call_api", _fail_api)
+
+    out = asyncio.run(agent._structured_compress(msgs))
+    assert len(out) < len(msgs)
+    # F2: fallback 改为三档压缩，占位符为"中期摘要"或"远期归档"
+    all_text = " ".join(m.get("content", "") or "" for m in out)
+    assert "中期摘要" in all_text or "远期归档" in all_text or "归档" in all_text
+
+
+def test_h3_structured_summary_used(tmp_path, monkeypatch):
+    """LLM 成功时用结构化摘要替代占位符。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "sys"}]
+    msgs.append({"role": "user", "content": "first question"})
+    for i in range(20):
+        msgs.append({"role": "assistant", "content": f"ans-{i}"})
+        msgs.append({"role": "user", "content": f"q-{i}"})
+
+    fake_summary = "1. 原始任务：测试\n2. 技术决策：选A\n3. 已改文件：无\n" \
+                   "4. 踩过的错：无\n5. 关键代码：无\n6. 用户插话：无\n" \
+                   "7. 待办事项：无\n8. 当前进展：测试中"
+
+    async def _ok_api(*a, **k):
+        return {"content": fake_summary}
+    monkeypatch.setattr(agent, "_call_api", _ok_api)
+
+    out = asyncio.run(agent._structured_compress(msgs))
+    summary_msg = [m for m in out if "结构化摘要" in m.get("content", "")]
+    assert len(summary_msg) == 1
+    assert "原始任务" in summary_msg[0]["content"]
+    assert out[0]["role"] == "system"
+    assert out[1]["role"] == "user"
+    assert out[1]["content"] == "first question"
+
+
+def test_h3_empty_summary_triggers_fallback(tmp_path, monkeypatch):
+    """LLM 返回空/过短摘要时回退到三档渐进压缩（F2）。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"}]
+    for i in range(20):
+        msgs.append({"role": "assistant", "content": f"a{i}"})
+        msgs.append({"role": "user", "content": f"q{i}"})
+
+    async def _short_api(*a, **k):
+        return {"content": "too short"}
+    monkeypatch.setattr(agent, "_call_api", _short_api)
+
+    out = asyncio.run(agent._structured_compress(msgs))
+    assert len(out) < len(msgs)
+    # F2: fallback 改为三档压缩
+    all_text = " ".join(m.get("content", "") or "" for m in out)
+    assert "中期摘要" in all_text or "远期归档" in all_text or "归档" in all_text
+
+
+def test_h3_tool_calls_rendered(tmp_path, monkeypatch):
+    """含 tool_calls 的消息在 history_lines 里显示工具名。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"}]
+    for i in range(15):
+        msgs.append({"role": "assistant", "content": f"a{i}",
+                      "tool_calls": [{"function": {"name": f"tool_{i}"}}]})
+        msgs.append({"role": "user", "content": f"q{i}"})
+
+    captured_prompt = {}
+
+    async def _capture_api(messages, **k):
+        captured_prompt["text"] = messages[0]["content"]
+        return {"content": "1. 原始任务：x\n2. 技术决策：y\n3. 已改文件：z\n"
+                           "4. 踩过的错：无\n5. 关键代码：无\n6. 用户插话：无\n"
+                           "7. 待办事项：无\n8. 当前进展：做完了这个很长的摘要内容"}
+    monkeypatch.setattr(agent, "_call_api", _capture_api)
+
+    asyncio.run(agent._structured_compress(msgs))
+    assert "调用工具" in captured_prompt["text"]
+
+
+# ════════════════════════════════════════════════════════════════════
+#  H7: 上下文经济——分级预算 + 压缩驱逐
+# ════════════════════════════════════════════════════════════════════
+
+def test_h7_tool_budgets_attr(tmp_path):
+    agent = _make_agent(tmp_path)
+    assert isinstance(agent.tool_budgets, dict)
+    assert agent.tool_budgets["file_read"] == 8192
+    assert agent.tool_budgets["shell_run"] == 6144
+
+
+def test_h7_trim_uses_per_tool_budget(tmp_path):
+    """_trim_result 用 tool_budgets 而非固定 tool_result_cap。"""
+    agent = _make_agent(tmp_path)
+    big = {"content": "x" * 10000}
+    # file_read 预算 8192 → 10000 字符应截断但比默认 500 宽得多
+    out = agent._trim_result("file_read", big, set())
+    # file_read 超 file_read_cap 会走指纹逻辑
+    assert "fingerprint" in out or "截断" in out
+
+    # shell_run 预算 6144，制造 7000 字符结果
+    shell_result = {"output": "o" * 7000}
+    out2 = agent._trim_result("shell_run", shell_result, set())
+    assert "截断" in out2
+    # 截断位置应大于默认 500
+    assert len(out2) > 5000
+
+    # 未注册工具走默认 tool_result_cap=500
+    out3 = agent._trim_result("some_unknown_tool", {"data": "d" * 1000}, set())
+    assert "截断" in out3
+    assert len(out3) < 600
+
+
+def test_h7_evict_large_results(tmp_path):
+    """_evict_large_results 驱逐超大 tool 消息。"""
+    from agent_compress import AgentCompressMixin
+    msgs = [
+        {"role": "assistant", "content": "ok"},
+        {"role": "tool", "tool_call_id": "c1", "content": "small"},
+        {"role": "tool", "tool_call_id": "c2", "content": "B" * 5000},
+        {"role": "user", "content": "next"},
+    ]
+    out = AgentCompressMixin._evict_large_results(msgs)
+    assert len(out) == 4
+    assert out[1]["content"] == "small"
+    assert "已驱逐" in out[2]["content"]
+    assert "SHA:" in out[2]["content"]
+    assert out[3]["content"] == "next"
+
+
+def test_h7_evict_integrated_with_compress(tmp_path, monkeypatch):
+    """压缩触发时自动驱逐尾部大工具结果。"""
+    agent = _make_agent(tmp_path)
+    msgs = [{"role": "system", "content": "s"},
+            {"role": "user", "content": "u"}]
+    for i in range(20):
+        msgs.append({"role": "assistant", "content": f"a{i}",
+                      "tool_calls": [{"function": {"name": "file_read"}}]})
+        msgs.append({"role": "tool", "tool_call_id": f"c{i}",
+                      "content": "X" * 5000 if i >= 17 else "small"})
+
+    async def _ok_api(*a, **k):
+        return {"content": "1. 原始任务：x\n2. 技术决策：y\n3. 已改文件：z\n"
+                           "4. 踩过的错：无\n5. 关键代码：无\n6. 用户插话：无\n"
+                           "7. 待办事项：无\n8. 当前进展：做完了这个很长的摘要内容"}
+    monkeypatch.setattr(agent, "_call_api", _ok_api)
+
+    out = asyncio.run(agent._structured_compress(msgs))
+    tool_msgs = [m for m in out if m.get("role") == "tool"]
+    for tm in tool_msgs:
+        if len(tm["content"]) > 4096:
+            pytest.fail("大工具结果未被驱逐")
+
+
+# ════════════════════════════════════════════════════════════════════
+#  H1: 中途打断与改道（steering / cancel）
+# ════════════════════════════════════════════════════════════════════
+
+def test_h1_steering_attr(tmp_path):
+    agent = _make_agent(tmp_path)
+    assert hasattr(agent, "_steering")
+    assert isinstance(agent._steering, dict)
+
+
+def test_h1_cancel_stops_run(tmp_path, monkeypatch):
+    """cancel 标志使 run 在下一轮优雅停止。"""
+    agent = _make_agent(tmp_path)
+    import memory_injector as mi
+    monkeypatch.setattr(mi, "get_memory_injection", lambda *a, **k: "")
+    monkeypatch.setattr(mi, "get_active_project_context", lambda *a, **k: "")
+
+    call_count = 0
+    async def _fake_api(*a, **k):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # 第一轮正常返回工具调用，触发下一轮
+            return {"content": None, "tool_calls": [
+                {"id": "c1", "function": {"name": "noop", "arguments": "{}"}}
+            ]}
+        return {"content": "done", "tool_calls": None}
+    monkeypatch.setattr(agent, "_call_api", _fake_api)
+    agent.tool_dispatch["noop"] = lambda: {"ok": True}
+
+    # 在第一轮 API 调用后设置 cancel
+    sid = "test-cancel"
+    agent._steering[sid] = {"cancel": True, "messages": []}
+
+    out = asyncio.run(agent.run("test task", session_id=sid))
+    assert out["status"] == "stopped"
+    assert "叫停" in out["summary"]
+
+
+def test_h1_steer_injects_message(tmp_path, monkeypatch):
+    """插话消息注入到 messages 里，模型能看到。"""
+    agent = _make_agent(tmp_path)
+    import memory_injector as mi
+    monkeypatch.setattr(mi, "get_memory_injection", lambda *a, **k: "")
+    monkeypatch.setattr(mi, "get_active_project_context", lambda *a, **k: "")
+
+    captured_messages = []
+    call_count = 0
+    async def _capture_api(messages, **k):
+        nonlocal call_count
+        call_count += 1
+        captured_messages.append([m.copy() for m in messages])
+        if call_count == 1:
+            return {"content": None, "tool_calls": [
+                {"id": "c1", "function": {"name": "noop", "arguments": "{}"}}
+            ]}
+        return {"content": "done", "tool_calls": None}
+    monkeypatch.setattr(agent, "_call_api", _capture_api)
+    agent.tool_dispatch["noop"] = lambda: {"ok": True}
+
+    sid = "test-steer"
+    # 在第 2 轮之前会被检查到
+    agent._steering[sid] = {"cancel": False, "messages": ["改方向去改 B 文件"]}
+
+    asyncio.run(agent.run("test task", session_id=sid))
+    # 第二轮的 messages 应该包含插话
+    if len(captured_messages) >= 2:
+        texts = [m.get("content", "") for m in captured_messages[1]]
+        assert any("用户插话" in t and "改方向" in t for t in texts)
+
+
+# ════════════════════════════════════════════════════════════════════
+#  H4: Read-before-Edit 硬闸门 + mtime 追踪
+# ════════════════════════════════════════════════════════════════════
+
+def test_h4_edit_blocked_without_read(tmp_path):
+    """file_edit 未先 file_read → 被闸门拦截。"""
+    agent = _make_agent(tmp_path)
+    agent._file_state = {}
+    f = tmp_path / "work" / "test.py"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("hello")
+    result = agent._file_gate("file_edit", {"path": str(f)})
+    assert result is not None
+    assert "file_read" in result["error"]
+
+
+def test_h4_edit_allowed_after_read(tmp_path):
+    """file_read 后 file_edit 放行。"""
+    agent = _make_agent(tmp_path)
+    agent._file_state = {}
+    f = tmp_path / "work" / "test.py"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("hello")
+    import os
+    agent._file_state[str(f)] = os.path.getmtime(str(f))
+    result = agent._file_gate("file_edit", {"path": str(f)})
+    assert result is None
+
+
+def test_h4_write_new_file_allowed(tmp_path):
+    """file_write 新文件不需要先读。"""
+    agent = _make_agent(tmp_path)
+    agent._file_state = {}
+    result = agent._file_gate("file_write", {"path": str(tmp_path / "new.py")})
+    assert result is None
+
+
+def test_h4_mtime_change_blocks(tmp_path):
+    """读后外部修改 → mtime 不符 → 拦截。"""
+    agent = _make_agent(tmp_path)
+    agent._file_state = {}
+    f = tmp_path / "work" / "test.py"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("v1")
+    import os, time
+    agent._file_state[str(f)] = os.path.getmtime(str(f))
+    time.sleep(0.05)
+    f.write_text("v2 - external change")
+    result = agent._file_gate("file_edit", {"path": str(f)})
+    assert result is not None
+    assert "外部修改" in result["error"]
+
+
+# ════════════════════════════════════════════════════════════════════
+#  H6: 错误恢复（熔断 + API 退避 + 截断续写）
+# ════════════════════════════════════════════════════════════════════
+
+def test_h6_breaker_warns_at_3(tmp_path):
+    from agent_resilience import AgentResilienceMixin as R
+    fc = {}
+    h = R._tool_hash("bad_tool", {"a": 1})
+    fc[h] = 3
+    result = R._check_breaker("bad_tool", {"a": 1}, fc)
+    assert result is not None
+    assert "连续失败" in result["error"]
+    assert result.get("_breaker_warning")
+
+
+def test_h6_breaker_blocks_at_5(tmp_path):
+    from agent_resilience import AgentResilienceMixin as R
+    fc = {}
+    h = R._tool_hash("bad_tool", {"a": 1})
+    fc[h] = 5
+    result = R._check_breaker("bad_tool", {"a": 1}, fc)
+    assert result is not None
+    assert "强制拦截" in result["error"]
+
+
+def test_h6_breaker_pass_when_ok(tmp_path):
+    from agent_resilience import AgentResilienceMixin as R
+    fc = {}
+    assert R._check_breaker("good_tool", {"a": 1}, fc) is None
+
+
+def test_h6_record_clears_on_success(tmp_path):
+    from agent_resilience import AgentResilienceMixin as R
+    fc = {}
+    R._record_tool_result("t", {"x": 1}, {"error": "fail"}, fc)
+    assert fc.get(R._tool_hash("t", {"x": 1})) == 1
+    R._record_tool_result("t", {"x": 1}, {"error": "fail"}, fc)
+    assert fc.get(R._tool_hash("t", {"x": 1})) == 2
+    R._record_tool_result("t", {"x": 1}, {"ok": True}, fc)
+    assert R._tool_hash("t", {"x": 1}) not in fc
+
+
+def test_h6_api_retry_on_429(tmp_path):
+    """429 应该重试而非直接报错。"""
+    agent = _make_agent(tmp_path)
+    call_count = 0
+    async def _flaky(*a, **k):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            return {"error": "API 429: rate limited"}
+        return {"content": "ok", "tool_calls": None}
+    import types
+    agent._call_api = types.MethodType(lambda self, *a, **k: _flaky(*a, **k), agent)
+
+    resp = asyncio.run(agent._call_api_resilient(
+        [{"role": "user", "content": "hi"}], session_id="t", turn=1))
+    assert "error" not in resp
+    assert call_count == 3
+
+
+# ════════════════════════════════════════════════════════════════════
+#  H5: 并行只读工具执行
+# ════════════════════════════════════════════════════════════════════
+
+def test_h5_parallel_safe_set():
+    from agent_resilience import _PARALLEL_SAFE
+    assert "file_read" in _PARALLEL_SAFE
+    assert "search_code" in _PARALLEL_SAFE
+    assert "file_write" not in _PARALLEL_SAFE
+    assert "file_edit" not in _PARALLEL_SAFE
+    assert "shell_run" not in _PARALLEL_SAFE
+
+
+def test_h5_batch_serial_when_mixed(tmp_path):
+    """含写工具时走串行。"""
+    agent = _make_agent(tmp_path)
+    agent.tool_dispatch["file_read"] = lambda path="": {"content": "ok"}
+    agent.tool_dispatch["file_write"] = lambda path="", content="": {"path": path}
+    tool_calls = [
+        {"id": "c1", "function": {"name": "file_read", "arguments": '{"path":"a.py"}'}},
+        {"id": "c2", "function": {"name": "file_write", "arguments": '{"path":"b.py"}'}},
+    ]
+    results = asyncio.run(agent._execute_tools_maybe_parallel(tool_calls, {}, None))
+    assert len(results) == 2
+    assert results[0][1] == "file_read"
+    assert results[1][1] == "file_write"
+
+
+def test_h5_batch_parallel_all_readonly(tmp_path):
+    """全部只读工具时应并行执行。"""
+    agent = _make_agent(tmp_path)
+    order = []
+    async def _slow_read(**kw):
+        await asyncio.sleep(0.01)
+        order.append(kw.get("path", "?"))
+        return {"content": "data"}
+    agent.tool_dispatch["file_read"] = lambda **kw: _slow_read(**kw)
+    agent.tool_dispatch["search_code"] = lambda **kw: _slow_read(**kw)
+    tool_calls = [
+        {"id": "c1", "function": {"name": "file_read", "arguments": '{"path":"a.py"}'}},
+        {"id": "c2", "function": {"name": "search_code", "arguments": '{"path":"b.py"}'}},
+        {"id": "c3", "function": {"name": "file_read", "arguments": '{"path":"c.py"}'}},
+    ]
+    results = asyncio.run(agent._execute_tools_maybe_parallel(tool_calls, {}, None))
+    assert len(results) == 3
+    assert all("error" not in r for _, _, _, r in results)
 
 
 if __name__ == "__main__":

@@ -40,16 +40,16 @@ _tool_search_knowledge = _DISP["search_knowledge"]
 def test_tools_registered():
     w = yw.YiyiWorker()
     names = [t["function"]["name"] for t in w.tool_defs]
-    assert names == ["paipan", "load_mingli_reference", "search_knowledge"]
-    assert set(w.tool_dispatch) == {"paipan", "load_mingli_reference", "search_knowledge"}
+    assert names == ["paipan", "load_mingli_reference", "search_knowledge", "record_chart_insight"]
+    assert set(w.tool_dispatch) == {"paipan", "load_mingli_reference", "search_knowledge", "record_chart_insight"}
     assert w.max_turns == 30
 
 
 def test_compose_system_assembles_layers():
     w = yw.YiyiWorker()
     s = w._compose_system()
-    # 人格底色
-    assert "晞" in s
+    # 人格底色（四人格合并后统一为 "Anima"）
+    assert "Anima" in s
     # 命理 skill 工作流（仅晞可取）
     assert "命理巨师" in s
     # 本系统适配说明

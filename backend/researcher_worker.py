@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from agent_base import AgentBase
 from config import DEEPSEEK_KEY
+from persona import _VOICE_CORE
 from websearch import WEB_SEARCH_TOOL_DEFS, build_dispatch
 from xi_worker import _read_file, _write_file
 
@@ -32,7 +33,7 @@ RESEARCHER_SYSTEM_PROMPT = """你是研究员，陶朱公司的调研专员，�
 
 ## 收尾
 给分层结论：核心判断 → 关键数据(带来源) → 风险/不确定项。
-"""
+""" + _VOICE_CORE
 
 
 class ResearcherWorker(AgentBase):

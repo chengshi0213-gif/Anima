@@ -74,7 +74,7 @@ def test_delegate_empty_task():
 
 def test_delegate_runs_subagent(monkeypatch):
     fake = _FakeAgent()
-    monkeypatch.setattr(orch, "_get_subagent", lambda role: fake)
+    monkeypatch.setattr(orch, "_get_subagent", lambda role, project=None: fake)
 
     r = orch.delegate("executor", "重构登录模块", context="项目在 E:/app")
     assert r["role"] == "executor"
@@ -90,7 +90,7 @@ def test_delegate_subagent_exception(monkeypatch):
     class _Boom:
         async def run(self, task, model=None, **kw):
             raise RuntimeError("炸了")
-    monkeypatch.setattr(orch, "_get_subagent", lambda role: _Boom())
+    monkeypatch.setattr(orch, "_get_subagent", lambda role, project=None: _Boom())
     r = orch.delegate("writer", "写篇文案")
     assert r["status"] == "error"
     assert "炸了" in r["summary"]
@@ -98,10 +98,11 @@ def test_delegate_subagent_exception(monkeypatch):
 
 def test_build_dispatch_and_tool_defs():
     names = {d["function"]["name"] for d in orch.ORCHESTRATION_TOOL_DEFS}
-    assert names == {"delegate", "list_subagents"}
+    assert names == {"delegate", "delegate_parallel", "list_subagents"}
     d = orch.build_orchestration_dispatch()
-    assert set(d) == {"delegate", "list_subagents"}
+    assert set(d) == {"delegate", "delegate_parallel", "list_subagents"}
     assert callable(d["delegate"]) and callable(d["list_subagents"])
+    assert callable(d["delegate_parallel"])
     # delegate 工具的 enum 与注册表一致
     deleg = next(x for x in orch.ORCHESTRATION_TOOL_DEFS
                  if x["function"]["name"] == "delegate")
@@ -131,7 +132,7 @@ def test_new_roles_registered():
 def test_restricted_delegate_rejects_outside_whitelist(monkeypatch):
     """负责人型子员工只能派白名单内角色。"""
     fake = _FakeAgent()
-    monkeypatch.setattr(orch, "_get_subagent", lambda role: fake)
+    monkeypatch.setattr(orch, "_get_subagent", lambda role, project=None: fake)
     allowed = {"executor", "critic"}
     # 白名单内：放行
     ok = orch.delegate("executor", "干活", allowed_roles=allowed)
@@ -144,7 +145,7 @@ def test_restricted_delegate_rejects_outside_whitelist(monkeypatch):
 def test_delegate_depth_cap(monkeypatch):
     """深度达到 _MAX_DEPTH 时再派活被拒（防递归失控）。"""
     fake = _FakeAgent()
-    monkeypatch.setattr(orch, "_get_subagent", lambda role: fake)
+    monkeypatch.setattr(orch, "_get_subagent", lambda role, project=None: fake)
     # 模拟"当前已在最大深度的子员工线程里"
     orch._local.ctx = {"shared": {"count": 0, "max": 16, "lock": __import__("threading").Lock()},
                        "depth": orch._MAX_DEPTH}
@@ -155,7 +156,7 @@ def test_delegate_depth_cap(monkeypatch):
 def test_delegate_tree_budget(monkeypatch):
     """单次任务派活次数达到上限后被拒（防成本失控）。"""
     fake = _FakeAgent()
-    monkeypatch.setattr(orch, "_get_subagent", lambda role: fake)
+    monkeypatch.setattr(orch, "_get_subagent", lambda role, project=None: fake)
     shared = {"count": orch._MAX_TREE_DELEGATIONS, "max": orch._MAX_TREE_DELEGATIONS,
               "lock": __import__("threading").Lock()}
     orch._local.ctx = {"shared": shared, "depth": 0}
@@ -175,7 +176,7 @@ def test_lead_delegate_tool_defs_enum():
 def test_delegate_passes_explicit_project(monkeypatch):
     """显式 project 透传给子员工 run()。"""
     fake = _FakeAgent()
-    monkeypatch.setattr(orch, "_get_subagent", lambda role: fake)
+    monkeypatch.setattr(orch, "_get_subagent", lambda role, project=None: fake)
     orch.delegate("executor", "干活", project="登录重构")
     assert fake.last_project == "登录重构"
 
@@ -183,7 +184,7 @@ def test_delegate_passes_explicit_project(monkeypatch):
 def test_delegate_falls_back_to_active_project(monkeypatch):
     """不传 project 时回退到当前活跃项目（项目级记忆）。"""
     fake = _FakeAgent()
-    monkeypatch.setattr(orch, "_get_subagent", lambda role: fake)
+    monkeypatch.setattr(orch, "_get_subagent", lambda role, project=None: fake)
     import memory_injector
     monkeypatch.setattr(memory_injector, "get_active_project", lambda: "活跃项目X")
     orch.delegate("executor", "干活")
@@ -193,7 +194,7 @@ def test_delegate_falls_back_to_active_project(monkeypatch):
 def test_delegate_child_inherits_parent_project(monkeypatch):
     """子员工内部再 delegate 时，沿派活链继承父级项目。"""
     fake = _FakeAgent()
-    monkeypatch.setattr(orch, "_get_subagent", lambda role: fake)
+    monkeypatch.setattr(orch, "_get_subagent", lambda role, project=None: fake)
     # 模拟"已在某子员工线程里，ctx 带着父级项目"
     orch._local.ctx = {"shared": {"count": 0, "max": 16,
                                   "lock": __import__("threading").Lock()},

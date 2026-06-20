@@ -2,7 +2,7 @@
  * Anima — chat.js
  * Tab 切换、聊天 UI、模型选择器、文件上传、侧边栏历史
  */
-import { CONFIG, AGENTS, WORKER_DETAILS, wsStatus, chatState, pendingFiles, selectedModel, runtime, escHtml, markdownToHtml, formatTime, toast, agentAvatarHtml, scrollBottom } from './state.js';
+import { CONFIG, AGENTS, WORKER_DETAILS, DELEGATE_CAPS, wsStatus, chatState, pendingFiles, selectedModel, runtime, escHtml, markdownToHtml, formatTime, toast, agentAvatarHtml, scrollBottom } from './state.js';
 import { wsSend } from './ws.js';
 
 // ══════════════════════════════════════════════════
@@ -151,6 +151,9 @@ export function appendAssistantMsg(agentId, data) {
 }
 window.appendAssistantMsg = appendAssistantMsg;
 
+// ── 流式缓冲区（per-agent）：文字积累 + debounce timer ────────────────────
+const _streamBuf = {};
+
 export function appendAssistantDelta(agentId, content) {
   if (!content) return;
   const box = document.getElementById(`messages-${agentId}`);
@@ -166,19 +169,97 @@ export function appendAssistantDelta(agentId, content) {
     div.innerHTML = `
       ${agentAvatarHtml(agent)}
       <div class="msg-body">
-        <div class="msg-bubble"><span class="msg-content"></span></div>
+        <div class="msg-bubble"></div>
         <div class="msg-meta">${agent.name} · ${formatTime(new Date())} · ${selectedModel[agentId]}</div>
       </div>`;
     box.appendChild(div);
+    _streamBuf[agentId] = { text: '', timer: null };
   }
 
-  const contentEl = div.querySelector('.msg-content');
-  contentEl?.appendChild(document.createTextNode(content));
+  const buf = (_streamBuf[agentId] = _streamBuf[agentId] || { text: '', timer: null });
+  buf.text += content;
+
+  // 每 150ms 渲染一次 Markdown，避免每个 token 都重写 DOM（体感：~6fps 的逐字感）
+  if (!buf.timer) {
+    buf.timer = setTimeout(() => {
+      const bubble = box.querySelector('.streaming-msg .msg-bubble');
+      if (bubble) {
+        bubble.innerHTML = markdownToHtml(buf.text)
+          + '<span class="msg-cursor" aria-hidden="true"></span>';
+      }
+      buf.timer = null;
+    }, 150);
+  }
+
   scrollBottom(agentId);
 }
 window.appendAssistantDelta = appendAssistantDelta;
 
+// 流式完成：升级到位（upgrade-in-place），不销毁重建气泡，零闪烁
+export function finalizeStreamingMsg(agentId, data) {
+  const box = document.getElementById(`messages-${agentId}`);
+  if (!box) return;
+
+  // 刷新待渲染的 debounce timer
+  const buf = _streamBuf[agentId];
+  if (buf?.timer) clearTimeout(buf.timer);
+  delete _streamBuf[agentId];
+
+  const agent = AGENTS[agentId];
+  const toolHtml = data.turn_count > 0 ? `
+    <div class="tool-steps">
+      <div class="tool-steps-hdr" onclick="toggleSteps(this)">
+        <span class="chevron">▶</span>
+        <span>${data.turn_count} 步推理</span>
+        ${(data.files_changed||[]).length ? `<span style="margin-left:auto;font-size:10px;color:var(--warn)">${data.files_changed.length} 个文件</span>` : ''}
+      </div>
+      <div class="tool-steps-body">
+        ${(data.files_changed||[]).map(f=>`<div class="tool-step-item">📄 <code>${escHtml(f)}</code></div>`).join('')||'<div class="tool-step-item">无文件变更</div>'}
+      </div>
+    </div>` : '';
+
+  const div = box.querySelector('.streaming-msg');
+
+  if (div) {
+    // 升级到位：渲染最终 Markdown，移除光标，插入工具步骤
+    const bubble = div.querySelector('.msg-bubble');
+    if (bubble) {
+      bubble.innerHTML = markdownToHtml(data.summary || '（完成）');
+    }
+    const meta = div.querySelector('.msg-meta');
+    if (meta) {
+      meta.textContent = `${agent.name} · ${formatTime(new Date())} · ${selectedModel[agentId]}`;
+    }
+    if (toolHtml && meta) {
+      const toolWrap = document.createElement('div');
+      toolWrap.innerHTML = toolHtml;
+      meta.before(toolWrap.firstElementChild);
+    }
+    // 去掉 streaming-msg 类：光标 CSS 动画消失，气泡呼吸光环停止
+    div.classList.remove('streaming-msg');
+  } else {
+    // 无流式内容（纯工具调用无文字输出）：降级为全量渲染
+    const newDiv = document.createElement('div');
+    newDiv.className = 'msg assistant';
+    newDiv.innerHTML = `
+      ${agentAvatarHtml(agent)}
+      <div class="msg-body">
+        <div class="msg-bubble">${markdownToHtml(data.summary || '（完成）')}</div>
+        ${toolHtml}
+        <div class="msg-meta">${agent.name} · ${formatTime(new Date())} · ${selectedModel[agentId]}</div>
+      </div>`;
+    box.appendChild(newDiv);
+  }
+
+  scrollBottom(agentId);
+}
+window.finalizeStreamingMsg = finalizeStreamingMsg;
+
 export function removeStreamingMsg(agentId) {
+  // 同时清理缓冲区
+  const buf = _streamBuf[agentId];
+  if (buf?.timer) clearTimeout(buf.timer);
+  delete _streamBuf[agentId];
   document.querySelector(`#messages-${agentId} .streaming-msg`)?.remove();
 }
 window.removeStreamingMsg = removeStreamingMsg;
@@ -198,6 +279,122 @@ export function appendErrMsg(agentId, text) {
   scrollBottom(agentId);
 }
 window.appendErrMsg = appendErrMsg;
+
+// ══════════════════════════════════════════════════
+//  ConfirmCard —— M14 危险操作确认卡
+//  后端 confirm_request{confirm_id,kind,tool,detail,risk} → 本卡 →
+//  confirm_response{confirm_id,approved,scope}。默认策略全 off，平时不出现。
+// ══════════════════════════════════════════════════
+const CONFIRM_KIND = {
+  shell:                   { icon: '⚙️', label: '执行 Shell 命令' },
+  write_outside_workspace: { icon: '💾', label: '写入工作区以外' },
+  git_push:                { icon: '🚀', label: '推送到远程仓库' },
+  mcp_destructive:         { icon: '⚠️', label: '破坏性外部操作' },
+};
+
+export function showConfirmRequest(agentId, data = {}) {
+  const box = document.getElementById(`messages-${agentId}`);
+  if (!box) return;
+  const { confirm_id, kind, tool, detail, risk } = data;
+  if (!confirm_id) return;
+  const meta = CONFIRM_KIND[kind] || { icon: '⚠️', label: kind || '危险操作' };
+  const riskTag = risk === 'high' ? '高风险' : '需确认';
+
+  const div = document.createElement('div');
+  div.className = 'confirm-card';
+  div.dataset.risk = risk || 'medium';
+  div.dataset.confirmId = confirm_id;
+  div.innerHTML = `
+    <div class="confirm-hdr">
+      <span class="cc-icon">${meta.icon}</span>
+      <span>${escHtml(meta.label)}</span>
+      <span class="cc-risk-tag">${riskTag}</span>
+    </div>
+    <div class="confirm-body">
+      <div class="confirm-tool">${AGENTS[agentId]?.name || agentId} 想调用 <b>${escHtml(tool || '')}</b></div>
+      ${detail ? `<div class="confirm-detail">${escHtml(detail)}</div>` : ''}
+    </div>
+    <div class="confirm-actions">
+      <button class="confirm-btn cc-allow cc-primary" onclick="resolveConfirm('${agentId}','${confirm_id}',true,'once',this)">允许一次</button>
+      <button class="confirm-btn cc-allow" onclick="resolveConfirm('${agentId}','${confirm_id}',true,'session',this)">本会话允许</button>
+      <button class="confirm-btn cc-allow" onclick="resolveConfirm('${agentId}','${confirm_id}',true,'always',this)">永久允许</button>
+      <button class="confirm-btn cc-deny" onclick="resolveConfirm('${agentId}','${confirm_id}',false,'once',this)">拒绝</button>
+    </div>
+    <div class="confirm-result"></div>`;
+  box.appendChild(div);
+  scrollBottom(agentId);
+}
+window.showConfirmRequest = showConfirmRequest;
+
+window.resolveConfirm = function(agentId, confirmId, approved, scope, btn) {
+  const card = btn?.closest('.confirm-card')
+            || document.querySelector(`#messages-${agentId} .confirm-card[data-confirm-id="${confirmId}"]`);
+  // 防重复点击：先锁住所有按钮
+  card?.querySelectorAll('.confirm-btn').forEach(b => { b.disabled = true; });
+
+  const sent = wsSend(agentId, {
+    action: 'confirm_response', confirm_id: confirmId,
+    approved, scope,
+  });
+  if (!sent) {
+    card?.querySelectorAll('.confirm-btn').forEach(b => { b.disabled = false; });
+    toast('未连接后端，确认未送达', 'error');
+    return;
+  }
+
+  if (card) {
+    card.classList.add('cc-resolved');
+    const res = card.querySelector('.confirm-result');
+    if (res) {
+      const scopeTxt = scope === 'session' ? '（本会话）' : scope === 'always' ? '（永久）' : '';
+      res.className = 'confirm-result ' + (approved ? 'cc-approved' : 'cc-denied');
+      res.textContent = approved ? `✓ 已允许${scopeTxt}` : '✕ 已拒绝';
+    }
+  }
+};
+
+// ── C2: ask_user 问题卡片 ────────────────────────
+export function showAskUserCard(agentId, msg) {
+  const box = document.getElementById(`messages-${agentId}`);
+  if (!box) return;
+  const question = msg.question || '（问题）';
+  const choices = msg.choices || [];
+
+  const div = document.createElement('div');
+  div.className = 'ask-user-card';
+  const choicesBtns = choices.length
+    ? choices.map(c => `<button class="au-choice-btn" onclick="answerAskUser('${agentId}',this,'${escHtml(c)}')">${escHtml(c)}</button>`).join('')
+    : '';
+  div.innerHTML = `
+    <div class="au-hdr">💬 Anima 想问你</div>
+    <div class="au-question">${escHtml(question)}</div>
+    ${choicesBtns ? `<div class="au-choices">${choicesBtns}</div>` : ''}
+    <div class="au-input-row">
+      <input class="au-input" type="text" placeholder="输入回答…" onkeydown="if(event.key==='Enter')answerAskUser('${agentId}',this)">
+      <button class="au-send-btn" onclick="answerAskUser('${agentId}',this.previousElementSibling)">发送</button>
+    </div>
+    <div class="au-result"></div>`;
+  box.appendChild(div);
+  scrollBottom(agentId);
+  div.querySelector('.au-input')?.focus();
+}
+window.showAskUserCard = showAskUserCard;
+
+window.answerAskUser = function(agentId, el, choiceText) {
+  const card = el?.closest('.ask-user-card');
+  const answer = choiceText || card?.querySelector('.au-input')?.value?.trim() || '';
+  if (!answer) { toast('请输入回答', 'error'); return; }
+  const sent = wsSend(agentId, { action: 'user_answer', answer });
+  if (!sent) { toast('未连接后端', 'error'); return; }
+  if (card) {
+    card.classList.add('au-answered');
+    card.querySelectorAll('.au-choice-btn, .au-send-btn').forEach(b => { b.disabled = true; });
+    const input = card.querySelector('.au-input');
+    if (input) input.disabled = true;
+    const res = card.querySelector('.au-result');
+    if (res) { res.textContent = `✓ 已回答：${answer}`; res.className = 'au-result au-done'; }
+  }
+};
 
 export function showThinking(agentId) {
   const box = document.getElementById(`messages-${agentId}`);
@@ -224,7 +421,27 @@ export function addThinkingStep(agentId, tool, args, turn) {
   if (!box) return;
   const stepsEl = box.querySelector('.thinking-msg .thinking-live-steps');
   if (!stepsEl) return;
-  stepsEl.style.display = 'none';
+  stepsEl.style.display = 'flex';
+
+  const item = document.createElement('div');
+  item.className = 'thinking-step-item running';
+  item.dataset.tool = tool;
+
+  // M-P2：delegate 不展示子员工独立身份，而是显示"她正在调用 XX 能力"
+  // 角标（沿用该能力的主题色），任务派给谁对用户透明但不割裂"她"的统一身份。
+  if (tool === 'delegate') {
+    const cap = DELEGATE_CAPS[args?.role] || { name: args?.role || '子员工', icon:'🤝', cls:'' };
+    const taskPreview = args?.task ? String(args.task).slice(0, 36) : '';
+    item.classList.add('delegate-step');
+    item.innerHTML = `
+      <span class="ts-icon">${cap.icon}</span>
+      <span class="ts-name">她正在调用<span class="delegate-badge ${cap.cls}">${escHtml(cap.name)}</span>能力</span>
+      ${taskPreview ? `<span class="ts-arg">${escHtml(taskPreview)}</span>` : ''}
+      <span class="ts-spin">⟳</span>`;
+    stepsEl.appendChild(item);
+    scrollBottom(agentId);
+    return;
+  }
 
   const TOOL_ICONS = {
     file_read:'📄', file_write:'💾', file_edit:'✏️', file_list:'📁',
@@ -238,9 +455,6 @@ export function addThinkingStep(agentId, tool, args, turn) {
     if (firstVal !== undefined) argSummary = String(firstVal).slice(0, 40);
   }
 
-  const item = document.createElement('div');
-  item.className = 'thinking-step-item running';
-  item.dataset.tool = tool;
   item.innerHTML = `
     <span class="ts-icon">${icon}</span>
     <span class="ts-name">${escHtml(tool)}</span>
@@ -251,7 +465,7 @@ export function addThinkingStep(agentId, tool, args, turn) {
 }
 window.addThinkingStep = addThinkingStep;
 
-export function markThinkingStep(agentId, tool, ok, hint) {
+export function markThinkingStep(agentId, tool, ok, hint, data) {
   const box = document.getElementById(`messages-${agentId}`);
   if (!box) return;
   const items = [...box.querySelectorAll(`.thinking-live-steps .thinking-step-item[data-tool="${tool}"].running`)];
@@ -267,9 +481,51 @@ export function markThinkingStep(agentId, tool, ok, hint) {
     err.textContent = hint;
     item.appendChild(err);
   }
+  if (ok && data) {
+    let detail = '';
+    if (data.file) {
+      const short = String(data.file).split(/[/\\]/).slice(-2).join('/');
+      detail = short;
+    } else if (data.files_committed) {
+      detail = `${data.files_committed} 个文件`;
+    } else if (data.task_status) {
+      detail = data.task_status;
+    }
+    if (detail) {
+      const tag = document.createElement('span');
+      tag.className = 'ts-file-tag';
+      tag.textContent = detail;
+      item.appendChild(tag);
+    }
+    if (data.diff) {
+      const toggle = document.createElement('span');
+      toggle.className = 'ts-diff-toggle';
+      toggle.textContent = '▸ diff';
+      const diffBlock = document.createElement('pre');
+      diffBlock.className = 'ts-diff-block hidden';
+      diffBlock.innerHTML = _renderDiff(data.diff);
+      toggle.onclick = () => {
+        diffBlock.classList.toggle('hidden');
+        toggle.textContent = diffBlock.classList.contains('hidden') ? '▸ diff' : '▾ diff';
+      };
+      item.appendChild(toggle);
+      item.appendChild(diffBlock);
+    }
+  }
   scrollBottom(agentId);
 }
 window.markThinkingStep = markThinkingStep;
+
+function _renderDiff(text) {
+  return text.split('\n').map(line => {
+    const esc = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (line.startsWith('+++') || line.startsWith('---')) return `<span class="diff-meta">${esc}</span>`;
+    if (line.startsWith('+')) return `<span class="diff-add">${esc}</span>`;
+    if (line.startsWith('-')) return `<span class="diff-del">${esc}</span>`;
+    if (line.startsWith('@@')) return `<span class="diff-hunk">${esc}</span>`;
+    return esc;
+  }).join('\n');
+}
 
 export function removeThinking(agentId) {
   document.querySelector(`#messages-${agentId} .thinking-msg`)?.remove();

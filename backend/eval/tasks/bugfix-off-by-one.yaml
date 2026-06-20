@@ -1,0 +1,25 @@
+id: bugfix-off-by-one
+title: 修正 sum_to 的差一错误
+category: bug-fix
+prompt: |
+  mathutil.py 里的 sum_to(n) 应返回 1 到 n（含 n）的累加和，但现在结果差一。
+  test_mathutil.py 在跑测试时失败了。请修 mathutil.py 让测试通过，不要改测试文件。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    mathutil.py: |
+      def sum_to(n):
+          # 应该是 1+2+...+n，但这里漏了 n
+          return sum(range(n))
+    test_mathutil.py: |
+      from mathutil import sum_to
+
+      def test_sum_to_5():
+          assert sum_to(5) == 15
+
+      def test_sum_to_1():
+          assert sum_to(1) == 1
+
+      def test_sum_to_0():
+          assert sum_to(0) == 0

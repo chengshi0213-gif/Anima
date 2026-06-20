@@ -94,6 +94,68 @@ function watchOverlay(id) {
   }).observe(ov, { attributes: true, attributeFilter: ['class'] });
 }
 
+// ── 消息操作层：hover 复制按钮 + GSAP 微弹入场（不改 chat.js，纯 DOM 增强）──
+function initMsgActions() {
+  // 注入 .msg-actions 到一条消息（idempotent）
+  function addCopyBtn(msgEl) {
+    if (msgEl.querySelector('.msg-actions')) return;
+    const body = msgEl.querySelector('.msg-body');
+    if (!body) return;
+    const bubble = body.querySelector('.msg-bubble');
+    if (!bubble) return;
+
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    actions.innerHTML = '<button class="msg-action-btn" data-action="copy" title="复制消息" aria-label="复制消息">⎘</button>';
+
+    const meta = body.querySelector('.msg-meta');
+    meta ? body.insertBefore(actions, meta) : body.appendChild(actions);
+
+    actions.addEventListener('click', e => {
+      const btn = e.target.closest('[data-action="copy"]');
+      if (!btn) return;
+      const text = (bubble.innerText || bubble.textContent || '').trim();
+      navigator.clipboard.writeText(text).then(() => {
+        btn.classList.add('copied');
+        btn.textContent = '✓';
+        window.toast?.('已复制');
+        setTimeout(() => { btn.classList.remove('copied'); btn.textContent = '⎘'; }, 1500);
+      }).catch(() => {});
+    });
+  }
+
+  // GSAP 微弹入场：back.out(1.15) 比纯 ease-out 多一点生命感
+  function enterMsg(msgEl) {
+    if (!ON) return;
+    msgEl.style.animation = 'none';      // 禁 CSS keyframe，由 GSAP 接管
+    g.set(msgEl, { opacity: 0, y: 10 }); // 等价 CSS animation "from" 态
+    g.to(msgEl, {
+      opacity: 1, y: 0,
+      duration: 0.38 * pace(),
+      ease: 'back.out(1.15)',
+      clearProps: 'transform,opacity',
+    });
+  }
+
+  // 已有消息仅注入按钮（不重新入场）
+  document.querySelectorAll('.msg').forEach(addCopyBtn);
+
+  // 监听新消息：注入按钮 + 入场动画
+  document.querySelectorAll('[id^="messages-"]').forEach(box => {
+    new MutationObserver(muts => {
+      muts.forEach(m => {
+        m.addedNodes.forEach(node => {
+          if (node.nodeType !== 1) return;
+          const msgs = node.classList?.contains('msg')
+            ? [node]
+            : [...(node.querySelectorAll?.('.msg') ?? [])];
+          msgs.forEach(msg => { addCopyBtn(msg); enterMsg(msg); });
+        });
+      });
+    }).observe(box, { childList: true });
+  });
+}
+
 // ══ 接线：包装既有 window.* 函数，纯增强 ══
 function wire() {
   // 概览加载完成后做进场
@@ -117,10 +179,13 @@ function wire() {
   }
   // 浮层弹入
   ['cmdOverlay', 'morningOverlay', 'onboardingOverlay'].forEach(watchOverlay);
+
+  // 消息操作层（复制按钮 + GSAP 入场）
+  initMsgActions();
 }
 
 // main.js 在所有模块之后 import 本文件；此时 window.* 已就绪
 wire();
 
 // 暴露给将来手动调用（如刷新概览）
-window.Anim = { animateOverview, animateAgentPanel, popOverlay, countUp };
+window.Anim = { animateOverview, animateAgentPanel, popOverlay, countUp, initMsgActions };

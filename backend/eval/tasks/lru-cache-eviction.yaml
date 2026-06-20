@@ -1,0 +1,82 @@
+id: lru-cache-eviction
+title: LRU 缓存命中后没刷新最近使用
+category: bug-fix
+prompt: |
+  lru.py 实现了一个固定容量的 LRU 缓存：get/put 命中即算"最近使用"，满了淘汰"最久未用"的那个。
+  现在 get 命中后忘了把它刷成最近使用，导致刚用过的反而被先淘汰。test_lru.py 是红的。
+  请修 lru.py 让测试通过，不要改测试文件。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    lru.py: |
+      class LRUCache:
+          """固定容量 LRU：dict 的插入顺序近似使用顺序，最前 = 最久未用。"""
+          def __init__(self, capacity):
+              self.capacity = capacity
+              self.store = {}
+
+          def get(self, key):
+              if key not in self.store:
+                  return -1
+              # bug: 命中后应把 key 刷到"最近使用"（移到末尾），这里直接返回没刷新
+              return self.store[key]
+
+          def put(self, key, value):
+              if key in self.store:
+                  del self.store[key]            # 重新插入以刷到末尾
+              elif len(self.store) >= self.capacity:
+                  oldest = next(iter(self.store))  # 最久未用 = 最前
+                  del self.store[oldest]
+              self.store[key] = value
+    test_lru.py: |
+      from lru import LRUCache
+
+      def test_basic():
+          c = LRUCache(2)
+          c.put(1, 1)
+          c.put(2, 2)
+          assert c.get(1) == 1
+          assert c.get(9) == -1
+
+      def test_get_refreshes_recency():
+          c = LRUCache(2)
+          c.put(1, 1)
+          c.put(2, 2)
+          assert c.get(1) == 1     # 用了 1 → 1 变最近，2 变最久
+          c.put(3, 3)              # 满，淘汰最久未用 = 2
+          assert c.get(2) == -1    # 2 被淘汰
+          assert c.get(1) == 1     # 1 还在（刚用过）
+          assert c.get(3) == 3
+
+      def test_put_update_refreshes():
+          c = LRUCache(2)
+          c.put(1, 1)
+          c.put(2, 2)
+          c.put(1, 10)             # 更新 1 → 1 变最近
+          c.put(3, 3)              # 淘汰最久 = 2
+          assert c.get(2) == -1
+          assert c.get(1) == 10
+solution:
+  files:
+    lru.py: |
+      class LRUCache:
+          """固定容量 LRU：dict 的插入顺序近似使用顺序，最前 = 最久未用。"""
+          def __init__(self, capacity):
+              self.capacity = capacity
+              self.store = {}
+
+          def get(self, key):
+              if key not in self.store:
+                  return -1
+              value = self.store.pop(key)
+              self.store[key] = value    # 重新插入 → 刷到末尾（最近使用）
+              return value
+
+          def put(self, key, value):
+              if key in self.store:
+                  del self.store[key]
+              elif len(self.store) >= self.capacity:
+                  oldest = next(iter(self.store))
+                  del self.store[oldest]
+              self.store[key] = value

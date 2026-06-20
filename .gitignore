@@ -17,6 +17,7 @@ backend/_*.log
 # Logs
 logs
 *.log
+*.log.err
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -91,3 +92,4 @@ _readme_lines.txt
 build_log.txt
 产品体验与品牌评估报告.md
 src/main.old.js
+.code_index_*.json

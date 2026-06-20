@@ -14,8 +14,18 @@ numpy>=1.26.0           # 向量运算
 openai>=1.30.0          # OpenAI 兼容协议（Qwen Embedding 用）
 dashscope>=1.14.0       # 通义千问 Embedding（可选）
 
+# ── 记忆语义检索（M4，可选，纯本地，守"绝不联网"）──
+# 模型文件（model.onnx + tokenizer.json，如 bge-small-zh-v1.5）需用户自行
+# 下载放到 ~/.anima/data/models/bge-small-zh-v1.5/；缺失时自动降级回纯 FTS5
+onnxruntime>=1.17.0     # 本地 ONNX 推理
+tokenizers>=0.15.0      # 本地分词
+
 # ── 命理排盘（晞 专用，确定性算法）──
 lunar-python>=1.4.0     # 农历/节气/八字四柱/藏干/十神/大运/纳音（纯 Python，无外部依赖）
+iztro-py==0.3.4         # 紫微斗数排盘（社区标准库 iztro 的纯 Python 移植，可 PyInstaller 打包）
+                        # 注意：必须 pin 0.3.4——divination/ziwei_engine.py 对其年界 bug
+                        # （立春 vs 正月初一）打了运行时补丁，依赖内部函数名稳定；升级前先跑
+                        # tests/test_ziwei_crossval.py 确认补丁仍生效。
 
 # ── 定时任务 ──
 apscheduler>=3.10.0
@@ -32,6 +42,10 @@ cryptography>=42.0      # 回调消息 AES-CBC 加解密（WXBizMsgCrypt）
 # ── 集成：桌面操作（computer use，可选，用户授权后才生效）──
 pyautogui>=0.9.54       # 鼠标/键盘控制
 pillow>=10.0            # 截屏（ImageGrab）
+
+# ── MCP 外部工具（Model Context Protocol，M11，可选）──
+# 一个协议接入无限外部工具。未安装则 MCP 功能自动跳过，不影响其它能力。
+mcp>=1.0                # 官方 MCP Python SDK（需 Python 3.10+）
 
 # ── 打包 ──
 pyinstaller>=6.0        # 打包为单文件 exe

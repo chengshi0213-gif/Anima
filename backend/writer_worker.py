@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from agent_base import AgentBase
 from config import KIMI_KEY
+from persona import _VOICE_CORE
 from xi_worker import _read_file, _write_file
 
 WRITER_SYSTEM_PROMPT = """你是写手，陶朱公司的内容创作专员。专注文字输出，由陶朱 CEO 调度。
@@ -23,7 +24,7 @@ WRITER_SYSTEM_PROMPT = """你是写手，陶朱公司的内容创作专员。专
 - 技术文档 / README / API 说明
 - 营销文案 / 推广内容
 - 报告摘要 / 会议纪要 / 复盘文档
-"""
+""" + _VOICE_CORE
 
 
 class WriterWorker(AgentBase):

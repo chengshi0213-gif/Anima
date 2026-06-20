@@ -127,7 +127,65 @@
     }
   }
 
-  window.PersonaWF = { init, addNode, exportGraph, clear, importGraph, get editor() { return editor; } };
+  // ── W1: 画布节点执行状态可视化 ────────────────────────────────
+  // setNodeExecState(nodeId, 'running'|'done'|'error', outputText?)
+  // 在 Drawflow 节点上叠加执行状态徽章 + glow
+  function setNodeExecState(nodeId, status, outputText) {
+    const el = document.getElementById(`node-${nodeId}`);
+    if (!el) return;
+    el.classList.remove('wfx-exec-running', 'wfx-exec-done', 'wfx-exec-error');
+    if (status) el.classList.add(`wfx-exec-${status}`);
+
+    let badge = el.querySelector('.wfx-exec-badge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = 'wfx-exec-badge';
+      const content = el.querySelector('.drawflow_content_node');
+      if (content) content.appendChild(badge);
+    }
+    if (status === 'running') {
+      badge.innerHTML = '<span class="wfx-spin-icon">◌</span> 执行中…';
+    } else if (status === 'done') {
+      const preview = outputText ? String(outputText).slice(0, 90) + (outputText.length > 90 ? '…' : '') : '完成';
+      badge.innerHTML = `<span style="color:#16a34a">✓</span> ${preview}`;
+    } else if (status === 'error') {
+      badge.innerHTML = '<span style="color:#dc2626">✕</span> 执行出错';
+    } else {
+      badge.remove();
+    }
+  }
+
+  // 清除所有节点的执行状态（新轮次运行前调用）
+  function clearExecState() {
+    document.querySelectorAll('.drawflow-node.wfx-exec-running, .drawflow-node.wfx-exec-done, .drawflow-node.wfx-exec-error').forEach(el => {
+      el.classList.remove('wfx-exec-running', 'wfx-exec-done', 'wfx-exec-error');
+      el.querySelector('.wfx-exec-badge')?.remove();
+    });
+  }
+
+  // ── GSAP 节点出现动画（importGraph 后调用）─────────────────────
+  function _animateNodesIn() {
+    if (!window.gsap) return;
+    const nodes = document.querySelectorAll('#wfCanvas .drawflow-node');
+    if (!nodes.length) return;
+    gsap.fromTo(nodes,
+      { opacity: 0, scale: 0.82, y: 16 },
+      { opacity: 1, scale: 1, y: 0, duration: 0.38, ease: 'back.out(1.5)', stagger: 0.06, clearProps: 'scale,y' }
+    );
+  }
+
+  // 把后端图 / 模板（线性 steps 或 graph）导入画布（重写以加动画）
+  const _origImportGraph = importGraph;
+  function importGraphAnimated(g) {
+    _origImportGraph(g);
+    // rAF 确保 Drawflow 渲染完毕再做动画
+    requestAnimationFrame(() => requestAnimationFrame(_animateNodesIn));
+  }
+
+  window.PersonaWF = { init, addNode, exportGraph, clear,
+    importGraph: importGraphAnimated,
+    setNodeExecState, clearExecState,
+    get editor() { return editor; } };
   // 兼容旧调用：palette 按钮的 wfAddStep 改为加节点
   window.wfAddNode = addNode;
 })();

@@ -1,0 +1,108 @@
+id: unicode-normalize-strip
+title: 共享文本工具意外剥离非 ASCII 字符
+category: bug-fix
+prompt: |
+  test_registration.py 测试用户注册流程。有测试失败——注册名字中含非 ASCII 字符
+  （如带音调的拉丁字母）时，存储的名字缺了字符。
+  registration.py 本身没有做字符处理，bug 藏在依赖里。项目有多个文件，请定位
+  真正出问题的那一环并修好，让测试全绿。不要改测试文件。
+verify: "{py} -m pytest -q"
+timeout: 120
+setup:
+  files:
+    text_utils.py: |
+      def normalize_text(s):
+          """去首尾空格、合并连续空格。"""
+          cleaned = s.encode("ascii", "ignore").decode("ascii")
+          return " ".join(cleaned.split())
+
+    validation.py: |
+      from text_utils import normalize_text
+
+      def validate_name(name):
+          normalized = normalize_text(name)
+          if len(normalized) < 2:
+              raise ValueError("名字至少 2 个字符")
+          return normalized
+
+      def validate_email(email):
+          if "@" not in email or "." not in email.split("@")[1]:
+              raise ValueError("邮箱格式不正确")
+          return email.strip().lower()
+
+    user_store.py: |
+      _users = {}
+
+      def save_user(uid, data):
+          _users[uid] = data
+          return uid
+
+      def get_user(uid):
+          return _users.get(uid)
+
+      def clear_store():
+          _users.clear()
+
+    registration.py: |
+      from validation import validate_name, validate_email
+      from user_store import save_user
+
+      _next_id = [0]
+
+      def register(name, email):
+          clean_name = validate_name(name)
+          clean_email = validate_email(email)
+          _next_id[0] += 1
+          uid = _next_id[0]
+          data = {"id": uid, "name": clean_name, "email": clean_email}
+          save_user(uid, data)
+          return data
+
+    password_utils.py: |
+      import hashlib
+
+      def hash_password(pw):
+          return hashlib.sha256(pw.encode()).hexdigest()
+
+      def check_password(pw, hashed):
+          return hash_password(pw) == hashed
+
+    audit_log.py: |
+      _log = []
+
+      def log_event(event_type, details):
+          _log.append({"type": event_type, "details": details})
+
+      def get_log():
+          return list(_log)
+
+    test_registration.py: |
+      from registration import register
+      from user_store import clear_store
+
+      def setup_function():
+          clear_store()
+
+      def test_basic():
+          result = register("Alice", "alice@example.com")
+          assert result["name"] == "Alice"
+          assert result["email"] == "alice@example.com"
+
+      def test_unicode_name():
+          result = register("José García", "jose@example.com")
+          assert result["name"] == "José García"
+
+      def test_email_lowercase():
+          result = register("Bob", "Bob@EXAMPLE.COM")
+          assert result["email"] == "bob@example.com"
+
+      def test_name_too_short():
+          import pytest
+          with pytest.raises(ValueError, match="至少 2 个字符"):
+              register("A", "a@b.com")
+solution:
+  files:
+    text_utils.py: |
+      def normalize_text(s):
+          """去首尾空格、合并连续空格。"""
+          return " ".join(s.split())
