@@ -29,6 +29,9 @@ _DEFAULT_DB = Path.home() / ".anima" / "data" / "memory.db"
 # M10：偏好规则文本相似度 ≥ 此值视为同一条规则的更新（合并而非新增）
 PREF_RULE_MERGE_THRESHOLD = 0.5
 
+# P0：单条记忆的演化历史最多保留段数，防高频翻烧的 key 让 memory_history 无限膨胀
+MAX_HISTORY_PER_ENTRY = 20
+
 _SCHEMA = """
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
@@ -47,6 +50,22 @@ CREATE TABLE IF NOT EXISTS memories (
 );
 CREATE INDEX IF NOT EXISTS idx_mem_agent ON memories(agent_id);
 CREATE INDEX IF NOT EXISTS idx_mem_cat   ON memories(category);
+
+-- P0 演化时间线：被取代的旧值进这里（不再原地蒸发），保留生效区间与来源。
+-- 不挂 FTS/向量触发器——旧值不该被检索召回。
+CREATE TABLE IF NOT EXISTS memory_history (
+    id          TEXT PRIMARY KEY,
+    entry_id    TEXT NOT NULL,        -- → memories.id
+    key         TEXT NOT NULL,
+    value       TEXT NOT NULL,        -- 旧值
+    category    TEXT,
+    importance  INTEGER,
+    valid_from  TEXT NOT NULL,        -- 旧值何时生效（= 旧行 updated_at）
+    valid_to    TEXT NOT NULL,        -- 何时被取代（= now）
+    source      TEXT,                 -- 旧值的来源（渠道/房间）
+    reason      TEXT                  -- 'update' | 'merge'
+);
+CREATE INDEX IF NOT EXISTS idx_memhist_entry ON memory_history(entry_id);
 
 -- 语义向量（M4，本地 embedding 可用时写入；缺失不影响主表）
 CREATE TABLE IF NOT EXISTS memory_vectors (
@@ -135,6 +154,8 @@ class SQLiteMemoryBackend(MemoryBackend):
                 conn.execute("ALTER TABLE memories ADD COLUMN remind_at TEXT")
             if "last_accessed" not in cols:
                 conn.execute("ALTER TABLE memories ADD COLUMN last_accessed TEXT")
+            if "source" not in cols:
+                conn.execute("ALTER TABLE memories ADD COLUMN source TEXT")
 
     @staticmethod
     def _row(row: sqlite3.Row) -> MemoryEntry:
@@ -149,6 +170,7 @@ class SQLiteMemoryBackend(MemoryBackend):
             updated_at=row["updated_at"],
             remind_at=row["remind_at"],
             last_accessed=row["last_accessed"] if "last_accessed" in row.keys() else None,
+            source=row["source"] if "source" in row.keys() else None,
         )
 
     # ── 核心操作 ─────────────────────────────────────────────────
@@ -173,27 +195,51 @@ class SQLiteMemoryBackend(MemoryBackend):
               category: str = "general",
               agent_id: Optional[str] = None,
               importance: int = 3,
-              remind_at: Optional[str] = None) -> str:
+              remind_at: Optional[str] = None,
+              source: Optional[str] = None) -> str:
         now = time.strftime("%Y-%m-%dT%H:%M:%S")
         with self._conn() as conn:
             # upsert by key + agent_id
             existing = conn.execute(
-                "SELECT id FROM memories WHERE key = ? AND (agent_id IS ? OR agent_id = ?)",
+                "SELECT * FROM memories WHERE key = ? AND (agent_id IS ? OR agent_id = ?)",
                 [key, agent_id, agent_id],
             ).fetchone()
             if existing:
                 eid = existing["id"]
+                old_src = existing["source"] if "source" in existing.keys() else None
+                # P0 演化时间线：值真的变了才把旧值（连同其来源）归档，旧值不再原地蒸发
+                if existing["value"] != value:
+                    conn.execute(
+                        """INSERT INTO memory_history
+                           (id, entry_id, key, value, category, importance,
+                            valid_from, valid_to, source, reason)
+                           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                        [str(uuid.uuid4()), eid, existing["key"], existing["value"],
+                         existing["category"], existing["importance"],
+                         existing["updated_at"], now, old_src, "update"],
+                    )
+                    # 留存封顶：单条记忆只保留最近 MAX_HISTORY_PER_ENTRY 段历史
+                    conn.execute(
+                        """DELETE FROM memory_history
+                           WHERE entry_id = ? AND id NOT IN (
+                               SELECT id FROM memory_history WHERE entry_id = ?
+                               ORDER BY valid_to DESC LIMIT ?
+                           )""",
+                        [eid, eid, MAX_HISTORY_PER_ENTRY],
+                    )
+                # 来源缺省（None）时保留旧来源，避免无 source 的直写路径抹掉 provenance
+                new_src = source if source is not None else old_src
                 conn.execute(
-                    "UPDATE memories SET value=?, category=?, importance=?, updated_at=?, remind_at=? WHERE id=?",
-                    [value, category, importance, now, remind_at, eid],
+                    "UPDATE memories SET value=?, category=?, importance=?, updated_at=?, remind_at=?, source=? WHERE id=?",
+                    [value, category, importance, now, remind_at, new_src, eid],
                 )
             else:
                 eid = str(uuid.uuid4())
                 conn.execute(
                     """INSERT INTO memories
-                       (id, agent_id, category, key, value, importance, created_at, updated_at, remind_at)
-                       VALUES (?,?,?,?,?,?,?,?,?)""",
-                    [eid, agent_id, category, key, value, importance, now, now, remind_at],
+                       (id, agent_id, category, key, value, importance, created_at, updated_at, remind_at, source)
+                       VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                    [eid, agent_id, category, key, value, importance, now, now, remind_at, source],
                 )
             self._upsert_vector(conn, eid, key, value)
         return eid
@@ -318,6 +364,15 @@ class SQLiteMemoryBackend(MemoryBackend):
                 ).fetchall()
         return [self._row(r) for r in rows]
 
+    def history(self, entry_id: str) -> list[dict]:
+        """P0 演化时间线：返回某条记忆被取代过的旧值，按 valid_to 倒序（最近一次变更在前）。"""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM memory_history WHERE entry_id = ? ORDER BY valid_to DESC",
+                [entry_id],
+            ).fetchall()
+        return [dict(r) for r in rows]
+
     def due_reminders(self,
                       agent_id: Optional[str] = None,
                       within_days: int = 1) -> list[MemoryEntry]:
@@ -356,12 +411,19 @@ class SQLiteMemoryBackend(MemoryBackend):
             rows = conn.execute(
                 "SELECT * FROM memories ORDER BY created_at"
             ).fetchall()
+            try:
+                hist = conn.execute(
+                    "SELECT * FROM memory_history ORDER BY valid_to"
+                ).fetchall()
+            except Exception:
+                hist = []
         return {
             "backend":     "sqlite",
             "version":     1,
             "exported_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "db_path":     str(self._db_path),
             "memories":    [dict(r) for r in rows],
+            "history":     [dict(r) for r in hist],
         }
 
     def import_snapshot(self, data: dict, merge: bool = True) -> int:
@@ -374,8 +436,8 @@ class SQLiteMemoryBackend(MemoryBackend):
                 with self._conn() as conn:
                     conn.execute(
                         f"""{policy} INTO memories
-                            (id, agent_id, category, key, value, importance, created_at, updated_at, remind_at)
-                            VALUES (?,?,?,?,?,?,?,?,?)""",
+                            (id, agent_id, category, key, value, importance, created_at, updated_at, remind_at, source)
+                            VALUES (?,?,?,?,?,?,?,?,?,?)""",
                         [eid,
                          m.get("agent_id"),
                          m.get("category", "general"),
@@ -384,9 +446,32 @@ class SQLiteMemoryBackend(MemoryBackend):
                          int(m.get("importance", 3)),
                          m.get("created_at", now),
                          m.get("updated_at", now),
-                         m.get("remind_at")],
+                         m.get("remind_at"),
+                         m.get("source")],
                     )
                 count += 1
+            except Exception:
+                pass
+        # P0 演化时间线随快照一并迁移（旧快照无 history 字段则自然跳过）
+        for h in data.get("history", []):
+            try:
+                with self._conn() as conn:
+                    conn.execute(
+                        """INSERT OR IGNORE INTO memory_history
+                           (id, entry_id, key, value, category, importance,
+                            valid_from, valid_to, source, reason)
+                           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                        [h.get("id") or str(uuid.uuid4()),
+                         h.get("entry_id", ""),
+                         h.get("key", ""),
+                         h.get("value", ""),
+                         h.get("category"),
+                         h.get("importance"),
+                         h.get("valid_from", now),
+                         h.get("valid_to", now),
+                         h.get("source"),
+                         h.get("reason", "update")],
+                    )
             except Exception:
                 pass
         return count

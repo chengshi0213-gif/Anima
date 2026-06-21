@@ -141,7 +141,13 @@ async def main():
     app.router.add_options("/{tail:.*}", _options)
 
     # ── 启动调度器 & 文件监视器 ──
-    async def _run_agent(agent_id: str, prompt: str):
+    async def _run_agent(agent_id: str, prompt: str, source: str = "desktop"):
+        # Slice B：把渠道来源写进当前任务上下文，供 remember 写入标记 provenance
+        try:
+            import memory_injector
+            memory_injector.CURRENT_SOURCE.set(source)
+        except Exception:
+            pass
         srv = servers.get(agent_id)
         if not srv:
             return f"错误：未知 agent {agent_id}"
@@ -189,7 +195,8 @@ async def main():
     # ── 飞书双向机器人：接线主循环 + 人格入口，按配置自动启动 ──
     try:
         import feishu_bot
-        feishu_bot.bot.configure(_run_agent, asyncio.get_running_loop())
+        feishu_bot.bot.configure(
+            lambda a, p: _run_agent(a, p, "feishu"), asyncio.get_running_loop())
         if feishu_bot.load_config().get("enabled"):
             res = feishu_bot.bot.start()
             print(f"  飞书机器人: {'已启动' if res.get('ok') else '启动失败 ' + str(res.get('error'))}")
@@ -199,7 +206,8 @@ async def main():
     # ── 企业微信 / 公众号：回调模式，接线人格入口（端点常驻，按需启用）──
     try:
         import wechat_bot
-        wechat_bot.bot.configure(_run_agent, asyncio.get_running_loop())
+        wechat_bot.bot.configure(
+            lambda a, p: _run_agent(a, p, "wechat"), asyncio.get_running_loop())
         if wechat_bot.load_config().get("enabled"):
             print("  企业微信/公众号: 已启用（回调端点 /integrations/wechat/callback）")
     except Exception as _e:
@@ -208,7 +216,8 @@ async def main():
     # ── QQ 机器人：OneBot v11 反向 WebSocket，接线人格入口 ──
     try:
         import qq_bot
-        qq_bot.bot.configure(_run_agent, asyncio.get_running_loop())
+        qq_bot.bot.configure(
+            lambda a, p: _run_agent(a, p, "qq"), asyncio.get_running_loop())
         if qq_bot.load_config().get("enabled"):
             print("  QQ 机器人: 已启用（等待 NapCat 反向 WS 连接）")
     except Exception as _e:

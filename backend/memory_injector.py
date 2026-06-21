@@ -12,6 +12,7 @@ Agent 代码、websocket_server.py 只调用这里的函数，
 """
 from __future__ import annotations
 
+import contextvars
 import difflib
 import json
 import logging
@@ -29,6 +30,12 @@ from memory_backend import (
 )
 
 _log = logging.getLogger(__name__)
+
+# P0 Slice B：当前写入来源（渠道/房间）。由各入口在调用 worker.run 前设置，
+# 经 contextvars 透传到本任务内的 remember 写入；默认桌面端。
+# 桌面 WS 默认 "desktop"；飞书/微信/QQ 入口分别设 "feishu"/"wechat"/"qq"。
+CURRENT_SOURCE: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "mem_source", default="desktop")
 
 # ── 单例 & 候选条目缓存 ──────────────────────────────────────────
 _backend: Optional[MemoryBackend] = None
@@ -407,9 +414,10 @@ def write_memory(key: str,
                  category: str = "general",
                  agent_id: Optional[str] = None,
                  importance: int = 3,
-                 remind_at: Optional[str] = None) -> str:
+                 remind_at: Optional[str] = None,
+                 source: Optional[str] = None) -> str:
     """写入一条记忆，返回 entry id（不经过 M3 闸门，供 SOP/导入/管理类直写场景）"""
-    eid = get_backend().write(key, value, category, agent_id, importance, remind_at)
+    eid = get_backend().write(key, value, category, agent_id, importance, remind_at, source)
     invalidate_cache(agent_id)
     return eid
 
@@ -457,7 +465,8 @@ def write_memory_gated(key: str,
                        category: str = "general",
                        agent_id: Optional[str] = None,
                        importance: int = 3,
-                       remind_at: Optional[str] = None) -> dict:
+                       remind_at: Optional[str] = None,
+                       source: Optional[str] = None) -> dict:
     """记忆写入闸门（M3）——供 remember 等会话内写入路径使用。
 
     依次校验：
@@ -496,7 +505,9 @@ def write_memory_gated(key: str,
             key = existing.key
             merged = True
 
-    eid = get_backend().write(key, value, category, agent_id, importance, remind_at)
+    # 来源未显式传入时，取当前任务的渠道上下文（Slice B），默认 "desktop"
+    eff_source = source if source is not None else CURRENT_SOURCE.get()
+    eid = get_backend().write(key, value, category, agent_id, importance, remind_at, eff_source)
     _SESSION_WRITE_COUNT[session_key] = count + 1
     if agent_id:
         _INJECT_CACHE.pop(agent_id, None)
@@ -577,6 +588,45 @@ def delete_memory(entry_id: str) -> bool:
     result = get_backend().delete(entry_id)
     invalidate_cache()
     return result
+
+
+def get_memory_timeline(key: str, agent_id: Optional[str] = None) -> dict:
+    """P0 演化时间线：返回某条记忆的当前值 + 历次被取代的旧值（含来源、生效区间）。
+    供「她记得什么」面板与「曾是X现在Y」展示。找不到该 key 返回 {"found": False}。
+    后端不支持 history（如 Obsidian）时 history 返回空列表，不报错。"""
+    backend = get_backend()
+    norm = key.strip().lower()
+    target = next(
+        (e for e in backend.list_all(agent_id) if e.key.strip().lower() == norm),
+        None,
+    )
+    if target is None:
+        return {"found": False, "key": key}
+    history: list[dict] = []
+    if hasattr(backend, "history"):
+        try:
+            history = backend.history(target.id)
+        except Exception:
+            history = []
+    return {
+        "found": True,
+        "key": target.key,
+        "current": {
+            "value":      target.value,
+            "category":   target.category,
+            "importance": target.importance,
+            "valid_from": target.updated_at,
+            "source":     target.source,
+        },
+        "history": [
+            {"value":      h.get("value"),
+             "valid_from": h.get("valid_from"),
+             "valid_to":   h.get("valid_to"),
+             "source":     h.get("source"),
+             "reason":     h.get("reason")}
+            for h in history
+        ],
+    }
 
 
 # ── 项目上下文（保持向后兼容）───────────────────────────────────

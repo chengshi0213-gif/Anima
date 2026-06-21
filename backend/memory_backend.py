@@ -29,6 +29,7 @@ class MemoryEntry:
     updated_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
     remind_at: Optional[str] = None   # M8 式④：到期提醒日期，"YYYY-MM-DD"，仅 C 层有意义
     last_accessed: Optional[str] = None  # M7：最近一次被注入/检索的时间
+    source: Optional[str] = None      # P0：来源标记（渠道/房间，如 "feishu" "desktop:work"），None=未知
 
     def to_dict(self) -> dict:
         return {
@@ -38,6 +39,7 @@ class MemoryEntry:
             "created_at": self.created_at, "updated_at": self.updated_at,
             "remind_at": self.remind_at,
             "last_accessed": self.last_accessed,
+            "source": self.source,
         }
 
 
@@ -119,9 +121,12 @@ class MemoryBackend(ABC):
               category: str = "general",
               agent_id: Optional[str] = None,
               importance: int = 3,
-              remind_at: Optional[str] = None) -> str:
+              remind_at: Optional[str] = None,
+              source: Optional[str] = None) -> str:
         """写入一条记忆，返回 entry id（同 key 则更新）。
-        remind_at（M8 式④）：可选的到期提醒日期 "YYYY-MM-DD"。"""
+        remind_at（M8 式④）：可选的到期提醒日期 "YYYY-MM-DD"。
+        source（P0）：可选的来源标记（渠道/房间）；同 key 更新时旧值连同其来源
+                     归档进演化时间线，不再原地蒸发。"""
 
     @abstractmethod
     def search(self,
