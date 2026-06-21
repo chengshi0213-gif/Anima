@@ -4,9 +4,9 @@
 test_community_skills.py — 社区扩展包 + 内置 skill 总量与完整性测试
 
 锁定：
-  - community_skills 恰好 70 个，id 唯一、必填字段齐全；
-  - 与原内置 30 个无 id 冲突；
-  - 合并后 BUILTIN_SKILLS 恰好 100 个；
+  - community_skills id 唯一、必填字段齐全（数量随版本增长）；
+  - 与原内置核心技能无 id 冲突；
+  - 合并后 BUILTIN_SKILLS id 无重复；
   - 每个新 skill 落盘后能取到非空 system_prompt（premium 在 Pro 下可取）。
 """
 from __future__ import annotations
@@ -21,8 +21,9 @@ import community_skills as cs  # noqa: E402
 import skill_manager as sm     # noqa: E402
 
 
-def test_community_count_is_70():
-    assert len(cs.COMMUNITY_SKILLS) == 70
+def test_community_count_at_least_70():
+    # 只保底不上封顶——新增 skill 不应让测试失败
+    assert len(cs.COMMUNITY_SKILLS) >= 70
 
 
 def test_community_ids_unique_and_fields_complete():
@@ -45,10 +46,10 @@ def test_no_overlap_with_original_builtin():
     assert core_free.isdisjoint(comm_ids)
 
 
-def test_merged_builtin_total_is_100():
+def test_merged_builtin_no_duplicate_ids():
     ids = [s["id"] for s in sm.BUILTIN_SKILLS]
-    assert len(ids) == 100
-    assert len(set(ids)) == 100
+    assert len(ids) == len(set(ids)), "BUILTIN_SKILLS 存在重复 id"
+    assert len(ids) >= 100, f"skill 总数不应少于 100，当前 {len(ids)}"
 
 
 def test_new_skills_yield_prompt_after_init():

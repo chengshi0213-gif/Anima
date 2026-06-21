@@ -185,7 +185,7 @@ BUILTIN_SKILLS = [
         "name": "工作流构建",
         "category": "自动化",
         "icon": "⚡",
-        "description": "你只需要用自然语言描述「我想自动做什么」，Anima 就会帮你设计工作流、选择合适的工具和 Skill，并直接在画布上搭好，缺的东西也会帮你装好。",
+        "description": "你只需要用自然语言描述「我想自动做什么」，Anima 就会帮你拆解成节点列表、选择合适的工具和 Skill、生成可落地的工作流 JSON 配置，缺的依赖也会列出来。",
         "use_cases": ["自动化重复任务", "定时执行任务", "多步骤任务编排"],
         "system_prompt": """启用工作流构建模式。
 步骤：
@@ -227,28 +227,6 @@ BUILTIN_SKILLS = [
         "usage_count": 0,
         "tags": ["调研", "搜索", "信息收集"],
     },
-    {
-        "id": "info_search",
-        "premium": True,
-        "name": "信息搜索",
-        "category": "调研",
-        "icon": "🌐",
-        "description": "多渠道搜索新产品新技术，交叉验证后存入知识库。当你说「最新信息」「新产品」「查资料」「了解XX」时自动启用。",
-        "use_cases": ["搜索最新信息", "了解新产品", "查阅资料", "验证信息真伪"],
-        "system_prompt": """启用信息搜索模式。
-步骤：
-1. 解析用户的搜索意图（产品/技术/概念/事件？）
-2. 多渠道搜索：官网 → 行业媒体 → 社区讨论 → 学术论文
-3. 交叉验证：至少2个独立来源确认关键事实
-4. 时效性标注：标明信息的发布时间
-5. 结构化输出：核心结论 + 详细发现 + 存疑点
-注意：明确区分「已验证」和「待验证」信息，绝不编造。""",
-        "version": 1,
-        "avg_score": 4.2,
-        "usage_count": 0,
-        "tags": ["搜索", "验证", "知识库"],
-    },
-
     # ━━ 内容创作类 ━━
     {
         "id": "topic_generation",
@@ -323,33 +301,6 @@ BUILTIN_SKILLS = [
 
     # ━━ 文本优化类 ━━
     {
-        "id": "ai_proofreading",
-        "premium": True,
-        "name": "AI味审校",
-        "category": "写作",
-        "icon": "🧹",
-        "description": "三遍审校降低AI检测率，让文章更有人味。当你觉得内容「像AI写的」「太模板化」时使用。",
-        "use_cases": ["降低AI检测率", "去除模板感", "增加人味", "文章审校"],
-        "system_prompt": """启用AI味审校模式（三遍审校法）。
-第一遍·结构审校：
-- 去掉「首先/其次/最后」三段式
-- 合并过度分段，让节奏更自然
-- 删除多余的过渡句
-第二遍·语言审校：
-- 替换AI高频词（赋能/助力/深度/全面/一站式/无缝/打造）
-- 去掉空洞的排比和对仗
-- 让长句变短，让短句有节奏
-第三遍·人味注入：
-- 加入具体的观察和细节
-- 用口语化表达替代书面语
-- 保留适度的不完美（犹豫、转折、自嘲）
-输出：修改后全文 + 改动汇总。""",
-        "version": 1,
-        "avg_score": 4.4,
-        "usage_count": 0,
-        "tags": ["审校", "去AI味", "人味"],
-    },
-    {
         "id": "natural_writing",
         "premium": True,
         "name": "说人话",
@@ -375,33 +326,6 @@ BUILTIN_SKILLS = [
         "usage_count": 0,
         "tags": ["说人话", "自然", "去模板"],
     },
-    {
-        "id": "text_humanizer",
-        "premium": True,
-        "name": "文本人性化",
-        "category": "写作",
-        "icon": "🤝",
-        "description": "去除文本中的AI生成痕迹，基于常见AI写作特征进行系统检测和修复。适合编辑或审阅文本使其更自然。",
-        "use_cases": ["去AI痕迹", "文本自然化", "审阅修改", "人工感提升"],
-        "system_prompt": """启用文本人性化模式。
-检测并修复以下AI写作特征：
-1. 夸大的象征意义（把普通事件上升到人类命运）
-2. 宣传性语言（革命性/颠覆性/划时代）
-3. 模糊归因（「有人说」「研究表明」但不给来源）
-4. 破折号过度使用
-5. 否定式排比（不是A，不是B，而是C）
-6. 过多连接性短语（然而/不仅如此/值得注意的是）
-7. 空洞总结段（将已说过的内容重复一遍）
-修复原则：
-- 删除比替换好，简短比冗长好
-- 保留作者的核心论点和专业术语
-- 用具体替代抽象，用事实替代感叹""",
-        "version": 1,
-        "avg_score": 4.3,
-        "usage_count": 0,
-        "tags": ["人性化", "去AI", "编辑"],
-    },
-
     # ━━ 视频制作类 ━━
     {
         "id": "short_video_script",
@@ -542,7 +466,7 @@ BUILTIN_SKILLS = [
         "name": "演示文稿制作",
         "category": "设计",
         "icon": "📊",
-        "description": "从内容到成品PPTX的端到端演示文稿制作，含AI插画生成和多种设计风格。",
+        "description": "端到端演示文稿内容设计：梳理结构、逐页写稿、配色字体建议、AI插图提示词，输出可直接搬进 Keynote/PowerPoint 的完整内容稿。",
         "use_cases": ["做PPT", "做幻灯片", "演示文稿", "Keynote"],
         "system_prompt": """启用演示文稿制作模式。
 工作流：Content → Design → Build → Assembly → Polish
@@ -763,33 +687,6 @@ BUILTIN_SKILLS = [
         "usage_count": 0,
         "tags": ["演讲", "培训", "分享"],
     },
-    {
-        "id": "image_generation",
-        "premium": True,
-        "name": "智能配图",
-        "category": "设计",
-        "icon": "🖼️",
-        "description": "为文章自动生成配图并插入Markdown链接。支持AI生成创意图和HTML渲染信息图两种模式。",
-        "use_cases": ["文章配图", "插图生成", "信息图制作", "配图上传"],
-        "system_prompt": """启用智能配图模式。
-流程：
-1. 分析文章内容，识别配图点（转折处、核心观点处、数据处）
-2. 判断配图类型：
-   - 氛围/概念图 → AI图像生成
-   - 数据/流程/对比 → HTML渲染
-   - 截图/实拍 → 提示用户提供
-3. 为每个配图点生成方案：
-   - 构图描述
-   - 色调（与文章情绪匹配）
-   - 尺寸建议
-4. 生成AI提示词（中英双语）
-5. 插入Markdown图片链接
-原则：配图服务于内容，不喧宾夺主。""",
-        "version": 1,
-        "avg_score": 4.1,
-        "usage_count": 0,
-        "tags": ["配图", "AI生成", "插图"],
-    },
 ]
 
 
@@ -865,9 +762,10 @@ def _write_skill_file(skill: dict):
 
 # ── 公开 API ────────────────────────────────────────────
 def init_builtin_skills():
-    """首次运行时初始化内置 Skill"""
+    """首次运行时初始化内置 Skill；并对账清理已下线的内置 Skill。"""
     reg = _load_registry()
     changed = False
+    builtin_ids = {s["id"] for s in BUILTIN_SKILLS}
     for skill in BUILTIN_SKILLS:
         sid = skill["id"]
         if sid not in reg["skills"]:
@@ -885,6 +783,20 @@ def init_builtin_skills():
                 "source": "builtin", "enabled": True,
             }
             changed = True
+
+    # 对账：清掉已从 BUILTIN_SKILLS 移除的内置 Skill（仅 source==builtin，
+    # 不动用户从 GitHub 装的 community 和随包分发的 bundle/bundled）。
+    for sid in [s for s, info in reg["skills"].items()
+                if info.get("source") == "builtin" and s not in builtin_ids]:
+        reg["skills"].pop(sid, None)
+        p = _skill_path(sid)
+        if p.exists():
+            try:
+                p.unlink()
+            except Exception:
+                pass
+        changed = True
+
     if changed:
         _save_registry(reg)
 
