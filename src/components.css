@@ -319,6 +319,146 @@
 }
 .mcp-tool span { color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; }
 
+/* ── 消息渠道接入（飞书/微信/QQ）── */
+.chan-tabs {
+  display: flex; gap: 4px; margin-bottom: 16px;
+  border-bottom: 1px solid var(--color-border); padding-bottom: 0;
+}
+.chan-tab {
+  padding: 7px 18px; border-radius: 8px 8px 0 0; border: none;
+  font-size: var(--text-sm); font-weight: 600; cursor: pointer;
+  background: none; color: var(--color-text-muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color .15s, border-color .15s;
+}
+.chan-tab:hover { color: var(--color-text); }
+.chan-tab.active { color: var(--color-text); border-bottom-color: var(--color-accent, #7C3AED); }
+.chan-panel { display: none; }
+.chan-panel.active { display: block; }
+.chan-recommend {
+  display: flex; align-items: center; gap: 8px;
+  background: color-mix(in srgb, #5F8A5B 7%, transparent);
+  border: 1px solid color-mix(in srgb, #5F8A5B 20%, transparent);
+  border-radius: var(--radius); padding: 8px 12px; margin-bottom: 14px;
+}
+.chan-rec-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  background: #5F8A5B; color: #fff; border-radius: 4px; padding: 2px 6px;
+}
+.chan-notice {
+  background: color-mix(in srgb, #D97706 8%, transparent);
+  border: 1px solid color-mix(in srgb, #D97706 25%, transparent);
+  border-radius: var(--radius); padding: 8px 12px;
+  font-size: var(--text-xs); color: #D97706; margin-bottom: 14px;
+}
+.chan-steps { margin-bottom: 4px; }
+.chan-step-title {
+  font-size: var(--text-xs); font-weight: 700; color: var(--color-text-muted);
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px;
+}
+.chan-step {
+  display: flex; gap: 10px; align-items: flex-start;
+  font-size: var(--text-xs); color: var(--color-text-muted);
+  line-height: 1.6; padding: 4px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+}
+.chan-step:last-child { border-bottom: none; }
+.chan-step-num {
+  flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--color-accent, #7C3AED); color: #fff;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; margin-top: 1px;
+}
+.chan-link {
+  color: var(--color-accent, #7C3AED); text-decoration: none; font-weight: 600;
+}
+.chan-link:hover { text-decoration: underline; }
+.chan-input {
+  border: 1px solid var(--color-border); border-radius: 6px;
+  padding: 7px 10px; font-size: var(--text-sm);
+  background: var(--color-surface-2); color: var(--color-text);
+  width: 100%; box-sizing: border-box; font-family: var(--font-mono);
+}
+.chan-input:focus { outline: none; border-color: var(--color-accent, #7C3AED); }
+.chan-select {
+  border: 1px solid var(--color-border); border-radius: 6px;
+  padding: 6px 8px; font-size: var(--text-sm);
+  background: var(--color-surface-2); color: var(--color-text); flex: 1;
+}
+.chan-toggle-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: var(--text-sm); color: var(--color-text-muted); cursor: pointer;
+}
+.chan-status {
+  font-size: var(--text-xs); color: var(--color-text-muted); flex: 1;
+}
+.chan-status.ok  { color: #5F8A5B; }
+.chan-status.err { color: #B5483E; }
+
+/* ── MCP 插件市场（v1.3.2）── */
+.mcp-filters {
+  display: flex; gap: var(--space-1); margin-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border); padding-bottom: var(--space-2);
+}
+.mcp-filter-btn {
+  padding: 4px 12px; border-radius: 100px; border: 1px solid transparent;
+  font-size: var(--text-xs); font-weight: 600; cursor: pointer;
+  background: none; color: var(--color-text-muted); transition: all .15s;
+}
+.mcp-filter-btn:hover { background: var(--color-surface-2); color: var(--color-text); }
+.mcp-filter-btn.active {
+  background: var(--color-accent, #7C3AED); color: #fff; border-color: transparent;
+}
+.mcp-status-bar {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-xs); color: #5F8A5B;
+  background: color-mix(in srgb, #5F8A5B 8%, transparent);
+  border: 1px solid color-mix(in srgb, #5F8A5B 20%, transparent);
+  border-radius: var(--radius); padding: 6px var(--space-3); margin-bottom: var(--space-3);
+}
+.mcp-status-dot { font-size: 10px; }
+.mcp-status-hint { margin-left: auto; color: var(--color-text-muted); }
+.mcp-market-grid { display: flex; flex-direction: column; gap: var(--space-2); }
+.mcp-market-card {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius); padding: var(--space-3) var(--space-4);
+  transition: border-color .15s;
+}
+.mcp-market-card:hover { border-color: color-mix(in srgb, var(--color-accent,#7C3AED) 40%, var(--color-border)); }
+.mcp-market-card.mcp-card-connected {
+  border-color: color-mix(in srgb, #5F8A5B 35%, var(--color-border));
+  background: color-mix(in srgb, #5F8A5B 4%, var(--color-surface));
+}
+.mcp-card-icon { font-size: 22px; line-height: 1; padding-top: 2px; flex-shrink: 0; }
+.mcp-card-body { flex: 1; min-width: 0; }
+.mcp-card-name {
+  font-weight: 600; font-size: var(--text-base); color: var(--color-text);
+  display: flex; align-items: center; gap: var(--space-2); margin-bottom: 3px;
+}
+.mcp-region-tag {
+  font-size: var(--text-xs); font-weight: 700; letter-spacing: .02em;
+}
+.mcp-card-desc { font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.5; }
+.mcp-card-action { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); flex-shrink: 0; padding-top: 2px; }
+.mcp-market-btn {
+  padding: 5px 14px; border-radius: var(--radius); font-size: var(--text-xs);
+  font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all .15s;
+  white-space: nowrap;
+}
+.mcp-btn-add {
+  background: var(--color-accent, #7C3AED); color: #fff; border-color: transparent;
+}
+.mcp-btn-add:hover { opacity: .85; }
+.mcp-btn-connect {
+  background: var(--color-surface-2); color: var(--color-text); border-color: var(--color-border);
+}
+.mcp-btn-connect:hover { background: var(--color-surface); }
+.mcp-btn-disconnect {
+  background: none; color: #B5483E; border-color: color-mix(in srgb, #B5483E 30%, transparent);
+}
+.mcp-btn-disconnect:hover { background: color-mix(in srgb, #B5483E 8%, transparent); }
+
 /* ───────────────────────────────────────────────────────────────
    4. MessageBubble —— D2 slice 2：聊天气泡工艺重做（设计文档 §3）
    chat.js 已发 .msg.user/.msg.assistant > .msg-body > .msg-bubble（不改 JS）。

@@ -3959,10 +3959,15 @@ body.dark .settings-page h2 {
 
 .soul-content {
   flex: 1;
-  display: flex;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 .soul-content.hidden { display: none; }
+.soul-content .settings-page {
+  height: auto;
+  overflow-y: visible;
+}
 
 .soul-rooms {
   display: flex;

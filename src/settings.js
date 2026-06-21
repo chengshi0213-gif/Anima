@@ -375,6 +375,21 @@ window.workspaceLoad = async function() {
   }
 };
 
+async function _browseDir(inputId) {
+  try {
+    const tauri = window.__TAURI__;
+    if (!tauri?.dialog) { toast('文件选择器仅在桌面版可用', 'error'); return; }
+    const dir = await tauri.dialog.open({ directory: true, multiple: false });
+    if (dir) {
+      const el = document.getElementById(inputId);
+      if (el) el.value = dir;
+    }
+  } catch (e) { toast('无法打开文件选择器: ' + e.message, 'error'); }
+}
+window.browseWorkspace = () => _browseDir('workspaceInput');
+window.browseObsidian  = () => _browseDir('memObsidianPath');
+window.browseDataHome  = () => _browseDir('dataHomeInput');
+
 window.workspaceSave = async function() {
   const path = document.getElementById('workspaceInput')?.value.trim();
   if (!path) { toast('请填写工作目录路径', 'error'); return; }
@@ -1289,6 +1304,68 @@ window.wechatSave = async function() {
   } catch (e) { toast('保存失败: ' + e.message, 'error'); }
 };
 
+// ══════════════════════════════════════════════════
+//  消息渠道 Tab 切换
+// ══════════════════════════════════════════════════
+window.chanSwitch = function(chan, el) {
+  document.querySelectorAll('.chan-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.chan-panel').forEach(p => p.classList.remove('active'));
+  el?.classList.add('active');
+  document.getElementById(`chanPanel-${chan}`)?.classList.add('active');
+};
+
+// ══════════════════════════════════════════════════
+//  QQ 机器人（OneBot v11 反向 WebSocket）
+// ══════════════════════════════════════════════════
+const QQ_API = () => `${CONFIG.api}/integrations/qq`;
+
+function _qqRenderStatus(status) {
+  const el = document.getElementById('qqStatus');
+  if (!el) return;
+  if (!status) { el.textContent = ''; el.className = 'chan-status'; return; }
+  if (status.connected) {
+    el.textContent = `● 已连接（NapCat: ${status.peer || '本机'}）`;
+    el.className = 'chan-status ok';
+  } else if (status.enabled) {
+    el.textContent = '○ 已启用 · 等待 NapCat 连接';
+    el.className = 'chan-status';
+  } else {
+    el.textContent = status.error ? `✕ ${status.error}` : '';
+    el.className = status.error ? 'chan-status err' : 'chan-status';
+  }
+}
+
+async function qqLoad() {
+  try {
+    const d = await fetch(QQ_API(), CONFIG.fetchOpts()).then(r => r.json());
+    const { config = {}, status = {} } = d;
+    const ag = document.getElementById('qqAgent'); if (ag) ag.value = config.default_agent || 'xi';
+    const en = document.getElementById('qqEnabled'); if (en) en.checked = !!config.enabled;
+    const ap = document.getElementById('qqAllowPrivate'); if (ap) ap.checked = config.allow_private !== false;
+    const ag2 = document.getElementById('qqAllowGroup'); if (ag2) ag2.checked = config.allow_group !== false;
+    const ra = document.getElementById('qqRespondWithoutAt'); if (ra) ra.checked = !!config.respond_without_at;
+    _qqRenderStatus(status);
+  } catch (e) { /* 后端未起时静默 */ }
+}
+
+window.qqSave = async function() {
+  const body = {
+    default_agent: document.getElementById('qqAgent')?.value || 'xi',
+    enabled: document.getElementById('qqEnabled')?.checked || false,
+    allow_private: document.getElementById('qqAllowPrivate')?.checked !== false,
+    allow_group: document.getElementById('qqAllowGroup')?.checked !== false,
+    respond_without_at: document.getElementById('qqRespondWithoutAt')?.checked || false,
+  };
+  try {
+    const d = await fetch(QQ_API(), CONFIG.fetchOpts({
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })).then(r => r.json());
+    _qqRenderStatus(d.status);
+    toast(body.enabled ? '已保存并启用 ✓ 启动 NapCat 后会自动连接' : '已保存（未启用）', 'success');
+  } catch (e) { toast('保存失败: ' + e.message, 'error'); }
+};
+
 // Tab 切換时自动加载 (合并所有 tab 初始化)
 const _origSwitchTab = window.switchTab;
 window.switchTab = function(tabId, el) {
@@ -1312,6 +1389,8 @@ window.switchTab = function(tabId, el) {
     apiCatalogLoad();
     loadUserAddress();
     window.dataHomeLoad?.();
+    setTimeout(window.mcpPanelLoad, 80);
+    setTimeout(qqLoad, 100);
   }
 };
 

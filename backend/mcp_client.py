@@ -236,6 +236,31 @@ class MCPManager:
                 )(server, t["name"])
         return MCPSnapshot(defs, dispatch, _compose_mcp_fragment(cls._tools))
 
+    # ── 动态接入/断开（设置页市场用）──
+    @classmethod
+    async def connect_one(cls, srv: dict) -> dict:
+        """动态接入单个 server，不影响已有连接。config 已持久化后调用。"""
+        name = srv.get("name", "?")
+        try:
+            if cls._exit_stack is None:
+                from contextlib import AsyncExitStack
+                cls._exit_stack = AsyncExitStack()
+            await cls._connect(srv)
+            cls._errors.pop(name, None)
+            log.info("MCP server %s 动态接入，%d 个工具", name, len(cls._tools.get(name, [])))
+            return {"ok": True, "tool_count": len(cls._tools.get(name, []))}
+        except Exception as e:  # noqa: BLE001
+            cls._errors[name] = str(e)
+            log.warning("MCP server %s 动态接入失败: %s", name, e)
+            return {"ok": False, "error": str(e)}
+
+    @classmethod
+    def disconnect_one(cls, name: str):
+        """从 manager 中移除 server 记录（transport 层连接不立即关闭，下次重启才真正释放）。"""
+        cls._sessions.pop(name, None)
+        cls._tools.pop(name, None)
+        cls._errors.pop(name, None)
+
     # ── 状态查询（给 routes/前端用）──
     @classmethod
     def status(cls) -> dict:

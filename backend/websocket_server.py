@@ -205,6 +205,15 @@ async def main():
     except Exception as _e:
         print(f"  微信机器人接线失败: {_e}")
 
+    # ── QQ 机器人：OneBot v11 反向 WebSocket，接线人格入口 ──
+    try:
+        import qq_bot
+        qq_bot.bot.configure(_run_agent, asyncio.get_running_loop())
+        if qq_bot.load_config().get("enabled"):
+            print("  QQ 机器人: 已启用（等待 NapCat 反向 WS 连接）")
+    except Exception as _e:
+        print(f"  QQ 机器人接线失败: {_e}")
+
     # ── 邮箱管家：IMAP 收申请 → 自动发结缘码（仅总代理实例启用）──
     try:
         import invite_mailer

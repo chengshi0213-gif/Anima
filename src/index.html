@@ -855,6 +855,7 @@
         </div>
         <div style="display:flex;gap:8px;margin-top:6px">
           <input id="workspaceInput" type="text" placeholder="如 D:\Projects 或 ~/projects" style="flex:1;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--bg-main);color:var(--text-main)">
+          <button class="hdr-btn-sm" onclick="browseWorkspace()" title="浏览文件夹">📁</button>
           <button class="settings-btn" onclick="workspaceSave()">保存</button>
         </div>
         <div style="margin-top:10px">
@@ -862,13 +863,14 @@
         </div>
       </div>
 
-      <details class="settings-section" id="mcpSection" ontoggle="if(this.open)mcpPanelLoad()">
-        <summary style="cursor:pointer;font-weight:600;font-size:15px">🔌 MCP 外部工具 <span style="font-size:12px;color:var(--muted);font-weight:400">（Model Context Protocol · 一个协议接入无限工具）</span></summary>
-        <div id="mcpPanelBody" style="margin-top:14px">
-          <div style="color:var(--muted);font-size:13px">展开后加载…</div>
+      <div class="settings-section" id="mcpSection">
+        <h3>🔌 MCP 插件市场</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px">一个协议接入无限工具 · 预置常用服务，点击「接入」填写配置即可</p>
+        <div id="mcpPanelBody">
+          <div style="color:var(--muted);font-size:13px">加载中…</div>
         </div>
-        <button class="settings-btn" style="margin-top:10px" onclick="mcpPanelLoad()">↻ 刷新</button>
-      </details>
+        <button class="hdr-btn-sm" style="margin-top:12px" onclick="mcpPanelLoad()">↻ 刷新</button>
+      </div>
 
       <!-- ══ 记忆存储 ══ -->
       <div class="settings-section" id="memoryStorageSection">
@@ -903,6 +905,7 @@
           <div style="display:flex;gap:8px">
             <input id="memObsidianPath" placeholder="例：C:/Users/yourname/Documents/MyVault"
               style="flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--bg-main);color:var(--text-main)">
+            <button class="hdr-btn-sm" onclick="browseObsidian()" title="浏览文件夹">📁</button>
             <button class="hdr-btn-sm" onclick="memVerifyVault()">验证</button>
           </div>
           <div id="memVaultVerifyResult" style="font-size:12px;margin-top:6px;color:var(--text-muted)"></div>
@@ -940,6 +943,7 @@
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
           <input id="dataHomeInput" placeholder="例：D:\AnimaData"
             style="flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;background:var(--bg-main);color:var(--text-main);font-family:monospace">
+          <button class="hdr-btn-sm" onclick="browseDataHome()" title="浏览文件夹">📁</button>
         </div>
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px">
           <input type="checkbox" id="dataHomeMigrate" checked>
@@ -1059,35 +1063,138 @@
         <div id="notifChannelList" style="font-size:13px;color:var(--muted)">加载中…</div>
       </div>
 
-      <!-- 飞书双向机器人 -->
-      <div class="settings-section">
-        <h3>🪶 飞书机器人（双向对话）</h3>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:6px">把人格接进你的飞书：在飞书里私聊或 @机器人，它就会回复。走<b>长连接</b>，本机即可，无需公网地址。</p>
-        <details style="margin-bottom:12px">
-          <summary style="font-size:12px;color:var(--accent);cursor:pointer">怎么拿 App ID / Secret？（点开看 4 步）</summary>
-          <ol style="font-size:12px;color:var(--muted);margin:8px 0 0;padding-left:18px;line-height:1.7">
-            <li>去 <b>飞书开放平台 open.feishu.cn</b> → 创建「企业自建应用」</li>
-            <li>在「凭证与基础信息」复制 <b>App ID</b> 和 <b>App Secret</b></li>
-            <li>「添加应用能力」→ 开启<b>机器人</b>；「权限管理」加上 <code>im:message</code> 收发消息权限</li>
-            <li>「事件订阅」→ 订阅方式选 <b>长连接</b> → 添加事件 <code>接收消息 im.message.receive_v1</code> → 发布版本</li>
-          </ol>
-        </details>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
-          <input id="feishuAppId" placeholder="App ID（cli_ 开头）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
-          <input id="feishuSecret" type="password" placeholder="App Secret（已保存则留空不改）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
-          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center">
-            <label style="font-size:13px;color:var(--muted)">由谁回复</label>
-            <select id="feishuAgent" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)">
-              <option value="xi">Anima（主助理）</option>
-              </select>
+      <!-- ══ 消息渠道接入 ══ -->
+      <div class="settings-section" id="channelsSection">
+        <h3>📱 消息渠道接入</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">把 Anima 接进你常用的 IM，在飞书 / 微信 / QQ 里直接和她对话。</p>
+
+        <!-- 平台 Tab -->
+        <div class="chan-tabs">
+          <button class="chan-tab active" data-chan="feishu" onclick="chanSwitch('feishu',this)">🪶 飞书</button>
+          <button class="chan-tab" data-chan="wechat" onclick="chanSwitch('wechat',this)">💬 微信</button>
+          <button class="chan-tab" data-chan="qq" onclick="chanSwitch('qq',this)">🐧 QQ</button>
+        </div>
+
+        <!-- ── 飞书 ── -->
+        <div class="chan-panel active" id="chanPanel-feishu">
+          <div class="chan-recommend">
+            <span class="chan-rec-badge">推荐</span>
+            <span style="font-size:12px;color:var(--muted)">长连接 · 本机即可 · <b>无需公网地址</b> · 最简单</span>
           </div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)">
-            <input type="checkbox" id="feishuEnabled"> 启用（开机随后端自动连接）
-          </label>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="settings-btn" onclick="feishuSave()">保存并应用</button>
-            <button class="hdr-btn-sm" onclick="feishuTest()">测试凭证</button>
-            <span id="feishuStatus" style="font-size:12px;color:var(--muted)"></span>
+          <div class="chan-steps">
+            <div class="chan-step-title">配置步骤（约 5 分钟）</div>
+            <div class="chan-step"><span class="chan-step-num">1</span><span>打开 <a href="https://open.feishu.cn" target="_blank" class="chan-link">open.feishu.cn ↗</a>，点「创建企业自建应用」，填名称（如"Anima"）</span></div>
+            <div class="chan-step"><span class="chan-step-num">2</span><span>进入应用 → 「凭证与基础信息」，复制 <b>App ID</b>（cli_开头）和 <b>App Secret</b>，填到下面</span></div>
+            <div class="chan-step"><span class="chan-step-num">3</span><span>左侧「添加应用能力」→ 开启<b>机器人</b>；「权限管理」搜索 <code>im:message</code> 并添加</span></div>
+            <div class="chan-step"><span class="chan-step-num">4</span><span>「事件订阅」→ 订阅方式选 <b>长连接</b> → 添加 <code>im.message.receive_v1</code> → 发布版本</span></div>
+            <div class="chan-step"><span class="chan-step-num">5</span><span>回到 Anima 填入凭证，勾选启用，点「保存并应用」，状态变绿即成功</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+            <input id="feishuAppId" placeholder="App ID（cli_ 开头）" class="chan-input">
+            <input id="feishuSecret" type="password" placeholder="App Secret（已保存则留空不改）" class="chan-input">
+            <div style="display:flex;align-items:center;gap:10px">
+              <label style="font-size:13px;color:var(--muted);white-space:nowrap">由谁回复</label>
+              <select id="feishuAgent" class="chan-select">
+                <option value="xi">Anima（主助理）</option>
+              </select>
+            </div>
+            <label class="chan-toggle-row">
+              <input type="checkbox" id="feishuEnabled"> 启用（开机随后端自动长连接）
+            </label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <button class="settings-btn" onclick="feishuSave()">保存并应用</button>
+              <button class="hdr-btn-sm" onclick="feishuTest()">验证凭证</button>
+              <span id="feishuStatus" class="chan-status"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 微信 ── -->
+        <div class="chan-panel" id="chanPanel-wechat">
+          <div class="chan-notice">⚠️ 需要内网穿透隧道（cpolar/ngrok）将本机端口暴露为公网地址</div>
+          <div class="chan-steps">
+            <div class="chan-step-title">配置步骤</div>
+            <div class="chan-step"><span class="chan-step-num">1</span><span><b>开隧道</b>：到 <a href="https://dashboard.cpolar.cn" target="_blank" class="chan-link">cpolar.cn ↗</a> 注册并下载 cpolar（国内推荐），运行 <code>cpolar http 9100</code>，得到公网地址如 <code>https://xxx.cpolar.cn</code></span></div>
+            <div class="chan-step"><span class="chan-step-num">2</span><span>选择平台并在微信后台配置：<br>
+              · <b>企业微信</b>：<a href="https://work.weixin.qq.com/wework_admin/frame" target="_blank" class="chan-link">企业微信管理台 ↗</a> → 应用管理 → 自建 → 接收消息<br>
+              · <b>公众号</b>：<a href="https://mp.weixin.qq.com" target="_blank" class="chan-link">微信公众平台 ↗</a> → 设置与开发 → 基本配置
+            </span></div>
+            <div class="chan-step"><span class="chan-step-num">3</span><span>回调 URL = <code id="wechatCbPath">公网地址/integrations/wechat/callback</code>；在微信后台设好 <b>Token</b> 和 <b>EncodingAESKey</b>（43位）</span></div>
+            <div class="chan-step"><span class="chan-step-num">4</span><span>企业微信还需填 CorpID / 应用Secret / AgentId；公众号填 AppID / AppSecret（需认证服务号）</span></div>
+            <div class="chan-step"><span class="chan-step-num">5</span><span>保存并启用 → 去微信后台点「保存」触发验证 → 通过即接通</span></div>
+          </div>
+          <p style="font-size:12px;color:var(--muted);margin:8px 0 14px">提示：微信回调有 5 秒限制，Anima 会先即时确认，答复稍后主动推送——属正常现象</p>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <label style="font-size:13px;color:var(--muted);white-space:nowrap">平台</label>
+              <select id="wechatProvider" onchange="wechatToggleProvider()" class="chan-select">
+                <option value="wecom">企业微信（自建应用）</option>
+                <option value="mp">微信公众号（服务号）</option>
+              </select>
+            </div>
+            <input id="wechatToken" placeholder="Token（回调令牌，自定义填写）" class="chan-input">
+            <input id="wechatAesKey" type="password" placeholder="EncodingAESKey（43 位，已存留空不改）" class="chan-input">
+            <div id="wechatWecomFields" style="display:flex;flex-direction:column;gap:8px">
+              <input id="wechatCorpId" placeholder="CorpID（企业 ID）" class="chan-input">
+              <input id="wechatCorpSecret" type="password" placeholder="应用 Secret（已存留空不改）" class="chan-input">
+              <input id="wechatAgentId" placeholder="AgentId（应用 ID，数字）" class="chan-input">
+            </div>
+            <div id="wechatMpFields" style="display:none;flex-direction:column;gap:8px">
+              <input id="wechatAppId" placeholder="AppID" class="chan-input">
+              <input id="wechatAppSecret" type="password" placeholder="AppSecret（已存留空不改）" class="chan-input">
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <label style="font-size:13px;color:var(--muted);white-space:nowrap">由谁回复</label>
+              <select id="wechatAgent" class="chan-select">
+                <option value="xi">Anima（主助理）</option>
+              </select>
+            </div>
+            <label class="chan-toggle-row">
+              <input type="checkbox" id="wechatEnabled"> 启用（回调端点接收消息）
+            </label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <button class="settings-btn" onclick="wechatSave()">保存并应用</button>
+              <span id="wechatStatus" class="chan-status"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── QQ ── -->
+        <div class="chan-panel" id="chanPanel-qq">
+          <div class="chan-recommend">
+            <span class="chan-rec-badge">推荐</span>
+            <span style="font-size:12px;color:var(--muted)">反向 WebSocket · <b>全程本机</b> · 无需公网地址 · 用现有 QQ 账号</span>
+          </div>
+          <div class="chan-steps">
+            <div class="chan-step-title">配置步骤（约 3 分钟）</div>
+            <div class="chan-step"><span class="chan-step-num">1</span><span>下载 <a href="https://github.com/NapNeko/NapCatQQ/releases" target="_blank" class="chan-link">NapCatQQ ↗</a>（Windows 版），解压后双击运行，扫码或输入密码登录你的 QQ</span></div>
+            <div class="chan-step"><span class="chan-step-num">2</span><span>NapCat 控制台 → 「网络配置」→ 点「添加」→ 选「反向 WebSocket 客户端」</span></div>
+            <div class="chan-step"><span class="chan-step-num">3</span><span>URL 填入 <code id="qqWsUrl">ws://127.0.0.1:9100/integrations/qq/ws</code>，其余默认，保存</span></div>
+            <div class="chan-step"><span class="chan-step-num">4</span><span>回到 Anima，按需配置下面的选项，勾选启用，点「保存」，NapCat 启动后状态自动变绿</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <label style="font-size:13px;color:var(--muted);white-space:nowrap">由谁回复</label>
+              <select id="qqAgent" class="chan-select">
+                <option value="xi">Anima（主助理）</option>
+              </select>
+            </div>
+            <label class="chan-toggle-row">
+              <input type="checkbox" id="qqAllowPrivate" checked> 响应私聊消息
+            </label>
+            <label class="chan-toggle-row">
+              <input type="checkbox" id="qqAllowGroup" checked> 响应群聊消息
+            </label>
+            <label class="chan-toggle-row">
+              <input type="checkbox" id="qqRespondWithoutAt"> 群聊中不 @ 也回复（谨慎开启）
+            </label>
+            <label class="chan-toggle-row">
+              <input type="checkbox" id="qqEnabled"> 启用（等待 NapCat 连接）
+            </label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <button class="settings-btn" onclick="qqSave()">保存并应用</button>
+              <span id="qqStatus" class="chan-status"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -1122,58 +1229,6 @@
             <span id="computerStatus" style="font-size:12px;color:var(--muted)"></span>
           </div>
           <div id="computerPending" style="display:none;flex-direction:column;gap:6px;margin-top:6px;padding:10px;border:1px solid var(--accent);border-radius:8px;background:var(--surface)"></div>
-        </div>
-      </div>
-
-      <!-- 企业微信 / 公众号 -->
-      <div class="settings-section">
-        <h3>💬 企业微信 / 微信公众号</h3>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:6px">把人格接进企业微信或公众号：用户发消息，人格回复。两者都走<b>回调模式</b>，需要一条内网穿透隧道把本机暴露成公网地址。</p>
-        <details style="margin-bottom:12px">
-          <summary style="font-size:12px;color:var(--accent);cursor:pointer">怎么配（含内网穿透方案）？点开看</summary>
-          <ol style="font-size:12px;color:var(--muted);margin:8px 0 0;padding-left:18px;line-height:1.8">
-            <li><b>开隧道</b>：装 cpolar / ngrok / frp 任一，把本机 <code>9100</code> 端口映射出去，得到一个公网 https 地址（如 <code>https://xxx.cpolar.cn</code>）。</li>
-            <li><b>回调 URL</b> = 你的公网地址 + <code id="wechatCbPath">/integrations/wechat/callback</code>，填进微信后台「接收消息服务器配置」。</li>
-            <li>在微信后台自定义 <b>Token</b> 和 <b>EncodingAESKey</b>（43 位，可随机生成），消息加解密方式选<b>安全模式</b>，一并填到下面。</li>
-            <li>企业微信：再填 <b>CorpID / 应用 Secret / AgentId</b>（用于主动推送回复）。公众号：填 <b>AppID / AppSecret</b>（客服消息需认证服务号）。</li>
-            <li>保存并勾选启用 → 回微信后台点「保存」，它会来验证回调 URL，通过即接通。</li>
-          </ol>
-          <p style="font-size:12px;color:var(--muted);margin:8px 0 0">注：微信回调有 5 秒限制，人格回复较慢，所以先即时确认、答案稍后由「主动推送」发回——属正常现象。</p>
-        </details>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
-          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center">
-            <label style="font-size:13px;color:var(--muted)">平台</label>
-            <select id="wechatProvider" onchange="wechatToggleProvider()" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)">
-              <option value="wecom">企业微信（自建应用）</option>
-              <option value="mp">微信公众号（服务号）</option>
-            </select>
-          </div>
-          <input id="wechatToken" placeholder="Token（回调令牌）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
-          <input id="wechatAesKey" type="password" placeholder="EncodingAESKey（43 位，已存留空不改）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
-          <!-- 企业微信专属 -->
-          <div id="wechatWecomFields" style="display:flex;flex-direction:column;gap:8px">
-            <input id="wechatCorpId" placeholder="CorpID（企业 ID）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
-            <input id="wechatCorpSecret" type="password" placeholder="应用 Secret（已存留空不改）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
-            <input id="wechatAgentId" placeholder="AgentId（应用 ID，数字）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
-          </div>
-          <!-- 公众号专属 -->
-          <div id="wechatMpFields" style="display:none;flex-direction:column;gap:8px">
-            <input id="wechatAppId" placeholder="AppID" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
-            <input id="wechatAppSecret" type="password" placeholder="AppSecret（已存留空不改）" style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--surface);color:var(--text)">
-          </div>
-          <div style="display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center">
-            <label style="font-size:13px;color:var(--muted)">由谁回复</label>
-            <select id="wechatAgent" style="border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;background:var(--surface);color:var(--text)">
-              <option value="xi">Anima（主助理）</option>
-              </select>
-          </div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)">
-            <input type="checkbox" id="wechatEnabled"> 启用（回调端点接收消息）
-          </label>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="settings-btn" onclick="wechatSave()">保存并应用</button>
-            <span id="wechatStatus" style="font-size:12px;color:var(--muted)"></span>
-          </div>
         </div>
       </div>
 

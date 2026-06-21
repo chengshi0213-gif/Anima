@@ -401,6 +401,41 @@ async def wechat_callback_post(request):
     return web.Response(text=reply, content_type="text/plain")
 
 
+# ── QQ（OneBot v11 反向 WebSocket）────────────────────
+import qq_bot as _qq
+import aiohttp
+
+
+async def qq_get_handler(request):
+    """GET /integrations/qq — 配置 + 连接状态"""
+    return web.json_response(
+        {"config": _qq.config_public(), "status": _qq.bot.status()},
+        headers=CORS_HEADERS,
+    )
+
+
+async def qq_save_handler(request):
+    """POST /integrations/qq — 保存配置 {enabled, default_agent, ...}"""
+    try:
+        b = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid json"}, status=400, headers=CORS_HEADERS)
+    cfg = await asyncio.to_thread(_qq.save_config, b)
+    return web.json_response(
+        {"config": _qq.config_public(), "status": _qq.bot.status()},
+        headers=CORS_HEADERS,
+    )
+
+
+async def qq_ws_handler(request):
+    """GET /integrations/qq/ws — NapCat 反向 WebSocket 连接端点"""
+    ws = web.WebSocketResponse(heartbeat=30)
+    await ws.prepare(request)
+    peer = request.headers.get("X-Self-ID") or request.remote or "unknown"
+    await _qq.bot.handle_connection(ws, peer)
+    return ws
+
+
 def register(app):
     # Skills
     app.router.add_get("/skills",                          skills_list_handler)
@@ -442,3 +477,7 @@ def register(app):
     app.router.add_post("/integrations/wechat",           wechat_save_handler)
     app.router.add_get("/integrations/wechat/callback",   wechat_callback_get)
     app.router.add_post("/integrations/wechat/callback",  wechat_callback_post)
+    # QQ（OneBot v11 反向 WebSocket）
+    app.router.add_get("/integrations/qq",                qq_get_handler)
+    app.router.add_post("/integrations/qq",               qq_save_handler)
+    app.router.add_get("/integrations/qq/ws",             qq_ws_handler)
