@@ -14,6 +14,9 @@ backend/.tmp-test-home/
 backend/Anima-Vault/
 backend/_*.log
 
+# 本地手动冒烟脚本（scratch，连真实后端跑，不入库；用法见 docs/smoke-tests.md）
+backend/smoke_*.py
+
 # Logs
 logs
 *.log
