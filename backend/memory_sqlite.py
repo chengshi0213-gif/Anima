@@ -20,6 +20,7 @@ from typing import Optional
 import numpy as np
 
 import memory_embed
+import memory_weight
 from memory_backend import (
     MemoryBackend, MemoryEntry, AGENT_MEMORY_CATEGORIES,
 )
@@ -31,6 +32,10 @@ PREF_RULE_MERGE_THRESHOLD = 0.5
 
 # P0：单条记忆的演化历史最多保留段数，防高频翻烧的 key 让 memory_history 无限膨胀
 MAX_HISTORY_PER_ENTRY = 20
+
+# 记忆管家（Phase 3）：自动"纯重复合并"只碰规整后内容完全一致的近重复——
+# 语义相近但不全等的留给 LLM 待确认（可能是矛盾/细微差别，不该静默合并）。
+_DEDUP_STRIP = str.maketrans("", "", " \t\r\n，。！？；：、,.!?;:")
 
 _SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -46,7 +51,8 @@ CREATE TABLE IF NOT EXISTS memories (
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL,
     remind_at   TEXT,
-    last_accessed TEXT
+    last_accessed TEXT,
+    last_reinforced TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_mem_agent ON memories(agent_id);
 CREATE INDEX IF NOT EXISTS idx_mem_cat   ON memories(category);
@@ -123,6 +129,22 @@ CREATE TABLE IF NOT EXISTS pref_rules (
     updated_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_pref_rule_domain ON pref_rules(domain);
+
+-- Phase3 子阶段：LLM 巡检发现的待用户确认项。
+-- 管家只"建议 + 生成待确认项"，绝不自动改 A/D 类记忆（红线）。
+CREATE TABLE IF NOT EXISTS memory_reviews (
+    id            TEXT PRIMARY KEY,
+    entry_id_a    TEXT NOT NULL,    -- 疑似矛盾/过时的记忆 A
+    entry_id_b    TEXT NOT NULL,    -- 疑似矛盾/过时的记忆 B
+    category      TEXT,
+    conflict_type TEXT NOT NULL,    -- 'identity_conflict' | 'possible_contradiction'
+    detail        TEXT,             -- LLM 一句话说明矛盾点
+    status        TEXT NOT NULL DEFAULT 'open',  -- 'open' | 'dismissed' | 'resolved'
+    created_at    TEXT NOT NULL,
+    resolved_at   TEXT,
+    resolution    TEXT              -- 用户/系统处置说明
+);
+CREATE INDEX IF NOT EXISTS idx_reviews_status ON memory_reviews(status);
 """
 
 
@@ -156,6 +178,28 @@ class SQLiteMemoryBackend(MemoryBackend):
                 conn.execute("ALTER TABLE memories ADD COLUMN last_accessed TEXT")
             if "source" not in cols:
                 conn.execute("ALTER TABLE memories ADD COLUMN source TEXT")
+            if "last_reinforced" not in cols:
+                conn.execute("ALTER TABLE memories ADD COLUMN last_reinforced TEXT")
+            # Phase3 子阶段：待确认项表（旧库迁移）
+            existing_tables = {row[0] for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )}
+            if "memory_reviews" not in existing_tables:
+                conn.executescript("""
+                    CREATE TABLE IF NOT EXISTS memory_reviews (
+                        id            TEXT PRIMARY KEY,
+                        entry_id_a    TEXT NOT NULL,
+                        entry_id_b    TEXT NOT NULL,
+                        category      TEXT,
+                        conflict_type TEXT NOT NULL,
+                        detail        TEXT,
+                        status        TEXT NOT NULL DEFAULT 'open',
+                        created_at    TEXT NOT NULL,
+                        resolved_at   TEXT,
+                        resolution    TEXT
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_reviews_status ON memory_reviews(status);
+                """)
 
     @staticmethod
     def _row(row: sqlite3.Row) -> MemoryEntry:
@@ -171,6 +215,7 @@ class SQLiteMemoryBackend(MemoryBackend):
             remind_at=row["remind_at"],
             last_accessed=row["last_accessed"] if "last_accessed" in row.keys() else None,
             source=row["source"] if "source" in row.keys() else None,
+            last_reinforced=row["last_reinforced"] if "last_reinforced" in row.keys() else None,
         )
 
     # ── 核心操作 ─────────────────────────────────────────────────
@@ -229,17 +274,18 @@ class SQLiteMemoryBackend(MemoryBackend):
                     )
                 # 来源缺省（None）时保留旧来源，避免无 source 的直写路径抹掉 provenance
                 new_src = source if source is not None else old_src
+                # 同 key 再次写入 = 现实又印证/重述了一次 → 刷新 last_reinforced
                 conn.execute(
-                    "UPDATE memories SET value=?, category=?, importance=?, updated_at=?, remind_at=?, source=? WHERE id=?",
-                    [value, category, importance, now, remind_at, new_src, eid],
+                    "UPDATE memories SET value=?, category=?, importance=?, updated_at=?, remind_at=?, source=?, last_reinforced=? WHERE id=?",
+                    [value, category, importance, now, remind_at, new_src, now, eid],
                 )
             else:
                 eid = str(uuid.uuid4())
                 conn.execute(
                     """INSERT INTO memories
-                       (id, agent_id, category, key, value, importance, created_at, updated_at, remind_at, source)
-                       VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                    [eid, agent_id, category, key, value, importance, now, now, remind_at, source],
+                       (id, agent_id, category, key, value, importance, created_at, updated_at, remind_at, source, last_reinforced)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    [eid, agent_id, category, key, value, importance, now, now, remind_at, source, now],
                 )
             self._upsert_vector(conn, eid, key, value)
         return eid
@@ -615,10 +661,39 @@ class SQLiteMemoryBackend(MemoryBackend):
                     [now, eid],
                 )
 
+    def _archive_to_history(self, conn: sqlite3.Connection,
+                            ids: list[str], reason: str) -> list[str]:
+        """把活跃记忆移进演化时间线（memory_history）再从主表删除——可回溯，不真删。
+
+        红线"从不真删，只归档"的落点：被归档/合并掉的条目，旧值连同来源进 history，
+        日后能查、能翻回。返回真正归档掉的 ID 列表。
+        """
+        if not ids:
+            return []
+        now = time.strftime("%Y-%m-%dT%H:%M:%S")
+        ph = ",".join("?" * len(ids))
+        rows = conn.execute(f"SELECT * FROM memories WHERE id IN ({ph})", ids).fetchall()
+        for r in rows:
+            src = r["source"] if "source" in r.keys() else None
+            conn.execute(
+                """INSERT INTO memory_history
+                   (id, entry_id, key, value, category, importance,
+                    valid_from, valid_to, source, reason)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                [str(uuid.uuid4()), r["id"], r["key"], r["value"], r["category"],
+                 r["importance"], r["updated_at"], now, src, reason],
+            )
+        archived = [r["id"] for r in rows]
+        if archived:
+            aph = ",".join("?" * len(archived))
+            conn.execute(f"DELETE FROM memories WHERE id IN ({aph})", archived)
+            conn.execute(f"DELETE FROM memory_vectors WHERE entry_id IN ({aph})", archived)
+        return archived
+
     def archive_stale_c_layer(self, days: int = 180) -> list[str]:
-        """归档（删除）超过 days 天未访问且未更新的 C 状态层记忆。
+        """归档超过 days 天未访问且未更新的 C 状态层记忆。
         判断依据：coalesce(last_accessed, updated_at) < cutoff。
-        返回被归档的条目 ID 列表。"""
+        归档 = 移进演化时间线（可回溯），不再硬删。返回被归档的条目 ID 列表。"""
         cutoff = time.strftime(
             "%Y-%m-%dT%H:%M:%S",
             time.localtime(time.time() - days * 86400),
@@ -631,11 +706,157 @@ class SQLiteMemoryBackend(MemoryBackend):
                 [cutoff],
             ).fetchall()
             ids = [r["id"] for r in rows]
-            if ids:
-                ph = ",".join("?" * len(ids))
-                conn.execute(f"DELETE FROM memories WHERE id IN ({ph})", ids)
-                conn.execute(f"DELETE FROM memory_vectors WHERE entry_id IN ({ph})", ids)
-        return ids
+            return self._archive_to_history(conn, ids, reason="archive")
+
+    def merge_near_duplicates(self, now: Optional[float] = None) -> list[dict]:
+        """记忆管家（Phase 3）自动"纯重复合并"：同分类下、规整后内容**完全一致**的近重复，
+        每簇只留留存权重最高的一条，其余移进演化时间线（reason='merge'，可回溯）。
+
+        只碰真·重复（去掉空白与标点后全等）；语义相近但不全等的不动——那可能是矛盾或
+        细微差别，留给 LLM 待确认，绝不静默合并。返回 [{kept, kept_key, archived:[id...]}]。
+        """
+        rows = self.list_all(limit=10000)
+        # (category, 规整value) → 同簇条目
+        buckets: dict[tuple, list[MemoryEntry]] = {}
+        for e in rows:
+            norm = (e.value or "").strip().lower().translate(_DEDUP_STRIP)
+            if not norm:
+                continue
+            buckets.setdefault((e.category, norm), []).append(e)
+
+        merges: list[dict] = []
+        archive_ids: list[str] = []
+        for (_cat, _norm), items in buckets.items():
+            if len(items) < 2:
+                continue
+            items.sort(key=lambda e: -memory_weight.retention_weight_entry(e, now=now))
+            kept, losers = items[0], items[1:]
+            archive_ids.extend(le.id for le in losers)
+            merges.append({"kept": kept.id, "kept_key": kept.key,
+                           "archived": [le.id for le in losers]})
+
+        if archive_ids:
+            with self._conn() as conn:
+                self._archive_to_history(conn, archive_ids, reason="merge")
+        return merges
+
+    # ── 待确认项队列（Phase3 子阶段）─────────────────────────────────
+
+    def add_review(self, entry_id_a: str, entry_id_b: str,
+                   category: str, conflict_type: str, detail: str) -> Optional[str]:
+        """写入一条待确认项（矛盾/可能过时）。
+        若相同两条记忆已有 open 项则去重跳过，返回 None；否则返回新 review id。
+        conflict_type: 'identity_conflict'（A/D 类，须用户点头）|
+                       'possible_contradiction'（其它类，她找机会问）。
+        红线：这里只存建议，绝不改原始记忆，更不删。"""
+        pair_a, pair_b = min(entry_id_a, entry_id_b), max(entry_id_a, entry_id_b)
+        now = time.strftime("%Y-%m-%dT%H:%M:%S")
+        with self._conn() as conn:
+            dup = conn.execute(
+                """SELECT id FROM memory_reviews
+                   WHERE ((entry_id_a=? AND entry_id_b=?) OR (entry_id_a=? AND entry_id_b=?))
+                     AND status='open'""",
+                [pair_a, pair_b, pair_b, pair_a],
+            ).fetchone()
+            if dup:
+                return None
+            rid = str(uuid.uuid4())
+            conn.execute(
+                """INSERT INTO memory_reviews
+                   (id, entry_id_a, entry_id_b, category, conflict_type, detail, status, created_at)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                [rid, pair_a, pair_b, category, conflict_type, detail, "open", now],
+            )
+        return rid
+
+    def list_pending_reviews(self) -> list[dict]:
+        """返回所有 open 待确认项，按 created_at 升序（最老的最先显示）。"""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM memory_reviews WHERE status='open' ORDER BY created_at ASC"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def resolve_review(self, review_id: str, resolution: str = "",
+                       status: str = "resolved") -> bool:
+        """把待确认项标为 resolved（用户处置了）或 dismissed（不需要处理）。"""
+        if status not in ("resolved", "dismissed"):
+            status = "resolved"
+        now = time.strftime("%Y-%m-%dT%H:%M:%S")
+        with self._conn() as conn:
+            n = conn.execute(
+                """UPDATE memory_reviews
+                   SET status=?, resolved_at=?, resolution=?
+                   WHERE id=? AND status='open'""",
+                [status, now, resolution or "", review_id],
+            ).rowcount
+        return n > 0
+
+    def find_review_candidates(self,
+                               sim_threshold: float = 0.35,
+                               max_pairs: int = 30) -> list[dict]:
+        """确定性候选发现（不调模型）：同分类内 value 字符 bigram Jaccard 相似度
+        超过阈值、但不是纯重复（已被 merge_near_duplicates 处理）的记忆对。
+
+        A/D 类标 identity_conflict；其它类标 possible_contradiction。
+        已有 open 待确认项的对去重跳过。返回候选列表供 LLM 进一步裁决。"""
+        entries = self.list_all(limit=500)
+        buckets: dict[str, list[MemoryEntry]] = {}
+        for e in entries:
+            buckets.setdefault(e.category or "general", []).append(e)
+
+        with self._conn() as conn:
+            open_pairs = {
+                (min(r["entry_id_a"], r["entry_id_b"]),
+                 max(r["entry_id_a"], r["entry_id_b"]))
+                for r in conn.execute(
+                    "SELECT entry_id_a, entry_id_b FROM memory_reviews WHERE status='open'"
+                ).fetchall()
+            }
+
+        def _bigram_jaccard(s1: str, s2: str) -> float:
+            if len(s1) < 2 or len(s2) < 2:
+                return 0.0
+            b1 = {s1[i:i+2] for i in range(len(s1)-1)}
+            b2 = {s2[i:i+2] for i in range(len(s2)-1)}
+            return len(b1 & b2) / len(b1 | b2)
+
+        candidates: list[dict] = []
+        for cat, items in buckets.items():
+            if len(items) < 2:
+                continue
+            conflict_type = (
+                "identity_conflict" if cat in ("A", "D")
+                else "possible_contradiction"
+            )
+            for i in range(len(items)):
+                for j in range(i + 1, len(items)):
+                    a, b = items[i], items[j]
+                    na = (a.value or "").strip().lower().translate(_DEDUP_STRIP)
+                    nb = (b.value or "").strip().lower().translate(_DEDUP_STRIP)
+                    if na == nb:
+                        continue  # 纯重复交给 merge_near_duplicates
+                    pair_key = (min(a.id, b.id), max(a.id, b.id))
+                    if pair_key in open_pairs:
+                        continue
+                    sim = _bigram_jaccard(
+                        (a.value or "").lower(),
+                        (b.value or "").lower(),
+                    )
+                    if sim >= sim_threshold:
+                        candidates.append({
+                            "entry_id_a": a.id, "key_a": a.key, "value_a": a.value,
+                            "entry_id_b": b.id, "key_b": b.key, "value_b": b.value,
+                            "category": cat, "conflict_type": conflict_type,
+                            "similarity": round(sim, 3),
+                        })
+                    if len(candidates) >= max_pairs:
+                        break
+                if len(candidates) >= max_pairs:
+                    break
+
+        candidates.sort(key=lambda x: -x["similarity"])
+        return candidates
 
     # ── 元信息 ───────────────────────────────────────────────────
 

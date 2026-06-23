@@ -89,6 +89,22 @@ WEEKLY_LANG_TASK_NAME = "守藏每周语体复盘"
 WEEKLY_LANG_TRIGGER   = "[SYSTEM] 每周语体复盘 SOP（由 scheduler 周一05:00自动触发，调用 run_weekly_lang_review）"
 WEEKLY_LANG_CRON      = "0 5 * * 1"
 
+# ── 系统级定时任务（记忆管家）：每周记忆体检 SOP ──────────────────
+# 与上面同一套注册模式：_run_agent 收到 agent="shoucang" + 此 prompt 时
+# 改走 run_weekly_memory_audit()（按留存权重自动归档过时 C 层 + 纯重复合并）。
+# 用户拍板"全自动静默"：无争议项静默归档（进时间线可回溯，不真删）；
+# 矛盾/身份改写的待确认项留待后续阶段（需模型 + 复核队列）。
+WEEKLY_AUDIT_TASK_NAME = "守藏每周记忆体检"
+WEEKLY_AUDIT_TRIGGER   = "[SYSTEM] 每周记忆体检 SOP（由 scheduler 周一05:15自动触发，调用 run_weekly_memory_audit）"
+WEEKLY_AUDIT_CRON      = "15 5 * * 1"
+
+# ── 系统级定时任务（Phase3 子阶段）：每周矛盾巡检 SOP ──────────────────
+# 确定性候选发现（bigram Jaccard）→ LLM 裁决真矛盾 → flag_for_confirmation 写入
+# memory_reviews 待确认队列。绝不自动改 A/D 类记忆（红线）。
+WEEKLY_REVIEW_TASK_NAME = "守藏每周矛盾巡检"
+WEEKLY_REVIEW_TRIGGER   = "[SYSTEM] 每周矛盾巡检 SOP（由 scheduler 周一05:30自动触发，调用 run_weekly_review_scan）"
+WEEKLY_REVIEW_CRON      = "30 5 * * 1"
+
 # ─────────────────────────────────────────────────────────
 #  工具定义
 # ─────────────────────────────────────────────────────────
@@ -340,6 +356,38 @@ LIST_PREF_SIGNALS_DEF = {
     },
 }
 
+FLAG_CONFIRMATION_DEF = {
+    "type": "function",
+    "function": {
+        "name": "flag_for_confirmation",
+        "description": (
+            "把一对记忆的疑似矛盾/过时写入待确认队列（memory_reviews），"
+            "等用户找机会确认。"
+            "【红线】绝不自动修改原记忆，只是提出疑问；"
+            "identity_conflict 类（A/D）必须用户点头才能处置。"
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "entry_id_a": {"type": "string", "description": "第一条记忆的 ID"},
+                "entry_id_b": {"type": "string", "description": "第二条记忆的 ID"},
+                "category":   {"type": "string", "description": "记忆分类（A/B/C/D/L2…）"},
+                "conflict_type": {
+                    "type": "string",
+                    "enum": ["identity_conflict", "possible_contradiction"],
+                    "description": "identity_conflict=A/D 类身份/关系，须用户点头；"
+                                   "possible_contradiction=其它类，她找机会问",
+                },
+                "detail": {
+                    "type": "string",
+                    "description": "一句话说明矛盾点（如：A说工作城市是上海，B说是北京）",
+                },
+            },
+            "required": ["entry_id_a", "entry_id_b", "category", "conflict_type", "detail"],
+        },
+    },
+}
+
 # ─────────────────────────────────────────────────────────
 #  工具实现
 # ─────────────────────────────────────────────────────────
@@ -529,6 +577,26 @@ def _remember(key: str, value: str, category: str = "general",
         return {"error": str(e)}
 
 
+def _flag_for_confirmation(entry_id_a: str, entry_id_b: str,
+                           category: str, conflict_type: str, detail: str) -> dict:
+    """把一对疑似矛盾记忆写入 memory_reviews 待确认队列（Phase3 子阶段）。
+    只存建议，绝不修改原记忆；已有 open 项的对自动去重返回 skipped。"""
+    try:
+        from memory_injector import get_backend
+        backend = get_backend()
+        if not hasattr(backend, "add_review"):
+            return {"error": "当前后端不支持 memory_reviews"}
+        rid = backend.add_review(
+            entry_id_a=entry_id_a, entry_id_b=entry_id_b,
+            category=category, conflict_type=conflict_type, detail=detail,
+        )
+        if rid is None:
+            return {"ok": True, "status": "skipped", "reason": "已有同对 open 项，去重跳过"}
+        return {"ok": True, "review_id": rid, "conflict_type": conflict_type}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def _list_memory(agent_id: str = None) -> dict:
     """列出记忆库已有条目（便于去重 / 更新用户画像）。"""
     agent_id = (agent_id or "").strip() or None
@@ -562,6 +630,7 @@ class ShoucangWorker(AgentBase):
             LIST_MEMORY_DEF,
             WRITE_PREF_RULE_DEF,     # M10：写入 E 程序层偏好规则
             LIST_PREF_SIGNALS_DEF,   # M10：查看某领域积累的隐式偏好信号
+            FLAG_CONFIRMATION_DEF,   # Phase3 子阶段：写入矛盾待确认队列
             *WEB_SEARCH_TOOL_DEFS,   # 文献研究需要联网检索（共享 websearch 能力）
         ]
         tool_dispatch = {
@@ -582,6 +651,9 @@ class ShoucangWorker(AgentBase):
                                         agent_id="xi", importance=kw.get("importance", 4)),
             "list_pref_signals":    lambda **kw: {"signals": pref_learning.get_signals(
                                         kw["domain"], kw.get("limit", 50))},
+            "flag_for_confirmation": lambda **kw: _flag_for_confirmation(
+                                        kw["entry_id_a"], kw["entry_id_b"],
+                                        kw["category"], kw["conflict_type"], kw["detail"]),
             **build_dispatch(),
         }
         super().__init__(
@@ -625,12 +697,22 @@ class ShoucangWorker(AgentBase):
             reminders_block = format_due_reminders("xi", within_days=1)
         except Exception:
             reminders_block = ""
-        reminders_note = (
-            f"\n       {reminders_block}\n"
-            "       —— 如果上面有内容，找机会在今日灵犀里自然提一句"
-            '（比如"对了，明天就是你说的……"），别生硬罗列；没有就不提。\n'
-            if reminders_block else ""
-        )
+        # Phase3 子阶段：待确认的矛盾项，也随今日灵犀找机会问
+        try:
+            from memory_injector import format_pending_reviews
+            reviews_block = format_pending_reviews(max_items=2)
+        except Exception:
+            reviews_block = ""
+        extra_note = ""
+        if reminders_block:
+            extra_note += (
+                f"\n       {reminders_block}\n"
+                "       —— 如果上面有内容，找机会在今日灵犀里自然提一句"
+                '（比如"对了，明天就是你说的……"），别生硬罗列；没有就不提。\n'
+            )
+        if reviews_block:
+            extra_note += f"\n       {reviews_block}\n"
+        reminders_note = extra_note
 
         # 分阶段执行，每阶段推送进度
         stages = [
@@ -796,6 +878,58 @@ class ShoucangWorker(AgentBase):
         _cb(3, 3, "每周升格完成")
         return result
 
+    def run_weekly_memory_audit(self, progress_cb=None) -> dict:
+        """每周记忆体检 SOP（记忆管家）：纯确定性、不调模型。
+
+        用户拍板"全自动静默"——无争议项静默处理，且全部进演化时间线可回溯（不真删）：
+          1. 过时归档：超时未访问的 C 状态层记忆，移进时间线。
+          2. 纯重复合并：同分类下规整后内容完全一致的近重复，每簇留留存权重最高的一条，
+             其余移进时间线（reason='merge'）。
+        语义相近但不全等的（可能是矛盾/细微差别）**不动**——留给后续"待确认项"阶段
+        （需模型 + 复核队列；守红线：矛盾、身份/关系类改写一律转用户确认）。
+
+        由定时任务每周一 05:15 调用，也可手动触发。
+        progress_cb: 可选回调 fn(step, total, msg)。
+        """
+        from memory_injector import get_backend, invalidate_cache
+
+        def _cb(step, total, msg):
+            if progress_cb:
+                try:
+                    progress_cb(step, total, msg)
+                except Exception:
+                    pass
+
+        _cb(0, 3, "开始每周记忆体检...")
+        backend = get_backend()
+
+        _cb(1, 3, "归档过时的近期状态...")
+        archived: list[str] = []
+        if hasattr(backend, "archive_stale_c_layer"):
+            try:
+                archived = backend.archive_stale_c_layer()
+            except Exception:
+                archived = []
+
+        _cb(2, 3, "合并纯重复记忆...")
+        merges: list[dict] = []
+        if hasattr(backend, "merge_near_duplicates"):
+            try:
+                merges = backend.merge_near_duplicates()
+            except Exception:
+                merges = []
+
+        try:
+            invalidate_cache()
+        except Exception:
+            pass
+
+        merged_count = sum(len(m.get("archived", [])) for m in merges)
+        summary = f"记忆体检完成：归档过时 {len(archived)} 条，合并纯重复 {merged_count} 条。"
+        _cb(3, 3, summary)
+        return {"status": "ok", "summary": summary,
+                "archived": archived, "merged": merges}
+
     def run_weekly_pref_learning(self, progress_cb=None) -> dict:
         """
         每周偏好学习 SOP（M10）：从工作房间积累的隐式信号（编辑diff/吐槽/采纳）里，
@@ -930,16 +1064,22 @@ class ShoucangWorker(AgentBase):
 {sample_block}
 
 要求：
-1. 你的任务是产出"她该怎么微调"的建议，不是"用户什么样"的描述。
-   产出 2-4 条具体、可执行的语体微调建议。
-2. 遵守三成原则：形式上向用户靠近三成，七成保持 Anima 自己。
+1. 遵守三成原则：形式上向用户靠近三成，七成保持 Anima 自己。
    - 用户短句多 → Anima 适度精简，但不丢她的节奏感
    - 用户常用 emoji → Anima 偶尔回一个，不先抛不刷屏
    - 用户中英混 → Anima 可以偶尔用对方常用的术语，但不刻意中英混说
-3. 禁区绝对不碰：脏话不跟、火星文不跟、叠字卖萌不跟、Anima 的标点纪律不破。
-4. 每条建议一句话，用"你可以……"或"适度……"开头，不要写成长段论述。
-5. 如果用户的语言风格没有明显变化，或已有建议仍然合适，直接说"本周无需调整"。
-6. 直接输出建议文本，不要加标题、序号外的格式。"""
+2. 禁区绝对不碰：脏话不跟、火星文不跟、叠字卖萌不跟、Anima 的标点纪律不破。
+
+请严格按下面两段格式输出，两段都要有，用方括号标题分隔：
+
+【微调建议】
+2-4 条"她该怎么微调"的语体建议（不是"用户什么样"的描述）。每条一句话，用"你可以……"
+或"适度……"开头。如果风格没明显变化、已有建议仍合适，本段只写"本周无需调整"。
+
+【表达习惯】
+2-3 条对"他怎么组织一段话"的观察（语义纹理，比口头禅更深一层）。比如：先抛结论再解释 /
+习惯先铺背景再说事 / 用反问表达不满 / 爱举具体例子 / 喜欢自问自答。每条一句话、客观描述他。
+这是帮 Anima 更懂他、接得住他，不是要她模仿；若没有稳定习惯，本段只写"暂不明显"。"""
 
         _cb(1, 3, "守藏正在复盘语体...")
 
@@ -951,15 +1091,95 @@ class ShoucangWorker(AgentBase):
 
         _cb(2, 3, "语体复盘完成，保存建议...")
 
-        advice_text = ""
+        raw = ""
         if isinstance(result, dict):
-            advice_text = result.get("reply", result.get("summary", ""))
+            raw = result.get("reply", result.get("summary", ""))
         elif isinstance(result, str):
-            advice_text = result
+            raw = result
+        # 切出【微调建议】+【表达习惯（语义纹理）】两段，分别落库
+        advice_text, texture_text = lp.parse_review_output(raw)
         if advice_text and "本周无需调整" not in advice_text:
             lp.save_llm_advice(advice_text.strip())
+        if texture_text and "暂不明显" not in texture_text:
+            lp.save_texture(texture_text.strip())
 
         _cb(3, 3, "每周语体复盘完成")
+        return result
+
+    def run_weekly_review_scan(self, progress_cb=None) -> dict:
+        """每周矛盾巡检 SOP（Phase3 子阶段）：
+        确定性候选发现（bigram Jaccard）→ LLM 裁决哪些是真矛盾 →
+        调 flag_for_confirmation 工具写入待确认队列。
+        绝不自动修改/删除原记忆（红线）；由"她"找机会问用户。
+
+        由定时任务每周一 05:30 调用（紧跟记忆体检 05:15），也可手动触发。
+        """
+        import asyncio
+        from memory_injector import get_backend
+
+        def _cb(step, total, msg):
+            if progress_cb:
+                try:
+                    progress_cb(step, total, msg)
+                except Exception:
+                    pass
+
+        _cb(0, 3, "开始每周矛盾巡检...")
+        backend = get_backend()
+
+        if not hasattr(backend, "find_review_candidates"):
+            _cb(3, 3, "当前后端不支持矛盾巡检，跳过")
+            return {"status": "skipped", "summary": "当前后端不支持 find_review_candidates"}
+
+        candidates = backend.find_review_candidates()
+
+        if not candidates:
+            _cb(3, 3, "本周无矛盾候选，跳过")
+            return {"status": "skipped", "summary": "本周没有发现疑似矛盾的记忆对，无需巡检"}
+
+        cand_block = "\n".join(
+            f"[{i+1}] entry_id_a={c['entry_id_a']} key_a={c['key_a']!r} value_a={c['value_a']!r}\n"
+            f"    entry_id_b={c['entry_id_b']} key_b={c['key_b']!r} value_b={c['value_b']!r}\n"
+            f"    category={c['category']} conflict_type={c['conflict_type']} similarity={c['similarity']}"
+            for i, c in enumerate(candidates)
+        )
+
+        prompt = f"""请执行每周矛盾巡检 SOP：从下面的候选记忆对里，判断哪些是真正的矛盾/过时，
+并用 flag_for_confirmation 工具写入待确认队列。
+
+【候选记忆对（共 {len(candidates)} 对，由 bigram 相似度检测出，尚未判断是否真矛盾）】
+{cand_block}
+
+要求：
+1. 逐对检查——相似但不矛盾的（比如同一件事的不同角度）直接跳过，不 flag。
+   只有确实描述了同一件事但结论相反/明显过时的才 flag。
+2. 对每个真矛盾/过时对，调用：
+   flag_for_confirmation(
+       entry_id_a=<A的id>, entry_id_b=<B的id>,
+       category=<分类>, conflict_type=<'identity_conflict'或'possible_contradiction'>,
+       detail=<一句话说明矛盾点，例：A说城市是上海，B说是北京>
+   )
+3. 【红线】绝不调用 remember() 修改原记忆——这里只是提出疑问，等用户确认。
+   identity_conflict 类（A/D 类身份/关系）尤其重要，不能擅自改。
+4. 如果候选里没有真矛盾，直接说"本周未发现真矛盾"，不调任何工具。
+5. 完成后输出一段话总结：flag 了几对（如果有），各自是什么矛盾点。"""
+
+        _cb(1, 3, "守藏正在裁决候选矛盾对...")
+
+        loop = asyncio.new_event_loop()
+        try:
+            result = loop.run_until_complete(self.run(prompt))
+        finally:
+            loop.close()
+
+        _cb(2, 3, "矛盾巡检完成，刷新缓存...")
+        try:
+            from memory_injector import invalidate_cache
+            invalidate_cache()
+        except Exception:
+            pass
+
+        _cb(3, 3, "每周矛盾巡检完成")
         return result
 
 

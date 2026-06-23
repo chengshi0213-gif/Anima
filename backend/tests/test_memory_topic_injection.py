@@ -102,7 +102,8 @@ def test_debug_log_exposes_score_breakdown(sqlite_mem, caplog):
 
     msgs = [r.getMessage() for r in caplog.records if "记忆注入" in r.getMessage()]
     assert msgs, "应输出每条候选记忆的分项得分"
-    assert all("相关性=" in m and "新近度=" in m and "重要性=" in m and "复合分=" in m for m in msgs)
+    assert all("相关性=" in m and "留存=" in m and "来源=" in m
+               and "新近度=" in m and "复合分=" in m for m in msgs)
 
 
 def test_high_importance_entry_recovered_via_fallback(sqlite_mem):

@@ -24,6 +24,8 @@ from scholar_worker import (
     WEEKLY_PROMOTE_TASK_NAME, WEEKLY_PROMOTE_TRIGGER, WEEKLY_PROMOTE_CRON,
     WEEKLY_PREF_TASK_NAME, WEEKLY_PREF_TRIGGER, WEEKLY_PREF_CRON,
     WEEKLY_LANG_TASK_NAME, WEEKLY_LANG_TRIGGER, WEEKLY_LANG_CRON,
+    WEEKLY_AUDIT_TASK_NAME, WEEKLY_AUDIT_TRIGGER, WEEKLY_AUDIT_CRON,
+    WEEKLY_REVIEW_TASK_NAME, WEEKLY_REVIEW_TRIGGER, WEEKLY_REVIEW_CRON,
 )
 from executor_worker import ExecutorWorker
 from writer_worker import WriterWorker
@@ -165,6 +167,12 @@ async def main():
         if agent_id == "shoucang" and prompt == WEEKLY_LANG_TRIGGER:
             # 守藏每周语体复盘 SOP（G1）：同上，专用方法 + 线程池执行。
             return await asyncio.to_thread(srv.worker.run_weekly_lang_review)
+        if agent_id == "shoucang" and prompt == WEEKLY_AUDIT_TRIGGER:
+            # 守藏每周记忆体检 SOP（记忆管家）：纯确定性，归档过时 + 合并纯重复。
+            return await asyncio.to_thread(srv.worker.run_weekly_memory_audit)
+        if agent_id == "shoucang" and prompt == WEEKLY_REVIEW_TRIGGER:
+            # 守藏每周矛盾巡检 SOP（Phase3 子阶段）：候选发现 + LLM 裁决 + flag 待确认队列。
+            return await asyncio.to_thread(srv.worker.run_weekly_review_scan)
         return await srv.worker.run(prompt)
 
     _scheduler.set_run_fn(_run_agent)
@@ -188,6 +196,16 @@ async def main():
     _scheduler.add_task_if_missing(
         name=WEEKLY_LANG_TASK_NAME, agent="shoucang", prompt=WEEKLY_LANG_TRIGGER,
         trigger_type="cron", trigger_value=WEEKLY_LANG_CRON,
+    )
+    # 记忆管家：守藏每周记忆体检系统任务（每周一 05:15，紧跟G1的05:00），重启幂等不重复注册
+    _scheduler.add_task_if_missing(
+        name=WEEKLY_AUDIT_TASK_NAME, agent="shoucang", prompt=WEEKLY_AUDIT_TRIGGER,
+        trigger_type="cron", trigger_value=WEEKLY_AUDIT_CRON,
+    )
+    # Phase3 子阶段：守藏每周矛盾巡检（每周一 05:30，紧跟记忆体检05:15），重启幂等不重复注册
+    _scheduler.add_task_if_missing(
+        name=WEEKLY_REVIEW_TASK_NAME, agent="shoucang", prompt=WEEKLY_REVIEW_TRIGGER,
+        trigger_type="cron", trigger_value=WEEKLY_REVIEW_CRON,
     )
     _watcher.set_run_fn(_run_agent)
     _watcher.start()

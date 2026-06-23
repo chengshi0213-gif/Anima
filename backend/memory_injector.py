@@ -21,6 +21,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
+import memory_weight
 from memory_backend import (
     AGENT_MEMORY_CATEGORIES,
     DEFAULT_INJECTION,
@@ -47,7 +48,7 @@ PROFILE_CHAR_BUDGET = 300      # 画像层（身份恒定）：always-on
 TOPIC_CHAR_BUDGET = 900        # 话题相关：按复合分排序
 FALLBACK_CHAR_BUDGET = 300     # 高重要性兜底：未被前两层覆盖的重要记忆
 FALLBACK_MIN_IMPORTANCE = 4
-RECENCY_HALFLIFE_DAYS = 30.0   # 新近度半衰期
+RECENCY_HALFLIFE_DAYS = 30.0   # 新近度半衰期（兜底；按类半衰期见 memory_weight）
 STALE_ARCHIVE_DAYS = 180       # M7：C 状态层超过此天数未访问则归档
 
 # ── M3 写入质量闸门 ──────────────────────────────────────────────
@@ -197,14 +198,16 @@ def _get_candidate_entries(agent_id: str) -> list[MemoryEntry]:
 
 
 def _recency_score(entry: MemoryEntry) -> float:
-    """M7：新近度分数，优先用 last_accessed（被注入/检索的时间），回退到 updated_at。"""
+    """M7：新近度分数，优先用 last_accessed（被注入/检索的时间），回退到 updated_at。
+    半衰期按 category 取（memory_weight.halflife_for）：身份/关系近乎不衰减、近期状态快衰减；
+    未分级回退默认 30 天，与历史全局半衰期一致。"""
     ts_str = entry.last_accessed or entry.updated_at
     try:
         ts = time.mktime(time.strptime(ts_str, "%Y-%m-%dT%H:%M:%S"))
     except (ValueError, TypeError):
         return 0.0
     days = max(0.0, (time.time() - ts) / 86400)
-    return math.exp(-days / RECENCY_HALFLIFE_DAYS)
+    return math.exp(-days / memory_weight.halflife_for(entry.category))
 
 
 def _importance_score(importance: int) -> float:
@@ -263,7 +266,11 @@ def _select_by_budget(entries: list[MemoryEntry], max_chars: int) -> list[Memory
 def _score_topic_relevance(entries: list[MemoryEntry],
                            query: str,
                            agent_id: str) -> list[tuple[MemoryEntry, dict]]:
-    """复合分 = 相关性(M4 余弦) + 新近度 + 重要性，三项均归一到 [0,1]，按复合分降序返回。"""
+    """复合分 = 相关性(M4 余弦) + 留存权重，按复合分降序返回。
+
+    留存权重（memory_weight）= 来源分 × 按类衰减 × (1+复现)，已把"新近度"按类内化，
+    且脊梁是"删了重不重得回来"（偏来源），比旧的裸 importance 更贴"该不该调出来"。
+    复现在检索热路径不聚簇（成本），取 0；聚簇由记忆管家周级 SOP 负责。"""
     relevance_map: dict[str, float] = {}
     backend = get_backend()
     if query and entries and hasattr(backend, "vector_search"):
@@ -277,13 +284,16 @@ def _score_topic_relevance(entries: list[MemoryEntry],
     scored = []
     for e in entries:
         relevance = relevance_map.get(e.id, 0.0)
-        recency = _recency_score(e)
-        importance = _importance_score(e.importance)
+        src = memory_weight.source_score(e.category, e.source)
+        recency = memory_weight.recency_factor(
+            e.category, e.last_reinforced or e.last_accessed or e.updated_at)
+        retention = memory_weight.retention_weight_entry(e)
         scored.append((e, {
             "relevance": relevance,
+            "source": src,
             "recency": recency,
-            "importance": importance,
-            "composite": relevance + recency + importance,
+            "retention": retention,
+            "composite": relevance + retention,
         }))
     scored.sort(key=lambda x: -x[1]["composite"])
     return scored
@@ -294,11 +304,11 @@ def get_memory_injection(agent_id: str, query: str = "") -> str:
 
     三层预算：
       - 画像层（身份恒定，category A / user_profile）：always-on，~PROFILE_CHAR_BUDGET 字
-      - 话题相关：按"相关性(M4余弦)+新近度+重要性"复合分排序，~TOPIC_CHAR_BUDGET 字
+      - 话题相关：按"相关性(M4余弦)+留存权重"复合分排序，~TOPIC_CHAR_BUDGET 字
       - 高重要性兜底：importance >= FALLBACK_MIN_IMPORTANCE 且未被前两层覆盖，~FALLBACK_CHAR_BUDGET 字
 
     query 为当前用户输入（话题），用于 M4 语义相关性打分；为空或 embedding
-    不可用时，相关性退化为 0，复合分退化为"新近度+重要性"，不报错。
+    不可用时，相关性退化为 0，复合分退化为纯留存权重，不报错。
     """
     cats = AGENT_MEMORY_CATEGORIES.get(agent_id, ["user_profile", "general"])
     entries = [e for e in _get_candidate_entries(agent_id) if e.category in cats]
@@ -319,8 +329,8 @@ def get_memory_injection(agent_id: str, query: str = "") -> str:
     if _log.isEnabledFor(logging.DEBUG):
         for e, s in scored[:10]:
             _log.debug(
-                "[M5 记忆注入] %s | 相关性=%.3f 新近度=%.3f 重要性=%.3f → 复合分=%.3f",
-                e.key, s["relevance"], s["recency"], s["importance"], s["composite"],
+                "[M5 记忆注入] %s | 相关性=%.3f 留存=%.3f(来源=%.3f 新近度=%.3f) → 复合分=%.3f",
+                e.key, s["relevance"], s["retention"], s["source"], s["recency"], s["composite"],
             )
     topic_sel = _select_by_budget([e for e, _ in scored], TOPIC_CHAR_BUDGET)
     used_ids |= {e.id for e in topic_sel}
@@ -377,6 +387,35 @@ def format_due_reminders(agent_id: str, within_days: int = 1) -> str:
         return ""
     lines = [f"- {e.key}：{e.value}（提醒日期：{e.remind_at}）" for e in entries]
     return "【临近的事，找机会自然提一句】\n" + "\n".join(lines)
+
+
+def format_pending_reviews(max_items: int = 3) -> str:
+    """Phase3 子阶段：把 open 待确认项格式化成每日灵犀的注入块，
+    让"她"找机会自然问用户（不超过 max_items 条，避免一次塞太多）。
+    无待确认项时返回空串。"""
+    try:
+        backend = get_backend()
+        if not hasattr(backend, "list_pending_reviews"):
+            return ""
+        reviews = backend.list_pending_reviews()
+        if not reviews:
+            return ""
+        items = reviews[:max_items]
+        lines: list[str] = []
+        for r in items:
+            ct = r.get("conflict_type", "")
+            detail = r.get("detail", "")
+            cat = r.get("category", "")
+            tag = "【身份/关系，须你来定】" if ct == "identity_conflict" else "【顺口问一句】"
+            lines.append(f"- {tag} {detail}（记忆分类：{cat}，review_id: {r['id']}）")
+        block = "【有几件事想找你确认】\n" + "\n".join(lines)
+        block += (
+            "\n找合适的时机自然地问一句，不要一口气列清单；"
+            "用户回答后调 resolve_review(review_id=..., resolution=<用户说的>) 关掉它。"
+        )
+        return block
+    except Exception:
+        return ""
 
 
 def get_memory_self_description(agent_id: str = "") -> str:

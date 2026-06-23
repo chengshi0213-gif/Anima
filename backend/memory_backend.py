@@ -30,6 +30,8 @@ class MemoryEntry:
     remind_at: Optional[str] = None   # M8 式④：到期提醒日期，"YYYY-MM-DD"，仅 C 层有意义
     last_accessed: Optional[str] = None  # M7：最近一次被注入/检索的时间
     source: Optional[str] = None      # P0：来源标记（渠道/房间，如 "feishu" "desktop:work"），None=未知
+    last_reinforced: Optional[str] = None  # 留存权重：最后一次被现实"再印证"的时间
+                                           # （≠ last_accessed 被检索；= 又被你说/写/确认了一次）
 
     def to_dict(self) -> dict:
         return {
@@ -40,6 +42,7 @@ class MemoryEntry:
             "remind_at": self.remind_at,
             "last_accessed": self.last_accessed,
             "source": self.source,
+            "last_reinforced": self.last_reinforced,
         }
 
 

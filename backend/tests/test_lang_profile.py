@@ -184,3 +184,107 @@ def test_weekly_lang_review_skips_when_insufficient(isolate_profile):
     worker = sw.ShoucangWorker()
     result = worker.run_weekly_lang_review()
     assert result["status"] == "skipped"
+
+
+# ── Phase4：从真实语料发现口头禅/起头（不止固定表）────────────────
+
+def test_discover_phrases_finds_recurring_custom_phrase():
+    # "我寻思" 不在 _FILLERS 固定表里，但跨多条复现 → 应被发现
+    msgs = [
+        "我寻思这个方案能行", "我寻思要不再等等", "我寻思你说得对",
+        "我寻思明天再弄", "我寻思这事儿没那么急",
+        "今天天气不错呀", "晚点再说吧", "好的没问题",
+        "那就这样定了", "随便你怎么弄", "都可以的啦", "嗯行吧",
+    ]
+    discovered = lp._discover_phrases(msgs)
+    assert "我寻思" in discovered
+    # 长短语优先去子串：不应同时报出它的子串
+    assert "我寻" not in discovered and "寻思" not in discovered
+
+
+def test_discover_phrases_excludes_fixed_table_words():
+    # "就是" 在 _FILLERS 固定表里 → 发现列表里不重复报
+    msgs = [f"就是觉得这样挺好的{i}" for i in range(12)]
+    discovered = lp._discover_phrases(msgs)
+    assert "就是" not in discovered
+
+
+def test_discover_phrases_respects_doc_frequency_floor():
+    # 只在 2 条里出现的短语，达不到 min_docs(=3) → 不算口头禅
+    msgs = ["蓝瘦香菇啊", "蓝瘦香菇呀"] + [f"普通消息{i}内容" for i in range(10)]
+    discovered = lp._discover_phrases(msgs)
+    assert "蓝瘦香" not in discovered and "蓝瘦香菇" not in discovered
+
+
+def test_discover_openers_finds_habitual_opening():
+    msgs = [
+        "我寻思这个能行", "我寻思要不等等", "我寻思你对",
+        "我寻思先放着", "我寻思别急",
+        "今天还行", "晚点说", "好的", "那就这样", "随便", "都行", "嗯",
+    ]
+    openers = lp._discover_openers(msgs)
+    assert any(o.startswith("我寻") for o in openers)
+
+
+def test_analyze_exposes_discovered_and_openers():
+    msgs = [
+        "我寻思这个方案能行", "我寻思要不再等等", "我寻思你说得对",
+        "我寻思明天再弄", "我寻思这事儿没那么急",
+        "今天天气不错呀", "晚点再说吧", "好的没问题",
+        "那就这样定了", "随便你怎么弄",
+    ]
+    feat = lp._analyze(msgs)
+    assert "discovered_fillers" in feat and "openers" in feat
+    assert "我寻思" in feat["discovered_fillers"]
+
+
+def test_profile_block_surfaces_discovered_phrase(isolate_profile):
+    msgs = [
+        "我寻思这个方案能行", "我寻思要不再等等", "我寻思你说得对",
+        "我寻思明天再弄", "我寻思这事儿没那么急",
+        "今天天气不错呀", "晚点再说吧", "好的没问题",
+        "那就这样定了", "随便你怎么弄",
+    ]
+    for m in msgs:
+        lp.record_message(m)
+    block = lp.get_profile_block()
+    assert "口头禅" in block
+    assert "我寻思" in block
+
+
+# ── Phase4：语义纹理层 ──────────────────────────────────────────
+
+def test_parse_review_output_splits_two_blocks():
+    raw = (
+        "【微调建议】\n你可以适度缩短句子。\n适度少用感叹号。\n"
+        "【表达习惯】\n他习惯先抛结论再解释。\n爱用反问表达不满。"
+    )
+    advice, texture = lp.parse_review_output(raw)
+    assert "适度缩短句子" in advice
+    assert "先抛结论" in texture
+    assert "微调建议" not in advice  # 标题不该混进正文
+
+
+def test_parse_review_output_fallback_no_markers():
+    raw = "你可以适度精简。"
+    advice, texture = lp.parse_review_output(raw)
+    assert advice == "你可以适度精简。"
+    assert texture == ""
+
+
+def test_save_texture_appears_in_block_and_status(isolate_profile):
+    msgs = ["嗯嗯好的啊", "就是感觉有点累", "反正先这样吧啊", "然后呢",
+            "其实我觉得还行", "就是说嘛", "那个什么来着哦",
+            "哈哈笑死了", "感觉不错", "算了不想了"]
+    for m in msgs:
+        lp.record_message(m)
+
+    lp.save_texture("他习惯先抛结论再解释，爱举具体例子。")
+    block = lp.get_profile_block()
+    assert "他表达的习惯" in block
+    assert "先抛结论再解释" in block
+    assert "三成原则照旧" in block  # 守住底色的提醒还在
+
+    status = lp.get_status()
+    assert "先抛结论" in status["texture"]
+    assert status["texture_updated"] is not None

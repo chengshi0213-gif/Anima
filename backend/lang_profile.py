@@ -77,6 +77,91 @@ def _save(data: dict) -> None:
         pass
 
 
+# ── 口头禅/起头语发现（纯 Python，从真实语料里长出来，不止固定表）───────────
+
+# n-gram 切分时跳过的字符（纯标点/数字不算口头禅）
+_PHRASE_SKIP = set("，。！？；：、,.!?;:…“”\"'（）()【】 0123456789")
+
+
+def _norm_for_phrase(s: str) -> str:
+    """规整成连续串供 n-gram 切分：只去空白，保留汉字与标点位置感。"""
+    return re.sub(r"\s+", "", s or "")
+
+
+def _discover_phrases(msgs: list[str], top: int = 4) -> list[str]:
+    """从真实消息里发现跨条复现的高频短语（2-4 字），补 `_FILLERS` 固定表之外的口头禅。
+    判据 = 出现在多少条**不同**消息里（文档频次），不是总次数——免得一条话里刷屏拉高。
+    长短语优先 + 贪心去子串：'说白了'命中后不再单独报'说白'。"""
+    if len(msgs) < 5:
+        return []
+    from collections import Counter
+    min_docs = max(3, len(msgs) // 10)
+    doc_freq: Counter = Counter()
+    for m in msgs:
+        s = _norm_for_phrase(m)
+        grams = set()
+        for n in (4, 3, 2):
+            for i in range(len(s) - n + 1):
+                g = s[i:i + n]
+                if any(c in _PHRASE_SKIP for c in g):
+                    continue
+                grams.add(g)
+        for g in grams:
+            doc_freq[g] += 1
+    cand = [(g, c) for g, c in doc_freq.items() if c >= min_docs]
+    cand.sort(key=lambda x: (-len(x[0]), -x[1]))   # 长 + 高频优先
+    kept: list[str] = []
+    for g, _c in cand:
+        if any(g in k for k in kept):   # 是已留长短语的子串 → 跳
+            continue
+        if g in _FILLERS:               # 固定表已覆盖的不重复报
+            continue
+        kept.append(g)
+        if len(kept) >= top:
+            break
+    return kept
+
+
+def _discover_openers(msgs: list[str], top: int = 2) -> list[str]:
+    """发现习惯性句子起头（前 2-3 字），在 ≥25% 且 ≥3 条消息里复现才算。"""
+    if len(msgs) < 5:
+        return []
+    from collections import Counter
+    head_freq: Counter = Counter()
+    for m in msgs:
+        s = _norm_for_phrase(m)
+        if len(s) < 3:
+            continue
+        for n in (3, 2):
+            h = s[:n]
+            if any(c in _PHRASE_SKIP for c in h):
+                continue
+            head_freq[h] += 1
+    floor = max(3, int(len(msgs) * 0.25))
+    cand = [(h, c) for h, c in head_freq.items() if c >= floor]
+    cand.sort(key=lambda x: (-len(x[0]), -x[1]))
+    kept: list[str] = []
+    for h, _c in cand:
+        if any(h in k for k in kept):
+            continue
+        kept.append(h)
+        if len(kept) >= top:
+            break
+    return kept
+
+
+def parse_review_output(text: str) -> tuple[str, str]:
+    """从每周语体复盘 LLM 输出里切出【微调建议】与【表达习惯（语义纹理）】两段。
+    缺标记时：整段当作微调建议，纹理留空（向后兼容旧 prompt）。"""
+    if not text:
+        return "", ""
+    adv_m = re.search(r"【微调建议】(.*?)(?:【表达习惯】|$)", text, re.S)
+    tex_m = re.search(r"【表达习惯】(.*)", text, re.S)
+    advice = adv_m.group(1).strip() if adv_m else text.strip()
+    texture = tex_m.group(1).strip() if tex_m else ""
+    return advice, texture
+
+
 # ── 分析核心（纯 Python，不调模型）─────────────────────────────────
 
 def _analyze(buffer: list[str]) -> dict:
@@ -133,16 +218,22 @@ def _analyze(buffer: list[str]) -> dict:
     en_msgs = sum(1 for m in msgs if _EN_WORD_RE.search(m))
     en_mix_rate = round(en_msgs / len(msgs), 2)
 
+    # 从真实语料发现的口头禅/起头（不止固定表）——"越来越像"靠这个长出来
+    discovered_fillers = _discover_phrases(msgs)
+    openers = _discover_openers(msgs)
+
     return {
-        "style":            style,
-        "avg_len":          round(avg_len, 1),
-        "top_endings":      top_endings,
-        "top_fillers":      top_fillers,
-        "punct_sparse":     punct_sparse,
-        "uses_ellipsis":    uses_ellipsis,
-        "emoji_rate":       emoji_rate,
-        "len_distribution": len_distribution,
-        "en_mix_rate":      en_mix_rate,
+        "style":              style,
+        "avg_len":            round(avg_len, 1),
+        "top_endings":        top_endings,
+        "top_fillers":        top_fillers,
+        "discovered_fillers": discovered_fillers,
+        "openers":            openers,
+        "punct_sparse":       punct_sparse,
+        "uses_ellipsis":      uses_ellipsis,
+        "emoji_rate":         emoji_rate,
+        "len_distribution":   len_distribution,
+        "en_mix_rate":        en_mix_rate,
     }
 
 
@@ -199,9 +290,17 @@ def get_profile_block() -> str:
             elif dominant == "long_pct" and ld.get("long_pct", 0) > 0.4:
                 lines.append("长消息占比高（倾向细说）")
 
-        fillers = feat.get("top_fillers", [])
+        # 固定表命中 + 从真实语料发现的，合并去重（发现的排后面）
+        fillers = list(feat.get("top_fillers", []))
+        for d in feat.get("discovered_fillers", []):
+            if d not in fillers:
+                fillers.append(d)
         if fillers:
-            lines.append("口头禅：" + "、".join(fillers))
+            lines.append("口头禅：" + "、".join(fillers[:5]))
+
+        openers = feat.get("openers", [])
+        if openers:
+            lines.append("爱这样起头：" + "、".join(openers))
 
         endings = feat.get("top_endings", [])
         if endings:
@@ -247,6 +346,15 @@ def get_profile_block() -> str:
         block += "你的标点纪律不破（不滥用感叹号、不刷波浪号）。"
         block += "这些是你的底线，不管他怎么说。"
 
+        # 语义纹理（每周复盘提炼的"他怎么组织话"，比口头禅更深一层，如有）
+        texture = data.get("texture", "")
+        if texture:
+            block += "\n\n### 他表达的习惯（更深一层，只为更懂他，别照搬）\n" + texture
+            block += (
+                "\n这些是他把话组织起来的方式（先抛结论还是先铺背景、"
+                "用反问还是直说），帮你听懂他、接得住；不是模板。三成原则照旧，神女底色不动。"
+            )
+
         # LLM 语体建议（G1 每周复盘产出，如有）
         advice = data.get("llm_advice", "")
         if advice:
@@ -268,6 +376,18 @@ def save_llm_advice(advice: str) -> None:
         pass
 
 
+def save_texture(text: str) -> None:
+    """保存每周复盘提炼的"语义纹理"——他怎么组织话（先抛结论再解释 / 反问表达不满 /
+    爱举具体例子 / 习惯先铺背景……）。描述用户、帮"她"更懂他，不改三成原则、不动神女底色。"""
+    try:
+        data = _load()
+        data["texture"] = (text or "").strip()
+        data["texture_updated"] = datetime.now(timezone.utc).isoformat()
+        _save(data)
+    except Exception:
+        pass
+
+
 def get_status() -> dict:
     """调试 / 设置页查看图谱状态。"""
     try:
@@ -279,6 +399,8 @@ def get_status() -> dict:
             "buffer_size":   len(data.get("buffer", [])),
             "llm_advice":    data.get("llm_advice", ""),
             "advice_updated": data.get("advice_updated"),
+            "texture":       data.get("texture", ""),
+            "texture_updated": data.get("texture_updated"),
         }
     except Exception:
         return {}
